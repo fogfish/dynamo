@@ -1,0 +1,100 @@
+//
+// Copyright (C) 2019 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
+package main
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+
+	"github.com/fogfish/dynamo"
+)
+
+type person struct {
+	dynamo.IRI
+	Name    string `dynamodbav:"name,omitempty"`
+	Age     int    `dynamodbav:"age,omitempty"`
+	Address string `dynamodbav:"address,omitempty"`
+}
+
+func main() {
+	db := dynamo.New(os.Args[1])
+	examplePut(db)
+	exampleGet(db)
+	exampleUpdate(db)
+	exampleMatch(db)
+	exampleRemove(db)
+}
+
+const n = 5
+
+func examplePut(db dynamo.DB) {
+	for i := 0; i < n; i++ {
+		val := folk(i)
+		err := db.Put(val)
+
+		fmt.Println("=[ put ]=> ", either(err, val))
+	}
+}
+
+func exampleGet(db dynamo.DB) {
+	for i := 0; i < n; i++ {
+		val := &person{IRI: id(i)}
+		err := db.Get(val)
+
+		fmt.Println("=[ get ]=> ", either(err, val))
+	}
+}
+
+func exampleUpdate(db dynamo.DB) {
+	for i := 0; i < n; i++ {
+		val := &person{IRI: id(i), Address: "Viktoriastrasse 37, Berne, 3013"}
+		err := db.Update(val)
+
+		fmt.Println("=[ update ]=> ", either(err, val))
+	}
+}
+
+func exampleMatch(db dynamo.DB) {
+	seq := db.Match(dynamo.IRI{Prefix: "test"})
+
+	for seq.Tail() {
+		val := &person{}
+		err := seq.Head(val)
+		fmt.Println("=[ match ]=> ", either(err, val))
+	}
+
+	if seq.Fail != nil {
+		fmt.Println("=[ match ]=> ", seq.Fail)
+	}
+}
+
+func exampleRemove(db dynamo.DB) {
+	for i := 0; i < n; i++ {
+		val := &person{IRI: id(i)}
+		err := db.Remove(val)
+
+		fmt.Println("=[ remove ]=> ", either(err, val))
+	}
+}
+
+func folk(x int) *person {
+	return &person{id(x), "Verner Pleishner", 64, "Blumenstrasse 14, Berne, 3013"}
+}
+
+func id(x int) dynamo.IRI {
+	return dynamo.IRI{"test", strconv.Itoa(x)}
+}
+
+func either(e error, x interface{}) interface{} {
+	if e != nil {
+		return e
+	}
+	return x
+}
