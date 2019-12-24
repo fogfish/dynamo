@@ -34,6 +34,18 @@ trait KeyVal[T] {
 
 The latest version of the library is available at its `master` branch. All development, including new features and bug fixes, take place on the `master` branch using forking and pull requests as described in contribution guidelines.
 
+The library is optimized to operate with generic Dynamo DB schemas:
+
+```typescript
+const Schema = (): ddb.TableProps => ({
+  partitionKey: {type: ddb.AttributeType.STRING, name: 'prefix'},
+  readCapacity: 1,
+  sortKey: {type: ddb.AttributeType.STRING, name: 'suffix'},
+  tableName: 'my-table',
+  writeCapacity: 1,
+})
+```
+
 Import the library in your code
 
 ```go
@@ -67,7 +79,8 @@ func main() {
 }
 ```
 
-See the [go doc](http://godoc.org/github.com/fogfish/dynamo) for api spec.
+See the [go doc](http://godoc.org/github.com/fogfish/dynamo) for api spec and [advanced example](example) app.
+
 
 ## How To Contribute
 

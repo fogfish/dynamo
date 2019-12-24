@@ -88,23 +88,14 @@ import (
 )
 
 // IRI is a compact Internationalized Resource Identifier. It is designed
-// to support following DynamoDB schema
-//
-//   MyTable:
-//     Type: AWS::DynamoDB::Table
-//     Properties:
-//       TableName: !Sub ${AWS::StackName}
-//       AttributeDefinitions:
-//         - AttributeName: prefix
-//           AttributeType: S
-//         - AttributeName: suffix
-//           AttributeType: S
-//
-//       KeySchema:
-//         - AttributeName: prefix
-//           KeyType: HASH
-//         - AttributeName: suffix
-//           KeyType: RANGE
+// to support following DynamoDB schema:
+//   const Schema = (): ddb.TableProps => ({
+// 	   partitionKey: {type: ddb.AttributeType.STRING, name: 'prefix'},
+// 	   readCapacity: 1,
+// 	   sortKey: {type: ddb.AttributeType.STRING, name: 'suffix'},
+// 	   tableName: 'my-table',
+// 	   writeCapacity: 1,
+//   })
 type IRI struct {
 	Prefix string `dynamodbav:"prefix"`
 	Suffix string `dynamodbav:"suffix,omitempty"`
@@ -127,10 +118,10 @@ type DB struct {
 }
 
 // New establishes connection to DynamoDB table
-func New(table string) DB {
+func New(table string) *DB {
 	io := session.Must(session.NewSession())
 	db := dynamodb.New(io)
-	return DB{io, db, aws.String(table)}
+	return &DB{io, db, aws.String(table)}
 }
 
 //-----------------------------------------------------------------------------

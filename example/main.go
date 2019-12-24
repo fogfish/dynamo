@@ -34,7 +34,7 @@ func main() {
 
 const n = 5
 
-func examplePut(db dynamo.DB) {
+func examplePut(db *dynamo.DB) {
 	for i := 0; i < n; i++ {
 		val := folk(i)
 		err := db.Put(val)
@@ -43,7 +43,7 @@ func examplePut(db dynamo.DB) {
 	}
 }
 
-func exampleGet(db dynamo.DB) {
+func exampleGet(db *dynamo.DB) {
 	for i := 0; i < n; i++ {
 		val := &person{IRI: id(i)}
 		err := db.Get(val)
@@ -52,7 +52,7 @@ func exampleGet(db dynamo.DB) {
 	}
 }
 
-func exampleUpdate(db dynamo.DB) {
+func exampleUpdate(db *dynamo.DB) {
 	for i := 0; i < n; i++ {
 		val := &person{IRI: id(i), Address: "Viktoriastrasse 37, Berne, 3013"}
 		err := db.Update(val)
@@ -61,7 +61,7 @@ func exampleUpdate(db dynamo.DB) {
 	}
 }
 
-func exampleMatch(db dynamo.DB) {
+func exampleMatch(db *dynamo.DB) {
 	seq := db.Match(dynamo.IRI{Prefix: "test"})
 
 	for seq.Tail() {
@@ -75,7 +75,7 @@ func exampleMatch(db dynamo.DB) {
 	}
 }
 
-func exampleRemove(db dynamo.DB) {
+func exampleRemove(db *dynamo.DB) {
 	for i := 0; i < n; i++ {
 		val := &person{IRI: id(i)}
 		err := db.Remove(val)
