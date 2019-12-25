@@ -63,7 +63,8 @@ type Person struct {
 func main() {
   db := dynamo.New("my-table")
 
-  db.Put(
+  //
+  err := db.Put(
     Person{
       dynamo.IRI{"dead", "beef"},
       "Verner Pleishner",
@@ -72,9 +73,19 @@ func main() {
     }
   )
 
+  //
   person := Person{IRI: dynamo.IRI{"dead", "beef"}}
-  db.Get(&person{})
+  err = db.Get(&person{})
 
+  //
+  seq := db.Match(dynamo.IRI{Prefix: "dead"})
+  for seq.Tail() {
+    p := &person{}
+    err = seq.Head(p)
+  }
+  if seq.Fail != nil {/* ... */}
+
+  //
   db.Remove(dynamo.IRI{"dead", "beef"})
 }
 ```
