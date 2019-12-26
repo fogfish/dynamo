@@ -98,7 +98,7 @@ import (
 //   })
 type IRI struct {
 	Prefix string `dynamodbav:"prefix" json:"prefix,omitempty"`
-	Suffix string `dynamodbav:"suffix,omitempty" json:"prefix,omitempty"`
+	Suffix string `dynamodbav:"suffix,omitempty" json:"suffix,omitempty"`
 }
 
 // NotFound is an error to handle unknown elements
