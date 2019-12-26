@@ -97,8 +97,8 @@ import (
 // 	   writeCapacity: 1,
 //   })
 type IRI struct {
-	Prefix string `dynamodbav:"prefix"`
-	Suffix string `dynamodbav:"suffix,omitempty"`
+	Prefix string `dynamodbav:"prefix" json:"prefix,omitempty"`
+	Suffix string `dynamodbav:"suffix,omitempty" json:"prefix,omitempty"`
 }
 
 // NotFound is an error to handle unknown elements
