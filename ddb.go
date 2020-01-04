@@ -9,7 +9,6 @@
 package dynamo
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -127,7 +126,6 @@ func (dynamo DB) Update(entity interface{}) (err error) {
 		ReturnValues:              aws.String("ALL_NEW"),
 	}
 	val, err := dynamo.db.UpdateItem(req)
-	fmt.Println(val)
 	dynamodbattribute.UnmarshalMap(val.Attributes, &entity)
 
 	return

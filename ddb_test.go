@@ -54,6 +54,25 @@ func TestDdbUpdate(t *testing.T) {
 		If(val).Should().Equal(entity())
 }
 
+func TestDdbMatch(t *testing.T) {
+	cnt := 0
+	seq := ddb().Match(dynamo.IRI{Prefix: "dead"})
+
+	for seq.Tail() {
+		cnt++
+		val := person{}
+		err := seq.Head(&val)
+
+		it.Ok(t).
+			If(err).Should().Equal(nil).
+			If(val).Should().Equal(entity())
+	}
+
+	it.Ok(t).
+		If(seq.Error()).Should().Equal(nil).
+		If(cnt).Should().Equal(2)
+}
+
 //-----------------------------------------------------------------------------
 //
 // Mock Dynamo DB
@@ -120,6 +139,29 @@ func (m mockDDB) UpdateItem(*dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutp
 			"name":    {S: aws.String("Verner Pleishner")},
 			"suffix":  {S: aws.String("beef")},
 			"age":     {N: aws.String("64")},
+		},
+	}, nil
+}
+
+func (m mockDDB) Query(*dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
+	return &dynamodb.QueryOutput{
+		ScannedCount: aws.Int64(2),
+		Count:        aws.Int64(2),
+		Items: []map[string]*dynamodb.AttributeValue{
+			{
+				"prefix":  {S: aws.String("dead")},
+				"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
+				"name":    {S: aws.String("Verner Pleishner")},
+				"suffix":  {S: aws.String("beef")},
+				"age":     {N: aws.String("64")},
+			},
+			{
+				"prefix":  {S: aws.String("dead")},
+				"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
+				"name":    {S: aws.String("Verner Pleishner")},
+				"suffix":  {S: aws.String("beef")},
+				"age":     {N: aws.String("64")},
+			},
 		},
 	}, nil
 }
