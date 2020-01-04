@@ -24,7 +24,11 @@ type person struct {
 }
 
 func main() {
-	db := dynamo.New(os.Args[1])
+	db, err := dynamo.New(os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+
 	examplePut(db)
 	exampleGet(db)
 	exampleUpdate(db)
@@ -34,7 +38,7 @@ func main() {
 
 const n = 5
 
-func examplePut(db *dynamo.DB) {
+func examplePut(db dynamo.KeyVal) {
 	for i := 0; i < n; i++ {
 		val := folk(i)
 		err := db.Put(val)
@@ -43,7 +47,7 @@ func examplePut(db *dynamo.DB) {
 	}
 }
 
-func exampleGet(db *dynamo.DB) {
+func exampleGet(db dynamo.KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &person{IRI: id(i)}
 		err := db.Get(val)
@@ -52,7 +56,7 @@ func exampleGet(db *dynamo.DB) {
 	}
 }
 
-func exampleUpdate(db *dynamo.DB) {
+func exampleUpdate(db dynamo.KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &person{IRI: id(i), Address: "Viktoriastrasse 37, Berne, 3013"}
 		err := db.Update(val)
@@ -61,7 +65,7 @@ func exampleUpdate(db *dynamo.DB) {
 	}
 }
 
-func exampleMatch(db *dynamo.DB) {
+func exampleMatch(db dynamo.KeyVal) {
 	seq := db.Match(dynamo.IRI{Prefix: "test"})
 
 	for seq.Tail() {
@@ -70,12 +74,13 @@ func exampleMatch(db *dynamo.DB) {
 		fmt.Println("=[ match ]=> ", either(err, val))
 	}
 
-	if seq.Fail != nil {
-		fmt.Println("=[ match ]=> ", seq.Fail)
+	if err := seq.Error(); err != nil {
+		fmt.Println("=[ match ]=> ", err)
 	}
+
 }
 
-func exampleRemove(db *dynamo.DB) {
+func exampleRemove(db dynamo.KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &person{IRI: id(i)}
 		err := db.Remove(val)
