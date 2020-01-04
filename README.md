@@ -1,7 +1,6 @@
 # dynamo
 
-The library implements a driver to AWS DynamoDB that operates
-with generic representation of algebraic data types.
+The library implements a simple key-value abstraction to store algebraic data types with AWS services. It supports AWS DynamoDB and AWS S3.
 
 [![Documentation](https://godoc.org/github.com/fogfish/dynamo?status.svg)](http://godoc.org/github.com/fogfish/dynamo)
 [![Build Status](https://secure.travis-ci.org/fogfish/dynamo.svg?branch=master)](http://travis-ci.org/fogfish/dynamo)
@@ -46,7 +45,9 @@ const Schema = (): ddb.TableProps => ({
 })
 ```
 
-Import the library in your code
+Import the library in your code, use URI to specify service and name of the bucket. It supports:
+* `s3:///my-bucket`
+* `ddb:///my-table`
 
 ```go
 import (
@@ -61,7 +62,7 @@ type Person struct {
 }
 
 func main() {
-  db := dynamo.New("my-table")
+  db := dynamo.New("ddb:///my-table")
 
   //
   err := db.Put(
@@ -83,7 +84,7 @@ func main() {
     p := &person{}
     err = seq.Head(p)
   }
-  if seq.Fail != nil {/* ... */}
+  if err := seq.Error(); err != nil {/* ... */}
 
   //
   db.Remove(dynamo.IRI{"dead", "beef"})
