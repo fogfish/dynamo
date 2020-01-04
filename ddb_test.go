@@ -30,7 +30,7 @@ func entity() person {
 
 func TestDdbGet(t *testing.T) {
 	val := person{IRI: dynamo.IRI{"dead", "beef"}}
-	err := ddb().Get(&val)
+	err := apiDB().Get(&val)
 
 	it.Ok(t).
 		If(err).Should().Equal(nil).
@@ -38,16 +38,16 @@ func TestDdbGet(t *testing.T) {
 }
 
 func TestDdbPut(t *testing.T) {
-	it.Ok(t).If(ddb().Put(entity())).Should().Equal(nil)
+	it.Ok(t).If(apiDB().Put(entity())).Should().Equal(nil)
 }
 
 func TestDdbRemove(t *testing.T) {
-	it.Ok(t).If(ddb().Remove(entity())).Should().Equal(nil)
+	it.Ok(t).If(apiDB().Remove(entity())).Should().Equal(nil)
 }
 
 func TestDdbUpdate(t *testing.T) {
 	val := person{IRI: dynamo.IRI{"dead", "beef"}}
-	err := ddb().Update(&val)
+	err := apiDB().Update(&val)
 
 	it.Ok(t).
 		If(err).Should().Equal(nil).
@@ -56,7 +56,7 @@ func TestDdbUpdate(t *testing.T) {
 
 func TestDdbMatch(t *testing.T) {
 	cnt := 0
-	seq := ddb().Match(dynamo.IRI{Prefix: "dead"})
+	seq := apiDB().Match(dynamo.IRI{Prefix: "dead"})
 
 	for seq.Tail() {
 		cnt++
@@ -79,7 +79,7 @@ func TestDdbMatch(t *testing.T) {
 //
 //-----------------------------------------------------------------------------
 
-func ddb() *dynamo.DB {
+func apiDB() *dynamo.DB {
 	client := &dynamo.DB{}
 	client.Mock(&mockDDB{})
 	return client
@@ -89,7 +89,7 @@ type mockDDB struct {
 	dynamodbiface.DynamoDBAPI
 }
 
-func (m mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+func (mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
 	return &dynamodb.GetItemOutput{
 		Item: map[string]*dynamodb.AttributeValue{
 			"prefix":  {S: aws.String("dead")},
@@ -101,7 +101,7 @@ func (m mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput,
 	}, nil
 }
 
-func (m mockDDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
+func (mockDDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
 		"prefix":  {S: aws.String("dead")},
 		"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
@@ -116,7 +116,7 @@ func (m mockDDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput,
 	return &dynamodb.PutItemOutput{}, nil
 }
 
-func (m mockDDB) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteItemOutput, error) {
+func (mockDDB) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteItemOutput, error) {
 	prefix := input.Key["prefix"]
 	suffix := input.Key["suffix"]
 
@@ -131,7 +131,7 @@ func (m mockDDB) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteIt
 	return &dynamodb.DeleteItemOutput{}, nil
 }
 
-func (m mockDDB) UpdateItem(*dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
+func (mockDDB) UpdateItem(*dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
 	return &dynamodb.UpdateItemOutput{
 		Attributes: map[string]*dynamodb.AttributeValue{
 			"prefix":  {S: aws.String("dead")},
@@ -143,7 +143,7 @@ func (m mockDDB) UpdateItem(*dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutp
 	}, nil
 }
 
-func (m mockDDB) Query(*dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
+func (mockDDB) Query(*dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
 	return &dynamodb.QueryOutput{
 		ScannedCount: aws.Int64(2),
 		Count:        aws.Int64(2),

@@ -9,12 +9,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
 
 // S3 is a service connection handle
 type S3 struct {
 	io     *session.Session
-	db     *s3.S3
+	db     s3iface.S3API
 	bucket *string
 }
 
@@ -22,6 +23,11 @@ func newS3(bucket string) *S3 {
 	io := session.Must(session.NewSession())
 	db := s3.New(io)
 	return &S3{io, db, aws.String(bucket)}
+}
+
+// Mock S3 I/O channel
+func (dynamo *S3) Mock(db s3iface.S3API) {
+	dynamo.db = db
 }
 
 //-----------------------------------------------------------------------------
