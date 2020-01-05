@@ -86,6 +86,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path"
+	"strings"
 )
 
 //
@@ -130,6 +132,31 @@ type Seq interface {
 type IRI struct {
 	Prefix string `dynamodbav:"prefix" json:"prefix,omitempty"`
 	Suffix string `dynamodbav:"suffix,omitempty" json:"suffix,omitempty"`
+}
+
+// Path converts IRI to absolute path
+func (iri IRI) Path() string {
+	if iri.Prefix == "" && iri.Suffix == "" {
+		return ""
+	}
+	return path.Join(iri.Prefix, iri.Suffix)
+}
+
+// Parent returns IRI that is a prefix of this one.
+func (iri IRI) Parent() IRI {
+	seq := strings.Split(iri.Prefix, "/")
+	if len(seq) == 1 {
+		return IRI{}
+	}
+	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
+}
+
+// SubIRI returns a IRI that descendant of this one.
+func (iri IRI) SubIRI(suffix string) IRI {
+	if iri.Prefix == "" && iri.Suffix == "" {
+		return IRI{Prefix: suffix}
+	}
+	return IRI{path.Join(iri.Prefix, iri.Suffix), suffix}
 }
 
 //
