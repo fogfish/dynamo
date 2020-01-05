@@ -45,7 +45,7 @@ func (dynamo S3) Get(entity interface{}) (err error) {
 
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(iri.Prefix + "/" + iri.Suffix),
+		Key:    aws.String(iri.Path()),
 	}
 	val, err := dynamo.db.GetObject(req)
 	if err != nil {
@@ -78,7 +78,7 @@ func (dynamo S3) Put(entity interface{}) (err error) {
 
 	req := &s3.PutObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(iri.Prefix + "/" + iri.Suffix),
+		Key:    aws.String(iri.Path()),
 		Body:   aws.ReadSeekCloser(bytes.NewReader(gen)),
 	}
 
@@ -95,7 +95,7 @@ func (dynamo S3) Remove(entity interface{}) (err error) {
 
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(iri.Prefix + "/" + iri.Suffix),
+		Key:    aws.String(iri.Path()),
 	}
 
 	_, err = dynamo.db.DeleteObject(req)
