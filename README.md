@@ -1,6 +1,6 @@
 # dynamo
 
-The library implements a simple key-value abstraction to store algebraic data types with AWS services. It supports AWS DynamoDB and AWS S3.
+The library implements a simple key-value abstraction to store algebraic data types at AWS storage services: AWS DynamoDB and AWS S3.
 
 [![Documentation](https://godoc.org/github.com/fogfish/dynamo?status.svg)](http://godoc.org/github.com/fogfish/dynamo)
 [![Build Status](https://secure.travis-ci.org/fogfish/dynamo.svg?branch=master)](http://travis-ci.org/fogfish/dynamo)
@@ -37,11 +37,9 @@ The library is optimized to operate with generic Dynamo DB schemas:
 
 ```typescript
 const Schema = (): ddb.TableProps => ({
-  partitionKey: {type: ddb.AttributeType.STRING, name: 'prefix'},
-  readCapacity: 1,
-  sortKey: {type: ddb.AttributeType.STRING, name: 'suffix'},
   tableName: 'my-table',
-  writeCapacity: 1,
+  partitionKey: {type: ddb.AttributeType.STRING, name: 'prefix'},
+  sortKey: {type: ddb.AttributeType.STRING, name: 'suffix'},
 })
 ```
 
@@ -55,7 +53,7 @@ import (
 )
 
 type Person struct {
-  dynamo.IRI
+  dynamo.ID
   Name    string `dynamodbav:"name,omitempty"`
   Age     int    `dynamodbav:"age,omitempty"`
   Address string `dynamodbav:"address,omitempty"`
@@ -67,7 +65,7 @@ func main() {
   //
   err := db.Put(
     Person{
-      dynamo.IRI{"dead", "beef"},
+      dynamo.UID("dead", "beef"),
       "Verner Pleishner",
       64,
       "Blumenstrasse 14, Berne, 3013",
@@ -75,11 +73,11 @@ func main() {
   )
 
   //
-  person := Person{IRI: dynamo.IRI{"dead", "beef"}}
+  person := Person{ID: dynamo.UID("dead", "beef")}
   err = db.Get(&person{})
 
   //
-  seq := db.Match(dynamo.IRI{Prefix: "dead"})
+  seq := db.Match(dynamo.Prefix("dead"))
   for seq.Tail() {
     p := &person{}
     err = seq.Head(p)
@@ -87,11 +85,36 @@ func main() {
   if err := seq.Error(); err != nil {/* ... */}
 
   //
-  db.Remove(dynamo.IRI{"dead", "beef"})
+  db.Remove(dynamo.UID("dead", "beef"))
 }
 ```
 
 See the [go doc](http://godoc.org/github.com/fogfish/dynamo) for api spec and [advanced example](example) app.
+
+### Linked data
+
+Interlinking of structured data is essential part of data design. Use `dynamo.IRI` type to model relations between data instances
+
+```go
+type Person struct {
+  dynamo.ID
+  Account dynamo.IRI `dynamodbav:"name,omitempty"`
+}
+```
+
+`dynamo.ID` and `dynamo.IRI` are equivalent data types. The first one is used as primary key, the latter one is a linked identity.
+
+### Use with AWS DynamoDB
+
+* create I/O handler using ddb schema `dynamo.New("ddb:///my-table")`
+* provision DynamoDB table with few mandatory attributes primary key `prefix` and sort key `suffix`.
+* storage persists struct fields at table columns, use `dynamodbav` field tags to specify serialization rules
+
+### Use with AWS S3
+
+* create I/O handler using s3 schema `dynamo.New("s3:///my-bucket")`
+* primary key `dynamo.ID` is serialized to S3 bucket path `prefix/suffix`
+* storage persists struct to JSON, use `json` field tags to specify serialization rules
 
 
 ## How To Contribute
@@ -107,7 +130,7 @@ The library is [MIT](LICENSE) licensed and accepts contributions via GitHub pull
 
 The build and testing process requires [Go](https://golang.org) version 1.13 or later.
 
-**Build** and **run** service in your development console. The following command boots Erlang virtual machine and opens Erlang shell.
+**build** and **test** library.
 
 ```bash
 git clone https://github.com/fogfish/dynamo

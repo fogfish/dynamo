@@ -15,7 +15,7 @@ import (
 )
 
 func TestS3Get(t *testing.T) {
-	val := person{IRI: dynamo.IRI{"dead", "beef"}}
+	val := person{ID: dynamo.UID("dead", "beef")}
 	err := apiS3().Get(&val)
 
 	it.Ok(t).
@@ -32,7 +32,10 @@ func TestS3Remove(t *testing.T) {
 }
 
 func TestS3Update(t *testing.T) {
-	val := person{IRI: dynamo.IRI{"dead", "beef"}}
+	val := person{
+		ID:  dynamo.UID("dead", "beef"),
+		Age: 64,
+	}
 	err := apiS3().Update(&val)
 
 	it.Ok(t).
@@ -42,7 +45,7 @@ func TestS3Update(t *testing.T) {
 
 func TestS3Match(t *testing.T) {
 	cnt := 0
-	seq := apiS3().Match(dynamo.IRI{Prefix: "dead"})
+	seq := apiS3().Match(dynamo.UID("dead", ""))
 
 	for seq.Tail() {
 		cnt++
@@ -75,24 +78,27 @@ type mockS3 struct {
 	s3iface.S3API
 }
 
-func (mockS3) GetObject(*s3.GetObjectInput) (*s3.GetObjectOutput, error) {
-	val, _ := json.Marshal(entity())
+func (mockS3) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
+	if aws.StringValue(input.Key) != "dead/beef" {
+		return nil, errors.New("Unexpected request.")
+	}
 
+	val, _ := json.Marshal(entity())
 	return &s3.GetObjectOutput{
 		Body: aws.ReadSeekCloser(bytes.NewReader(val)),
 	}, nil
 }
 
 func (mockS3) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
-	if !reflect.DeepEqual(input.Key, aws.String("dead/beef")) {
-		return nil, errors.New("Unexpected entity.")
+	if aws.StringValue(input.Key) != "dead/beef" {
+		return nil, errors.New("Unexpected request.")
 	}
 
 	val := person{}
 	err := json.NewDecoder(input.Body).Decode(&val)
 
 	if err != nil && !reflect.DeepEqual(val, entity()) {
-		return nil, errors.New("Unexpected entity.")
+		return nil, errors.New("Unexpected request.")
 	}
 
 	return &s3.PutObjectOutput{}, nil

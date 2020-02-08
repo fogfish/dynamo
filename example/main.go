@@ -17,10 +17,10 @@ import (
 )
 
 type person struct {
-	dynamo.IRI
-	Name    string `dynamodbav:"name,omitempty"`
-	Age     int    `dynamodbav:"age,omitempty"`
-	Address string `dynamodbav:"address,omitempty"`
+	dynamo.ID
+	Name    string `dynamodbav:"name,omitempty" json:"name,omitempty"`
+	Age     int    `dynamodbav:"age,omitempty" json:"age,omitempty"`
+	Address string `dynamodbav:"address,omitempty" json:"address,omitempty"`
 }
 
 func main() {
@@ -49,7 +49,7 @@ func examplePut(db dynamo.KeyVal) {
 
 func exampleGet(db dynamo.KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &person{IRI: id(i)}
+		val := &person{ID: id(i)}
 		err := db.Get(val)
 
 		fmt.Println("=[ get ]=> ", either(err, val))
@@ -58,7 +58,7 @@ func exampleGet(db dynamo.KeyVal) {
 
 func exampleUpdate(db dynamo.KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &person{IRI: id(i), Address: "Viktoriastrasse 37, Berne, 3013"}
+		val := &person{ID: id(i), Address: "Viktoriastrasse 37, Berne, 3013"}
 		err := db.Update(val)
 
 		fmt.Println("=[ update ]=> ", either(err, val))
@@ -66,7 +66,7 @@ func exampleUpdate(db dynamo.KeyVal) {
 }
 
 func exampleMatch(db dynamo.KeyVal) {
-	seq := db.Match(dynamo.IRI{Prefix: "test"})
+	seq := db.Match(dynamo.Prefix("test"))
 
 	for seq.Tail() {
 		val := &person{}
@@ -82,7 +82,7 @@ func exampleMatch(db dynamo.KeyVal) {
 
 func exampleRemove(db dynamo.KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &person{IRI: id(i)}
+		val := &person{ID: id(i)}
 		err := db.Remove(val)
 
 		fmt.Println("=[ remove ]=> ", either(err, val))
@@ -93,8 +93,8 @@ func folk(x int) *person {
 	return &person{id(x), "Verner Pleishner", 64, "Blumenstrasse 14, Berne, 3013"}
 }
 
-func id(x int) dynamo.IRI {
-	return dynamo.IRI{"test", strconv.Itoa(x)}
+func id(x int) dynamo.ID {
+	return dynamo.UID("test", strconv.Itoa(x))
 }
 
 func either(e error, x interface{}) interface{} {
