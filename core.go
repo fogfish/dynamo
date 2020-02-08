@@ -38,7 +38,7 @@
 // strongly expressed by struct in Go.
 //
 //   type Person struct {
-//     dynamo.IRI
+//     dynamo.ID
 //     Name    string `dynamodbav:"name,omitempty"`
 //     Age     int    `dynamodbav:"age,omitempty"`
 //     Address string `dynamodbav:"address,omitempty"`
@@ -56,7 +56,7 @@
 // Creates a new entity, or replaces an old entity with a new value.
 //   err := db.Put(
 //     Person{
-//       dynamo.IRI{"dead", "beef"},
+//       dynamo.UID("dead", "beef"),
 //       "Verner Pleishner",
 //       64,
 //       "Blumenstrasse 14, Berne, 3013",
@@ -64,25 +64,59 @@
 //   )
 //
 // Lookup the entity
-//   person := Person{IRI: dynamo.IRI{"dead", "beef"}}
+//   person := Person{ID: dynamo.UID("dead", "beef")}
 //   err := db.Get(&person)
 //
 // Remove the entity
-//   err := db.Remove(dynamo.IRI{"dead", "beef"})
+//   err := db.Remove(dynamo.UID("dead", "beef"))
 //
 // Partial update of the entity
-//   err := db.Update(Person{IRI: dynamo.IRI{"dead", "beef"}, Age: 65})
+//   err := db.Update(Person{ID: dynamo.UID("dead", "beef"), Age: 65})
 //
 // Lookup sequence of items
-//   seq := db.Match(dynamo.IRI{Prefix: "dead"})
+//   seq := db.Match(dynamo.Prefix("dead"))
 //   for seq.Tail() {
 //	   val := &Person{}
 //     err := seq.Head(val)
 //     ...
 //   }
+//
+//
+// Linked data
+//
+// Interlinking of structured data is essential part of data design.
+// Use `dynamo.IRI` type to model relations between data instances
+//
+//   type Person struct {
+//     dynamo.ID
+//     Account dynamo.IRI `dynamodbav:"name,omitempty"`
+//   }
+//
+// `dynamo.ID` and `dynamo.IRI` are equivalent data types. The first one
+// is used as primary key, the latter one is a linked identity.
+//
+// Use with AWS DynamoDB
+//
+// ↣ create I/O handler using ddb schema `dynamo.New("ddb:///my-table")`
+//
+// ↣ provision DynamoDB table with few mandatory attributes
+// primary key `prefix` and sort key `suffix`.
+//
+// ↣ storage persists struct fields at table columns, use `dynamodbav` field
+// tags to specify serialization rules
+//
+// Use with AWS S3
+//
+// ↣ create I/O handler using s3 schema `dynamo.New("s3:///my-bucket")`
+//
+// ↣ primary key `dynamo.ID` is serialized to S3 bucket path `prefix/suffix`
+//
+// ↣ storage persists struct to JSON, use `json` field tags to specify
+// serialization rules
 package dynamo
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -91,13 +125,19 @@ import (
 )
 
 //
-// KeyVal is a generic key-value trait to access domain objects
+// Entity is a "type tag". It ensures type-safe property of KeyVal interface
+type Entity interface {
+	Key() IRI
+}
+
+//
+// KeyVal is a generic key-value trait to access domain objects.
 type KeyVal interface {
-	Put(interface{}) error
-	Get(interface{}) error
-	Remove(interface{}) error
-	Update(interface{}) error
-	Match(interface{}) Seq
+	Put(Entity) error
+	Get(Entity) error
+	Remove(Entity) error
+	Update(Entity) error
+	Match(Entity) Seq
 }
 
 //
@@ -110,7 +150,7 @@ type KeyVal interface {
 //
 //   if err := seq.Error(); err != nil { ... }
 type Seq interface {
-	Head(interface{}) error
+	Head(Entity) error
 	Tail() bool
 	Error() error
 }
@@ -130,8 +170,37 @@ type Seq interface {
 // Use following S3 keys
 //   prefix/suffix
 type IRI struct {
-	Prefix string `dynamodbav:"prefix" json:"prefix,omitempty"`
-	Suffix string `dynamodbav:"suffix,omitempty" json:"suffix,omitempty"`
+	Prefix string `dynamodbav:"prefix"`
+	Suffix string `dynamodbav:"suffix,omitempty"`
+}
+
+// ID is a primary key for Entities
+type ID struct {
+	ID IRI `dynamodbav:"id" json:"id"`
+}
+
+// Key return reference to primary key
+func (id ID) Key() IRI {
+	return id.ID
+}
+
+// UID creates unique
+func UID(prefix string, suffix string) ID {
+	return ID{IRI{Prefix: prefix, Suffix: suffix}}
+}
+
+// Prefix creates
+func Prefix(prefix string) ID {
+	return ID{IRI{Prefix: prefix}}
+}
+
+// ParseIRI parses string to IRI type
+func ParseIRI(s string) IRI {
+	seq := strings.Split(s, "/")
+	if len(seq) == 1 {
+		return IRI{}
+	}
+	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
 }
 
 // Path converts IRI to absolute path
@@ -144,11 +213,7 @@ func (iri IRI) Path() string {
 
 // Parent returns IRI that is a prefix of this one.
 func (iri IRI) Parent() IRI {
-	seq := strings.Split(iri.Prefix, "/")
-	if len(seq) == 1 {
-		return IRI{}
-	}
-	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
+	return ParseIRI(iri.Prefix)
 }
 
 // SubIRI returns a IRI that descendant of this one.
@@ -159,6 +224,30 @@ func (iri IRI) SubIRI(suffix string) IRI {
 	return IRI{path.Join(iri.Prefix, iri.Suffix), suffix}
 }
 
+// MarshalJSON `IRI ⟼ "/prefix/suffix"`
+func (iri IRI) MarshalJSON() ([]byte, error) {
+	if iri.Prefix == "" && iri.Suffix == "" {
+		return nil, nil
+	}
+	return json.Marshal("/" + iri.Path())
+}
+
+// UnmarshalJSON `"/prefix/suffix" ⟼ IRI`
+func (iri *IRI) UnmarshalJSON(b []byte) error {
+	path := ""
+	err := json.Unmarshal(b, &path)
+	if err != nil {
+		return err
+	}
+
+	if path[0] != '/' {
+		return InvalidIRI{string(b)}
+	}
+
+	*iri = ParseIRI(path[1:])
+	return nil
+}
+
 //
 // NotFound is an error to handle unknown elements
 type NotFound struct {
@@ -167,6 +256,17 @@ type NotFound struct {
 
 func (e NotFound) Error() string {
 	return fmt.Sprintf("Not Found %v", e.Key)
+}
+
+//
+// InvalidIRI is caused by JSON unmarshal if text representation of
+// IRI type is not valid
+type InvalidIRI struct {
+	IRI string
+}
+
+func (e InvalidIRI) Error() string {
+	return fmt.Sprintf("Invalid IRI %v", e.IRI)
 }
 
 //

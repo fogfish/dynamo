@@ -37,22 +37,17 @@ func (dynamo *S3) Mock(db s3iface.S3API) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo S3) Get(entity interface{}) (err error) {
-	iri, err := toIRI(entity)
-	if err != nil {
-		return
-	}
-
+func (dynamo S3) Get(entity Entity) (err error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(iri.Path()),
+		Key:    aws.String(entity.Key().Path()),
 	}
 	val, err := dynamo.db.GetObject(req)
 	if err != nil {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == s3.ErrCodeNoSuchKey {
-				return NotFound{iri}
+				return NotFound{entity.Key()}
 			}
 			return err
 		default:
@@ -65,12 +60,7 @@ func (dynamo S3) Get(entity interface{}) (err error) {
 }
 
 // Put writes entity
-func (dynamo S3) Put(entity interface{}) (err error) {
-	iri, err := toIRI(entity)
-	if err != nil {
-		return
-	}
-
+func (dynamo S3) Put(entity Entity) (err error) {
 	gen, err := json.Marshal(entity)
 	if err != nil {
 		return
@@ -78,7 +68,7 @@ func (dynamo S3) Put(entity interface{}) (err error) {
 
 	req := &s3.PutObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(iri.Path()),
+		Key:    aws.String(entity.Key().Path()),
 		Body:   aws.ReadSeekCloser(bytes.NewReader(gen)),
 	}
 
@@ -87,15 +77,10 @@ func (dynamo S3) Put(entity interface{}) (err error) {
 }
 
 // Remove discards the entity from the bucket
-func (dynamo S3) Remove(entity interface{}) (err error) {
-	iri, err := toIRI(entity)
-	if err != nil {
-		return
-	}
-
+func (dynamo S3) Remove(entity Entity) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(iri.Path()),
+		Key:    aws.String(entity.Key().Path()),
 	}
 
 	_, err = dynamo.db.DeleteObject(req)
@@ -104,7 +89,7 @@ func (dynamo S3) Remove(entity interface{}) (err error) {
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo S3) Update(entity interface{}) (err error) {
+func (dynamo S3) Update(entity Entity) (err error) {
 	par, err := dynamodbattribute.MarshalMap(entity)
 	if err != nil {
 		return
@@ -144,7 +129,7 @@ type SeqS3 struct {
 }
 
 // Head selects the first element of matched collection.
-func (seq *SeqS3) Head(v interface{}) error {
+func (seq *SeqS3) Head(v Entity) error {
 	if seq.at == -1 {
 		seq.at++
 	}
@@ -173,16 +158,11 @@ func (seq *SeqS3) Error() error {
 }
 
 // Match applies a pattern matching to elements in the bucket
-func (dynamo S3) Match(key interface{}) Seq {
-	iri, err := toIRI(key)
-	if err != nil {
-		return &SeqS3{-1, nil, err, nil}
-	}
-
+func (dynamo S3) Match(key Entity) Seq {
 	req := &s3.ListObjectsV2Input{
 		Bucket:  dynamo.bucket,
 		MaxKeys: aws.Int64(1000),
-		Prefix:  aws.String(iri.Prefix),
+		Prefix:  aws.String(key.Key().Prefix),
 	}
 
 	val, err := dynamo.db.ListObjectsV2(req)
@@ -196,30 +176,4 @@ func (dynamo S3) Match(key interface{}) Seq {
 	}
 
 	return &SeqS3{-1, items, nil, &dynamo}
-}
-
-//-----------------------------------------------------------------------------
-//
-// internal helpers
-//
-//-----------------------------------------------------------------------------
-
-func toIRI(val interface{}) (IRI, error) {
-	gen, err := dynamodbattribute.MarshalMap(val)
-	if err != nil {
-		return IRI{}, err
-	}
-
-	prefix, isPrefix := gen["prefix"]
-	suffix, isSuffix := gen["suffix"]
-
-	if isPrefix && isSuffix {
-		return IRI{aws.StringValue(prefix.S), aws.StringValue(suffix.S)}, nil
-	}
-
-	if isPrefix {
-		return IRI{Prefix: aws.StringValue(prefix.S)}, nil
-	}
-
-	return IRI{}, nil
 }

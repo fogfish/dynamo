@@ -9,6 +9,7 @@
 package dynamo
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -43,14 +44,14 @@ func (dynamo *DB) Mock(db dynamodbiface.DynamoDBAPI) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo DB) Get(entity interface{}) (err error) {
-	gen, err := dynamodbattribute.MarshalMap(entity)
+func (dynamo DB) Get(entity Entity) (err error) {
+	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
 	}
 
 	req := &dynamodb.GetItemInput{
-		Key:       keyOf(gen),
+		Key:       keyOnly(gen),
 		TableName: dynamo.table,
 	}
 	val, err := dynamo.db.GetItem(req)
@@ -60,18 +61,23 @@ func (dynamo DB) Get(entity interface{}) (err error) {
 
 	if val.Item == nil {
 		iri := IRI{}
-		dynamodbattribute.UnmarshalMap(keyOf(gen), &iri)
+		dynamodbattribute.UnmarshalMap(keyOnly(gen), &iri)
 		err = NotFound{iri}
 		return
 	}
 
-	dynamodbattribute.UnmarshalMap(val.Item, &entity)
+	item, err := unmarshal(val.Item)
+	if err != nil {
+		return
+	}
+
+	dynamodbattribute.UnmarshalMap(item, &entity)
 	return
 }
 
 // Put writes entity
-func (dynamo DB) Put(entity interface{}) (err error) {
-	gen, err := dynamodbattribute.MarshalMap(entity)
+func (dynamo DB) Put(entity Entity) (err error) {
+	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
 	}
@@ -86,24 +92,24 @@ func (dynamo DB) Put(entity interface{}) (err error) {
 }
 
 // Remove discards the entity from the table
-func (dynamo DB) Remove(entity interface{}) (err error) {
-	gen, err := dynamodbattribute.MarshalMap(entity)
+func (dynamo DB) Remove(entity Entity) (err error) {
+
+	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
 	}
 
 	req := &dynamodb.DeleteItemInput{
-		Key:       keyOf(gen),
+		Key:       keyOnly(gen),
 		TableName: dynamo.table,
 	}
 	_, err = dynamo.db.DeleteItem(req)
-
 	return
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo DB) Update(entity interface{}) (err error) {
-	gen, err := dynamodbattribute.MarshalMap(entity)
+func (dynamo DB) Update(entity Entity) (err error) {
+	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
 	}
@@ -119,15 +125,18 @@ func (dynamo DB) Update(entity interface{}) (err error) {
 	expresion := aws.String("SET " + strings.Join(update, ","))
 
 	req := &dynamodb.UpdateItemInput{
-		Key:                       keyOf(gen),
+		Key:                       keyOnly(gen),
 		ExpressionAttributeValues: values,
 		UpdateExpression:          expresion,
 		TableName:                 dynamo.table,
 		ReturnValues:              aws.String("ALL_NEW"),
 	}
 	val, err := dynamo.db.UpdateItem(req)
-	dynamodbattribute.UnmarshalMap(val.Attributes, &entity)
+	if err != nil {
+		return
+	}
 
+	dynamodbattribute.UnmarshalMap(val.Attributes, &entity)
 	return
 }
 
@@ -145,11 +154,15 @@ type SeqDB struct {
 }
 
 // Head selects the first element of matched collection.
-func (seq *SeqDB) Head(v interface{}) error {
+func (seq *SeqDB) Head(v Entity) error {
 	if seq.at == -1 {
 		seq.at++
 	}
-	return dynamodbattribute.UnmarshalMap(seq.items[seq.at], v)
+	item, err := unmarshal(seq.items[seq.at])
+	if err != nil {
+		return err
+	}
+	return dynamodbattribute.UnmarshalMap(item, v)
 }
 
 // Tail selects the all elements except the first one
@@ -164,8 +177,8 @@ func (seq *SeqDB) Error() error {
 }
 
 // Match applies a pattern matching to elements in the table
-func (dynamo DB) Match(key interface{}) Seq {
-	gen, err := dynamodbattribute.MarshalMap(key)
+func (dynamo DB) Match(key Entity) Seq {
+	gen, err := marshal(dynamodbattribute.MarshalMap(key))
 	if err != nil {
 		return &SeqDB{-1, nil, err}
 	}
@@ -189,14 +202,50 @@ func (dynamo DB) Match(key interface{}) Seq {
 //
 //-----------------------------------------------------------------------------
 
-func keyOf(gen map[string]*dynamodb.AttributeValue) (key map[string]*dynamodb.AttributeValue) {
-	key = map[string]*dynamodb.AttributeValue{}
+//
+func marshal(gen map[string]*dynamodb.AttributeValue, err error) (map[string]*dynamodb.AttributeValue, error) {
+	if err != nil {
+		return nil, err
+	}
+
+	id := gen["id"]
+	for k, v := range id.M {
+		gen[k] = v
+	}
+
+	delete(gen, "id")
+	return gen, nil
+}
+
+//
+func unmarshal(ddb map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
+	prefix, isPrefix := ddb["prefix"]
+	suffix, isSuffix := ddb["suffix"]
+	if !isPrefix || !isSuffix {
+		return nil, errors.New("Invalid DDB schema")
+	}
+
+	ddb["id"] = &dynamodb.AttributeValue{
+		M: map[string]*dynamodb.AttributeValue{
+			"prefix": prefix,
+			"suffix": suffix,
+		},
+	}
+	delete(ddb, "prefix")
+	delete(ddb, "suffix")
+	return ddb, nil
+}
+
+//
+func keyOnly(gen map[string]*dynamodb.AttributeValue) map[string]*dynamodb.AttributeValue {
+	key := map[string]*dynamodb.AttributeValue{}
 	key["prefix"] = gen["prefix"]
 	key["suffix"] = gen["suffix"]
 
-	return
+	return key
 }
 
+//
 func exprOf(gen map[string]*dynamodb.AttributeValue) (val map[string]*dynamodb.AttributeValue) {
 	val = map[string]*dynamodb.AttributeValue{}
 	for k, v := range gen {
