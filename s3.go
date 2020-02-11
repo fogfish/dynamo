@@ -3,6 +3,10 @@ package dynamo
 import (
 	"bytes"
 	"encoding/json"
+	"io"
+	"net"
+	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -176,4 +180,48 @@ func (dynamo S3) Match(key Entity) Seq {
 	}
 
 	return &SeqS3{-1, items, nil, &dynamo}
+}
+
+//-----------------------------------------------------------------------------
+//
+// Streaming
+//
+//-----------------------------------------------------------------------------
+
+// Recv establishes bytes stream to S3 object
+func (dynamo S3) Recv(entity Entity) (io.ReadCloser, error) {
+	req := &s3.GetObjectInput{
+		Bucket: dynamo.bucket,
+		Key:    aws.String(entity.Key().Path()),
+	}
+
+	item, _ := dynamo.db.GetObjectRequest(req)
+	url, err := item.Presign(20 * time.Minute)
+	if err != nil {
+		return nil, err
+	}
+
+	api := &http.Client{
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+			ReadBufferSize:    1024 * 1024,
+			Dial: (&net.Dialer{
+				Timeout: 10 * time.Second,
+			}).Dial,
+		},
+	}
+	eg, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	eg.Header.Add("Connection", "close")
+	eg.Header.Add("Transfer-Encoding", "chunked")
+
+	in, err := api.Do(eg)
+	if err != nil {
+		return nil, err
+	}
+
+	return in.Body, nil
 }
