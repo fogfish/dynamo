@@ -45,7 +45,7 @@ func main() {
 			ta.Read(data)
 			fmt.Printf(" %v\n", header.Size)
 		default:
-			log.Fatalf("unknown type: %s in %s", header.Typeflag, header.Name)
+			log.Fatalf("unknown type: %v in %s", header.Typeflag, header.Name)
 		}
 	}
 }
