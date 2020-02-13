@@ -224,7 +224,11 @@ func (iri IRI) Path() string {
 
 // Parent returns IRI that is a prefix of this one.
 func (iri IRI) Parent() IRI {
-	return ParseIRI(iri.Prefix)
+	seq := strings.Split(iri.Prefix, "/")
+	if len(seq) == 1 {
+		return IRI{}
+	}
+	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
 }
 
 // SubIRI returns a IRI that descendant of this one.
