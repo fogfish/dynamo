@@ -119,6 +119,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"path"
 	"strings"
@@ -153,6 +154,11 @@ type Seq interface {
 	Head(Entity) error
 	Tail() bool
 	Error() error
+}
+
+// Blob is a generic byte stream trait to access large binary data
+type Blob interface {
+	Recv(Entity) (io.ReadCloser, error)
 }
 
 //
@@ -198,9 +204,14 @@ func Prefix(prefix string) ID {
 func ParseIRI(s string) IRI {
 	seq := strings.Split(s, "/")
 	if len(seq) == 1 {
-		return IRI{}
+		return IRI{Prefix: s}
 	}
 	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
+}
+
+// ParseID parses string to ID type
+func ParseID(s string) ID {
+	return ID{ParseIRI(s)}
 }
 
 // Path converts IRI to absolute path
@@ -213,7 +224,11 @@ func (iri IRI) Path() string {
 
 // Parent returns IRI that is a prefix of this one.
 func (iri IRI) Parent() IRI {
-	return ParseIRI(iri.Prefix)
+	seq := strings.Split(iri.Prefix, "/")
+	if len(seq) == 1 {
+		return IRI{}
+	}
+	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
 }
 
 // SubIRI returns a IRI that descendant of this one.
@@ -286,6 +301,24 @@ func New(uri string) (KeyVal, error) {
 		return newS3(spec.Path[1:]), nil
 	case spec.Scheme == "ddb":
 		return newDB(spec.Path[1:]), nil
+	default:
+		return nil, errors.New("Unsupported schema: " + uri)
+	}
+}
+
+// Stream establishes bytes stream connection with AWS Storage service,
+// use URI to specify service and name of the bucket.
+// Supported scheme:
+//   s3:///my-bucket
+func Stream(uri string) (Blob, error) {
+	spec, _ := url.Parse(uri)
+	switch {
+	case spec == nil:
+		return nil, errors.New("Invalid url: " + uri)
+	case spec.Path == "":
+		return nil, errors.New("Invalid url, path is missing: " + uri)
+	case spec.Scheme == "s3":
+		return newS3(spec.Path[1:]), nil
 	default:
 		return nil, errors.New("Unsupported schema: " + uri)
 	}
