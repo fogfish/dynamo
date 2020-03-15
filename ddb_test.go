@@ -104,9 +104,9 @@ func (mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, e
 	return &dynamodb.GetItemOutput{
 		Item: map[string]*dynamodb.AttributeValue{
 			"prefix":  {S: aws.String("dead")},
+			"suffix":  {S: aws.String("beef")},
 			"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 			"name":    {S: aws.String("Verner Pleishner")},
-			"suffix":  {S: aws.String("beef")},
 			"age":     {N: aws.String("64")},
 		},
 	}, nil
@@ -115,9 +115,9 @@ func (mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, e
 func (mockDDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
 		"prefix":  {S: aws.String("dead")},
+		"suffix":  {S: aws.String("beef")},
 		"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 		"name":    {S: aws.String("Verner Pleishner")},
-		"suffix":  {S: aws.String("beef")},
 		"age":     {N: aws.String("64")},
 	}
 

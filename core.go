@@ -117,12 +117,15 @@ package dynamo
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
 //
@@ -176,8 +179,8 @@ type Blob interface {
 // Use following S3 keys
 //   prefix/suffix
 type IRI struct {
-	Prefix string `dynamodbav:"prefix"`
-	Suffix string `dynamodbav:"suffix,omitempty"`
+	Prefix string
+	Suffix string
 }
 
 // ID is a primary key for Entities
@@ -185,19 +188,19 @@ type ID struct {
 	ID IRI `dynamodbav:"id" json:"id"`
 }
 
-// Key return reference to primary key
+// Key return reference to primary key.
+// The function adopts any type which embeds dynamo.ID into Entity interface
 func (id ID) Key() IRI {
 	return id.ID
 }
 
 // UID creates unique
-func UID(prefix string, suffix string) ID {
-	return ID{IRI{Prefix: prefix, Suffix: suffix}}
-}
+func UID(prefix string, suffix ...string) ID {
+	if len(suffix) == 0 {
+		return ID{IRI{Prefix: prefix}}
+	}
 
-// Prefix creates
-func Prefix(prefix string) ID {
-	return ID{IRI{Prefix: prefix}}
+	return ID{IRI{Prefix: prefix, Suffix: suffix[0]}}
 }
 
 // ParseIRI parses string to IRI type
@@ -263,6 +266,30 @@ func (iri *IRI) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// MarshalDynamoDBAttributeValue `IRI ⟼ "prefix/suffix"`
+func (iri IRI) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	if iri.Prefix == "" && iri.Suffix == "" {
+		av.NULL = aws.Bool(true)
+		return nil
+	}
+
+	val, err := dynamodbattribute.Marshal(iri.Path())
+	if err != nil {
+		return err
+	}
+
+	av.S = val.S
+	return nil
+}
+
+// UnmarshalDynamoDBAttributeValue `"prefix/suffix" ⟼ IRI`
+func (iri *IRI) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	path := aws.StringValue(av.S)
+
+	*iri = ParseIRI(path)
+	return nil
+}
+
 //
 // NotFound is an error to handle unknown elements
 type NotFound struct {
@@ -294,15 +321,15 @@ func New(uri string) (KeyVal, error) {
 	spec, _ := url.Parse(uri)
 	switch {
 	case spec == nil:
-		return nil, errors.New("Invalid url: " + uri)
+		return nil, fmt.Errorf("Invalid url: %s", uri)
 	case spec.Path == "":
-		return nil, errors.New("Invalid url, path is missing: " + uri)
+		return nil, fmt.Errorf("Invalid url, path is missing: %s", uri)
 	case spec.Scheme == "s3":
-		return newS3(spec.Path[1:]), nil
+		return newS3(bucket(spec.Path)), nil
 	case spec.Scheme == "ddb":
-		return newDB(spec.Path[1:]), nil
+		return newDB(bucket(spec.Path)), nil
 	default:
-		return nil, errors.New("Unsupported schema: " + uri)
+		return nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}
 }
 
@@ -314,12 +341,16 @@ func Stream(uri string) (Blob, error) {
 	spec, _ := url.Parse(uri)
 	switch {
 	case spec == nil:
-		return nil, errors.New("Invalid url: " + uri)
+		return nil, fmt.Errorf("Invalid url: %s", uri)
 	case spec.Path == "":
-		return nil, errors.New("Invalid url, path is missing: " + uri)
+		return nil, fmt.Errorf("Invalid url, path is missing: %s", uri)
 	case spec.Scheme == "s3":
-		return newS3(spec.Path[1:]), nil
+		return newS3(bucket(spec.Path)), nil
 	default:
-		return nil, errors.New("Unsupported schema: " + uri)
+		return nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}
+}
+
+func bucket(s string) string {
+	return strings.Split(s[1:], "/")[0]
 }

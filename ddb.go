@@ -71,7 +71,7 @@ func (dynamo DB) Get(entity Entity) (err error) {
 		return
 	}
 
-	dynamodbattribute.UnmarshalMap(item, &entity)
+	err = dynamodbattribute.UnmarshalMap(item, &entity)
 	return
 }
 
@@ -114,18 +114,21 @@ func (dynamo DB) Update(entity Entity) (err error) {
 		return
 	}
 
+	names := map[string]*string{}
 	values := map[string]*dynamodb.AttributeValue{}
 	update := make([]string, 0)
 	for k, v := range gen {
 		if k != "prefix" && k != "suffix" && k != "id" {
+			names["#"+k] = aws.String(k)
 			values[":"+k] = v
-			update = append(update, k+"="+":"+k)
+			update = append(update, "#"+k+"="+":"+k)
 		}
 	}
 	expresion := aws.String("SET " + strings.Join(update, ","))
 
 	req := &dynamodb.UpdateItemInput{
 		Key:                       keyOnly(gen),
+		ExpressionAttributeNames:  names,
 		ExpressionAttributeValues: values,
 		UpdateExpression:          expresion,
 		TableName:                 dynamo.table,
@@ -208,9 +211,11 @@ func marshal(gen map[string]*dynamodb.AttributeValue, err error) (map[string]*dy
 		return nil, err
 	}
 
-	id := gen["id"]
-	for k, v := range id.M {
-		gen[k] = v
+	iri := ParseIRI(aws.StringValue(gen["id"].S))
+	gen["prefix"] = &dynamodb.AttributeValue{S: aws.String(iri.Prefix)}
+
+	if iri.Suffix != "" {
+		gen["suffix"] = &dynamodb.AttributeValue{S: aws.String(iri.Suffix)}
 	}
 
 	delete(gen, "id")
@@ -225,12 +230,9 @@ func unmarshal(ddb map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.At
 		return nil, errors.New("Invalid DDB schema")
 	}
 
-	ddb["id"] = &dynamodb.AttributeValue{
-		M: map[string]*dynamodb.AttributeValue{
-			"prefix": prefix,
-			"suffix": suffix,
-		},
-	}
+	iri := IRI{aws.StringValue(prefix.S), aws.StringValue(suffix.S)}
+	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.Path())}
+
 	delete(ddb, "prefix")
 	delete(ddb, "suffix")
 	return ddb, nil
