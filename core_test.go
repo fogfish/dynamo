@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
 )
@@ -42,8 +45,8 @@ func TestSubIRI(t *testing.T) {
 
 type Item struct {
 	dynamo.ID
-	Ref dynamo.IRI `json:"ref"`
-	Tag string     `json:"tag"`
+	Ref dynamo.IRI `json:"ref"  dynamodbav:"ref,omitempty"`
+	Tag string     `json:"tag"  dynamodbav:"tag,omitempty"`
 }
 
 var fixtureItem Item = Item{
@@ -52,6 +55,12 @@ var fixtureItem Item = Item{
 	Tag: "tag",
 }
 var fixtureJson string = "{\"id\":\"/foo/prefix/suffix\",\"ref\":\"/foo/a/suffix\",\"tag\":\"tag\"}"
+
+var fixtureDdb map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{
+	"id":  &dynamodb.AttributeValue{S: aws.String("foo/prefix/suffix")},
+	"ref": &dynamodb.AttributeValue{S: aws.String("foo/a/suffix")},
+	"tag": &dynamodb.AttributeValue{S: aws.String("tag")},
+}
 
 func TestMarshalJSON(t *testing.T) {
 	bytes, err := json.Marshal(fixtureItem)
@@ -78,4 +87,20 @@ func TestUnmarshalInvalidJSON(t *testing.T) {
 	it.Ok(t).
 		If(json.Unmarshal(badUid, &item)).Should().Be().Like(dynamo.InvalidIRI{}).
 		If(json.Unmarshal(badRef, &item)).Should().Be().Like(dynamo.InvalidIRI{})
+}
+
+func TestMarshalDynamo(t *testing.T) {
+	gen, err := dynamodbattribute.MarshalMap(fixtureItem)
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(gen).Should().Equal(fixtureDdb)
+}
+
+func TestUnmarshalDynamo(t *testing.T) {
+	var item Item
+
+	it.Ok(t).
+		If(dynamodbattribute.UnmarshalMap(fixtureDdb, &item)).Should().Equal(nil).
+		If(item).Should().Equal(fixtureItem)
 }
