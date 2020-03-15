@@ -66,7 +66,7 @@ func exampleUpdate(db dynamo.KeyVal) {
 }
 
 func exampleMatch(db dynamo.KeyVal) {
-	seq := db.Match(dynamo.Prefix("test"))
+	seq := db.Match(dynamo.UID("test"))
 
 	for seq.Tail() {
 		val := &person{}
