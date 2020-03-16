@@ -119,6 +119,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"path"
 	"strings"
@@ -331,6 +332,20 @@ func New(uri string) (KeyVal, error) {
 	default:
 		return nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}
+}
+
+// Must is a helper function to ensure KeyVal interface is valid and there was no
+// error when calling a New function.
+//
+// This helper is intended to be used in variable initialization to load the
+// interface and configuration at startup. Such as:
+//
+//    var io = dynamo.Must(dynamo.New())
+func Must(kv KeyVal, err error) KeyVal {
+	if err != nil {
+		log.Panicln(err)
+	}
+	return kv
 }
 
 // Stream establishes bytes stream connection with AWS Storage service,
