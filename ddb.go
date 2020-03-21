@@ -60,9 +60,9 @@ func (dynamo DB) Get(entity Entity) (err error) {
 	}
 
 	if val.Item == nil {
-		iri := IRI{}
-		dynamodbattribute.UnmarshalMap(keyOnly(gen), &iri)
-		err = NotFound{iri}
+		prefix, _ := gen["prefix"]
+		suffix, _ := gen["suffix"]
+		err = NotFound{IRI{aws.StringValue(prefix.S), aws.StringValue(suffix.S)}}
 		return
 	}
 
