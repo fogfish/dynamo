@@ -15,7 +15,7 @@ import (
 )
 
 func TestS3Get(t *testing.T) {
-	val := person{ID: dynamo.UID("dead", "beef")}
+	val := person{ID: dynamo.NewID("dead", "beef")}
 	err := apiS3().Get(&val)
 
 	it.Ok(t).
@@ -33,7 +33,7 @@ func TestS3Remove(t *testing.T) {
 
 func TestS3Update(t *testing.T) {
 	val := person{
-		ID:  dynamo.UID("dead", "beef"),
+		ID:  dynamo.NewID("dead", "beef"),
 		Age: 64,
 	}
 	err := apiS3().Update(&val)
@@ -45,7 +45,7 @@ func TestS3Update(t *testing.T) {
 
 func TestS3Match(t *testing.T) {
 	cnt := 0
-	seq := apiS3().Match(dynamo.UID("dead", ""))
+	seq := apiS3().Match(dynamo.NewID("dead", ""))
 
 	for seq.Tail() {
 		cnt++

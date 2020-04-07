@@ -31,10 +31,10 @@ func TestIRI(t *testing.T) {
 
 func TestSubIRI(t *testing.T) {
 	it.Ok(t).
-		If(dynamo.IRI{}.SubIRI("a")).Should().Equal(dynamo.IRI{Prefix: "a"}).
-		If(dynamo.IRI{Prefix: "a"}.SubIRI("b")).Should().Equal(dynamo.IRI{"a", "b"}).
-		If(dynamo.IRI{"a", "b"}.SubIRI("c")).Should().Equal(dynamo.IRI{"a/b", "c"}).
-		If(dynamo.IRI{"a/b", "c"}.SubIRI("d")).Should().Equal(dynamo.IRI{"a/b/c", "d"}).
+		If(dynamo.IRI{}.Heir("a")).Should().Equal(dynamo.IRI{Prefix: "a"}).
+		If(dynamo.IRI{Prefix: "a"}.Heir("b")).Should().Equal(dynamo.IRI{"a", "b"}).
+		If(dynamo.IRI{"a", "b"}.Heir("c")).Should().Equal(dynamo.IRI{"a/b", "c"}).
+		If(dynamo.IRI{"a/b", "c"}.Heir("d")).Should().Equal(dynamo.IRI{"a/b/c", "d"}).
 		//
 		If(dynamo.IRI{}.Parent()).Should().Equal(dynamo.IRI{}).
 		If(dynamo.IRI{Prefix: "a"}.Parent()).Should().Equal(dynamo.IRI{}).

@@ -21,7 +21,7 @@ type person struct {
 
 func entity() person {
 	return person{
-		ID:      dynamo.UID("dead", "beef"),
+		ID:      dynamo.NewID("dead", "beef"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -29,7 +29,7 @@ func entity() person {
 }
 
 func TestDdbGet(t *testing.T) {
-	val := person{ID: dynamo.UID("dead", "beef")}
+	val := person{ID: dynamo.NewID("dead", "beef")}
 	err := apiDB().Get(&val)
 
 	it.Ok(t).
@@ -47,7 +47,7 @@ func TestDdbRemove(t *testing.T) {
 
 func TestDdbUpdate(t *testing.T) {
 	val := person{
-		ID:  dynamo.UID("dead", "beef"),
+		ID:  dynamo.NewID("dead", "beef"),
 		Age: 65,
 	}
 	err := apiDB().Update(&val)
@@ -59,7 +59,7 @@ func TestDdbUpdate(t *testing.T) {
 
 func TestDdbMatch(t *testing.T) {
 	cnt := 0
-	seq := apiDB().Match(dynamo.UID("dead", ""))
+	seq := apiDB().Match(dynamo.NewID("dead", ""))
 
 	for seq.Tail() {
 		cnt++
