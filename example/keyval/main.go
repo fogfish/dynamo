@@ -66,7 +66,7 @@ func exampleUpdate(db dynamo.KeyVal) {
 }
 
 func exampleMatch(db dynamo.KeyVal) {
-	seq := db.Match(dynamo.UID("test"))
+	seq := db.Match(dynamo.NewID("test"))
 
 	for seq.Tail() {
 		val := &person{}
@@ -94,7 +94,7 @@ func folk(x int) *person {
 }
 
 func id(x int) dynamo.ID {
-	return dynamo.UID("test", strconv.Itoa(x))
+	return dynamo.NewID("test", strconv.Itoa(x))
 }
 
 func either(e error, x interface{}) interface{} {

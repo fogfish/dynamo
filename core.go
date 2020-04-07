@@ -138,10 +138,20 @@ type Entity interface {
 //
 // KeyVal is a generic key-value trait to access domain objects.
 type KeyVal interface {
+	KeyValPure
+	KeyValPattern
+}
+
+// KeyValPure defines a generic key-value I/O
+type KeyValPure interface {
 	Put(Entity) error
 	Get(Entity) error
 	Remove(Entity) error
 	Update(Entity) error
+}
+
+// KeyValPattern defines simples pattern matching lookup I/O
+type KeyValPattern interface {
 	Match(Entity) Seq
 }
 
@@ -184,26 +194,6 @@ type IRI struct {
 	Suffix string
 }
 
-// ID is a primary key for Entities
-type ID struct {
-	ID IRI `dynamodbav:"id" json:"id"`
-}
-
-// Key return reference to primary key.
-// The function adopts any type which embeds dynamo.ID into Entity interface
-func (id ID) Key() IRI {
-	return id.ID
-}
-
-// UID creates unique
-func UID(prefix string, suffix ...string) ID {
-	if len(suffix) == 0 {
-		return ID{IRI{Prefix: prefix}}
-	}
-
-	return ID{IRI{Prefix: prefix, Suffix: suffix[0]}}
-}
-
 // ParseIRI parses string to IRI type
 func ParseIRI(s string) IRI {
 	seq := strings.Split(s, "/")
@@ -213,9 +203,18 @@ func ParseIRI(s string) IRI {
 	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
 }
 
-// ParseID parses string to ID type
-func ParseID(s string) ID {
-	return ID{ParseIRI(s)}
+// NewIRI creates new IRI type
+func NewIRI(prefix string, suffix ...string) IRI {
+	if len(suffix) == 0 {
+		return IRI{Prefix: prefix}
+	}
+
+	return IRI{Prefix: prefix, Suffix: suffix[0]}
+}
+
+// ID converts IRI to ID type
+func (iri IRI) ID() ID {
+	return ID{iri}
 }
 
 // Path converts IRI to absolute path
@@ -235,8 +234,8 @@ func (iri IRI) Parent() IRI {
 	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
 }
 
-// SubIRI returns a IRI that descendant of this one.
-func (iri IRI) SubIRI(suffix string) IRI {
+// Heir returns a IRI that descendant of this one.
+func (iri IRI) Heir(suffix string) IRI {
 	if iri.Prefix == "" && iri.Suffix == "" {
 		return IRI{Prefix: suffix}
 	}
@@ -289,6 +288,41 @@ func (iri *IRI) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) err
 
 	*iri = ParseIRI(path)
 	return nil
+}
+
+// ID is a primary key for Entities
+type ID struct {
+	IRI IRI `dynamodbav:"id" json:"id"`
+}
+
+// ParseID parses string to ID type
+func ParseID(s string) ID {
+	return ID{ParseIRI(s)}
+}
+
+// NewID creates unique
+func NewID(prefix string, suffix ...string) ID {
+	if len(suffix) == 0 {
+		return ID{IRI{Prefix: prefix}}
+	}
+
+	return ID{IRI{Prefix: prefix, Suffix: suffix[0]}}
+}
+
+// Key return reference to primary key.
+// The function adopts any type which embeds dynamo.ID into Entity interface
+func (id ID) Key() IRI {
+	return id.IRI
+}
+
+// Parent returns ID that is a prefix of this one.
+func (id ID) Parent() ID {
+	return ID{id.IRI.Parent()}
+}
+
+// Heir returns a ID that descendant of this one.
+func (id ID) Heir(suffix string) ID {
+	return ID{id.IRI.Heir(suffix)}
 }
 
 //

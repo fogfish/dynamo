@@ -6,7 +6,9 @@ go:
 
 before_install:
   - go get github.com/mattn/goveralls
+  - go get github.com/go-playground/overalls
 
 script:
-  - go test -cover -coverprofile=coverage.out
-  - $GOPATH/bin/goveralls -service=travis-ci
+  - go test -v github.com/fogfish/dynamo/...
+  - $GOPATH/bin/overalls -project=github.com/fogfish/dynamo
+  - $GOPATH/bin/goveralls -coverprofile=overalls.coverprofile -service=travis-ci
