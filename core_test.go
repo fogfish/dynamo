@@ -15,21 +15,25 @@ func TestIRI(t *testing.T) {
 	it.Ok(t).
 		If(dynamo.IRI{}.Path()).Should().Equal("").
 		If(dynamo.ParseIRI("")).Should().Equal(dynamo.IRI{}).
+		If(dynamo.NewIRI("")).Should().Equal(dynamo.IRI{}).
 		//
 		If(dynamo.IRI{Prefix: "a"}.Path()).Should().Equal("a").
 		If(dynamo.ParseIRI("a")).Should().Equal(dynamo.IRI{Prefix: "a"}).
+		If(dynamo.NewIRI("a")).Should().Equal(dynamo.IRI{Prefix: "a"}).
 		//
 		If(dynamo.IRI{"a", "b"}.Path()).Should().Equal("a/b").
 		If(dynamo.ParseIRI("a/b")).Should().Equal(dynamo.IRI{"a", "b"}).
+		If(dynamo.NewIRI("a", "b")).Should().Equal(dynamo.IRI{"a", "b"}).
 		//
 		If(dynamo.IRI{"a/b", "c"}.Path()).Should().Equal("a/b/c").
 		If(dynamo.ParseIRI("a/b/c")).Should().Equal(dynamo.IRI{"a/b", "c"}).
+		If(dynamo.NewIRI("a/b", "c")).Should().Equal(dynamo.IRI{"a/b", "c"}).
 		//
 		If(dynamo.IRI{"a/b/c", "d"}.Path()).Should().Equal("a/b/c/d").
 		If(dynamo.ParseIRI("a/b/c/d")).Should().Equal(dynamo.IRI{"a/b/c", "d"})
 }
 
-func TestSubIRI(t *testing.T) {
+func TestHeir(t *testing.T) {
 	it.Ok(t).
 		If(dynamo.IRI{}.Heir("a")).Should().Equal(dynamo.IRI{Prefix: "a"}).
 		If(dynamo.IRI{Prefix: "a"}.Heir("b")).Should().Equal(dynamo.IRI{"a", "b"}).
@@ -41,6 +45,13 @@ func TestSubIRI(t *testing.T) {
 		If(dynamo.IRI{"a", "b"}.Parent()).Should().Equal(dynamo.IRI{}).
 		If(dynamo.IRI{"a/b", "c"}.Parent()).Should().Equal(dynamo.IRI{"a", "b"}).
 		If(dynamo.IRI{"a/b/c", "d"}.Parent()).Should().Equal(dynamo.IRI{"a/b", "c"})
+}
+
+func TestID(t *testing.T) {
+	it.Ok(t).
+		If(dynamo.ParseID("a/b/c")).Should().Equal(dynamo.ID{dynamo.IRI{"a/b", "c"}}).
+		If(dynamo.ParseID("a/b/c").Parent()).Should().Equal(dynamo.ID{dynamo.IRI{"a", "b"}}).
+		If(dynamo.ParseID("a/b/c").Heir("d")).Should().Equal(dynamo.ID{dynamo.IRI{"a/b/c", "d"}})
 }
 
 type Item struct {
@@ -103,4 +114,10 @@ func TestUnmarshalDynamo(t *testing.T) {
 	it.Ok(t).
 		If(dynamodbattribute.UnmarshalMap(fixtureDdb, &item)).Should().Equal(nil).
 		If(item).Should().Equal(fixtureItem)
+}
+
+func TestIRItoID(t *testing.T) {
+	it.Ok(t).
+		If(dynamo.ParseIRI("a/b").ID()).Should().Equal(dynamo.ID{dynamo.IRI{"a", "b"}}).
+		If(dynamo.ParseID("a/b").Key()).Should().Equal(dynamo.IRI{"a", "b"})
 }
