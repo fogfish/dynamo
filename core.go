@@ -245,7 +245,7 @@ func (iri IRI) Heir(suffix string) IRI {
 // MarshalJSON `IRI ⟼ "/prefix/suffix"`
 func (iri IRI) MarshalJSON() ([]byte, error) {
 	if iri.Prefix == "" && iri.Suffix == "" {
-		return nil, nil
+		return json.Marshal(iri.Path())
 	}
 	return json.Marshal("/" + iri.Path())
 }

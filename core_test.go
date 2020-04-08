@@ -61,16 +61,21 @@ func TestID(t *testing.T) {
 
 type Item struct {
 	dynamo.ID
-	Ref dynamo.IRI `json:"ref"  dynamodbav:"ref,omitempty"`
-	Tag string     `json:"tag"  dynamodbav:"tag,omitempty"`
+	Ref *dynamo.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag string      `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
 }
 
 var fixtureItem Item = Item{
 	ID:  dynamo.ID{dynamo.IRI{"foo/prefix", "suffix"}},
-	Ref: dynamo.IRI{"foo/a", "suffix"},
+	Ref: &dynamo.IRI{"foo/a", "suffix"},
 	Tag: "tag",
 }
 var fixtureJson string = "{\"id\":\"/foo/prefix/suffix\",\"ref\":\"/foo/a/suffix\",\"tag\":\"tag\"}"
+
+var fixtureEmptyItem Item = Item{
+	ID: dynamo.ID{dynamo.IRI{"foo/prefix", "suffix"}},
+}
+var fixtureEmptyJson string = "{\"id\":\"/foo/prefix/suffix\"}"
 
 var fixtureDdb map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{
 	"id":  &dynamodb.AttributeValue{S: aws.String("foo/prefix/suffix")},
@@ -86,12 +91,28 @@ func TestMarshalJSON(t *testing.T) {
 		If(string(bytes)).Should().Equal(fixtureJson)
 }
 
+func TestMarshalEmptyJSON(t *testing.T) {
+	bytes, err := json.Marshal(fixtureEmptyItem)
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(string(bytes)).Should().Equal(fixtureEmptyJson)
+}
+
 func TestUnmarshalJSON(t *testing.T) {
 	var item Item
 
 	it.Ok(t).
 		If(json.Unmarshal([]byte(fixtureJson), &item)).Should().Equal(nil).
 		If(item).Should().Equal(fixtureItem)
+}
+
+func TestUnmarshalEmptyJSON(t *testing.T) {
+	var item Item
+
+	it.Ok(t).
+		If(json.Unmarshal([]byte(fixtureEmptyJson), &item)).Should().Equal(nil).
+		If(item).Should().Equal(fixtureEmptyItem)
 }
 
 func TestUnmarshalInvalidJSON(t *testing.T) {
