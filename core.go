@@ -315,6 +315,21 @@ func (id ID) Key() IRI {
 	return id.IRI
 }
 
+// Path converts IRI to absolute path
+func (id ID) Path() string {
+	return id.IRI.Path()
+}
+
+// Prefix returns IRI prefix
+func (id ID) Prefix() string {
+	return id.IRI.Prefix
+}
+
+// Suffix returns IRI suffix
+func (id ID) Suffix() string {
+	return id.IRI.Suffix
+}
+
 // Parent returns ID that is a prefix of this one.
 func (id ID) Parent() ID {
 	return ID{id.IRI.Parent()}

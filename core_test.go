@@ -48,10 +48,15 @@ func TestHeir(t *testing.T) {
 }
 
 func TestID(t *testing.T) {
+	id := dynamo.ParseID("a/b/c")
+
 	it.Ok(t).
-		If(dynamo.ParseID("a/b/c")).Should().Equal(dynamo.ID{dynamo.IRI{"a/b", "c"}}).
-		If(dynamo.ParseID("a/b/c").Parent()).Should().Equal(dynamo.ID{dynamo.IRI{"a", "b"}}).
-		If(dynamo.ParseID("a/b/c").Heir("d")).Should().Equal(dynamo.ID{dynamo.IRI{"a/b/c", "d"}})
+		If(id).Should().Equal(dynamo.ID{dynamo.IRI{"a/b", "c"}}).
+		If(id.Parent()).Should().Equal(dynamo.ID{dynamo.IRI{"a", "b"}}).
+		If(id.Heir("d")).Should().Equal(dynamo.ID{dynamo.IRI{"a/b/c", "d"}}).
+		If(id.Prefix()).Should().Equal("a/b").
+		If(id.Suffix()).Should().Equal("c").
+		If(id.Path()).Should().Equal("a/b/c")
 }
 
 type Item struct {
