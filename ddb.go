@@ -181,7 +181,7 @@ func (seq *SeqDB) Error() error {
 
 // Match applies a pattern matching to elements in the table
 func (dynamo DB) Match(key Entity) Seq {
-	gen, err := marshal(dynamodbattribute.MarshalMap(key))
+	gen, err := pattern(dynamodbattribute.MarshalMap(key))
 	if err != nil {
 		return &SeqDB{-1, nil, err}
 	}
@@ -218,6 +218,17 @@ func marshal(gen map[string]*dynamodb.AttributeValue, err error) (map[string]*dy
 		gen["suffix"] = &dynamodb.AttributeValue{S: aws.String(iri.Suffix)}
 	}
 
+	delete(gen, "id")
+	return gen, nil
+}
+
+//
+func pattern(gen map[string]*dynamodb.AttributeValue, err error) (map[string]*dynamodb.AttributeValue, error) {
+	if err != nil {
+		return nil, err
+	}
+
+	gen["prefix"] = &dynamodb.AttributeValue{S: gen["id"].S}
 	delete(gen, "id")
 	return gen, nil
 }
