@@ -45,7 +45,7 @@ func TestS3Update(t *testing.T) {
 
 func TestS3Match(t *testing.T) {
 	cnt := 0
-	seq := apiS3().Match(dynamo.NewID("dead", ""))
+	seq := apiS3().Match(dynamo.NewID("dead"))
 
 	for seq.Tail() {
 		cnt++

@@ -59,7 +59,7 @@ func TestDdbUpdate(t *testing.T) {
 
 func TestDdbMatch(t *testing.T) {
 	cnt := 0
-	seq := apiDB().Match(dynamo.NewID("dead", ""))
+	seq := apiDB().Match(dynamo.NewID("dead"))
 
 	for seq.Tail() {
 		cnt++
