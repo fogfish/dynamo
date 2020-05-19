@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/fogfish/dynamo"
 	"github.com/fogfish/iri"
 	"github.com/fogfish/it"
 )
@@ -81,4 +82,10 @@ func TestUnmarshalDynamo(t *testing.T) {
 	it.Ok(t).
 		If(dynamodbattribute.UnmarshalMap(fixtureDdb, &item)).Should().Equal(nil).
 		If(item).Should().Equal(fixtureItem)
+}
+
+func TestNew(t *testing.T) {
+	it.Ok(t).
+		If(dynamo.Must(dynamo.New("ddb:///a"))).ShouldNot().Equal(nil).
+		If(dynamo.Must(dynamo.New("s3:///a"))).ShouldNot().Equal(nil)
 }
