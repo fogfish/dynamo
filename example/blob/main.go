@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/fogfish/dynamo"
+	"github.com/fogfish/iri"
 )
 
 func main() {
@@ -17,7 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	in, err := db.Recv(dynamo.ParseID(os.Args[2]))
+	in, err := db.Recv(iri.New(os.Args[2]))
 	if err != nil {
 		panic(err)
 	}

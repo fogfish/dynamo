@@ -38,7 +38,7 @@
 // strongly expressed by struct in Go.
 //
 //   type Person struct {
-//     dynamo.ID
+//     iri.IRI
 //     Name    string `dynamodbav:"name,omitempty"`
 //     Age     int    `dynamodbav:"age,omitempty"`
 //     Address string `dynamodbav:"address,omitempty"`
@@ -56,7 +56,7 @@
 // Creates a new entity, or replaces an old entity with a new value.
 //   err := db.Put(
 //     Person{
-//       dynamo.UID("dead", "beef"),
+//       iri.New("dead:beef"),
 //       "Verner Pleishner",
 //       64,
 //       "Blumenstrasse 14, Berne, 3013",
@@ -64,23 +64,32 @@
 //   )
 //
 // Lookup the entity
-//   person := Person{ID: dynamo.UID("dead", "beef")}
+//   person := Person{IRI: iri.New("dead:beef")}
 //   err := db.Get(&person)
 //
 // Remove the entity
-//   err := db.Remove(dynamo.UID("dead", "beef"))
+//   err := db.Remove(iri.New("dead:beef"))
 //
 // Partial update of the entity
-//   err := db.Update(Person{ID: dynamo.UID("dead", "beef"), Age: 65})
+//   err := db.Update(Person{IRI: iri.New("dead:beef"), Age: 65})
 //
 // Lookup sequence of items
-//   seq := db.Match(dynamo.Prefix("dead"))
+//   seq := db.Match(iri.New("dead"))
 //   for seq.Tail() {
 //	   val := &Person{}
 //     err := seq.Head(val)
 //     ...
 //   }
 //
+// Use following DynamoDB schema:
+//
+//   const Schema = (): ddb.TableProps => ({
+// 	   partitionKey: {type: ddb.AttributeType.STRING, name: 'prefix'},
+// 	   sortKey: {type: ddb.AttributeType.STRING, name: 'suffix'},
+// 	   tableName: 'my-table',
+// 	   readCapacity: 1,
+// 	   writeCapacity: 1,
+//   })
 //
 // Linked data
 //
@@ -88,11 +97,11 @@
 // Use `dynamo.IRI` type to model relations between data instances
 //
 //   type Person struct {
-//     dynamo.ID
-//     Account dynamo.IRI `dynamodbav:"name,omitempty"`
+//     iri.IRI
+//     Account *iri.Compact `dynamodbav:"name,omitempty"`
 //   }
 //
-// `dynamo.ID` and `dynamo.IRI` are equivalent data types. The first one
+// `iri.IRI` and `iri.Compact` are equivalent data types. The first one
 // is used as primary key, the latter one is a linked identity.
 //
 // Use with AWS DynamoDB
@@ -109,31 +118,21 @@
 //
 // ↣ create I/O handler using s3 schema `dynamo.New("s3:///my-bucket")`
 //
-// ↣ primary key `dynamo.ID` is serialized to S3 bucket path `prefix/suffix`
+// ↣ primary key `iri.IRI` is serialized to S3 bucket path `prefix/suffix`
 //
 // ↣ storage persists struct to JSON, use `json` field tags to specify
 // serialization rules
 package dynamo
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/url"
-	"path"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/fogfish/iri"
 )
-
-//
-// Entity is a "type tag". It ensures type-safe property of KeyVal interface
-type Entity interface {
-	Key() IRI
-}
 
 //
 // KeyVal is a generic key-value trait to access domain objects.
@@ -144,15 +143,15 @@ type KeyVal interface {
 
 // KeyValPure defines a generic key-value I/O
 type KeyValPure interface {
-	Put(Entity) error
-	Get(Entity) error
-	Remove(Entity) error
-	Update(Entity) error
+	Put(iri.Thing) error
+	Get(iri.Thing) error
+	Remove(iri.Thing) error
+	Update(iri.Thing) error
 }
 
 // KeyValPattern defines simples pattern matching lookup I/O
 type KeyValPattern interface {
-	Match(Entity) Seq
+	Match(iri.Thing) Seq
 }
 
 //
@@ -165,200 +164,24 @@ type KeyValPattern interface {
 //
 //   if err := seq.Error(); err != nil { ... }
 type Seq interface {
-	Head(Entity) error
+	Head(iri.Thing) error
 	Tail() bool
 	Error() error
 }
 
 // Blob is a generic byte stream trait to access large binary data
 type Blob interface {
-	Recv(Entity) (io.ReadCloser, error)
-}
-
-//
-// IRI is a compact Internationalized Resource Identifier.
-//
-// Use following DynamoDB schema:
-//   const Schema = (): ddb.TableProps => ({
-// 	   partitionKey: {type: ddb.AttributeType.STRING, name: 'prefix'},
-// 	   sortKey: {type: ddb.AttributeType.STRING, name: 'suffix'},
-// 	   tableName: 'my-table',
-// 	   readCapacity: 1,
-// 	   writeCapacity: 1,
-//   })
-//
-// Use following S3 keys
-//   prefix/suffix
-type IRI struct {
-	Prefix string
-	Suffix string
-}
-
-// ParseIRI parses string to IRI type
-func ParseIRI(s string) IRI {
-	seq := strings.Split(s, "/")
-	if len(seq) == 1 {
-		return IRI{Prefix: s}
-	}
-	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
-}
-
-// NewIRI creates new IRI type
-func NewIRI(prefix string, suffix ...string) IRI {
-	if len(suffix) == 0 {
-		return IRI{Prefix: prefix}
-	}
-
-	return IRI{Prefix: prefix, Suffix: suffix[0]}
-}
-
-// ID converts IRI to ID type
-func (iri IRI) ID() ID {
-	return ID{iri}
-}
-
-// Path converts IRI to absolute path
-func (iri IRI) Path() string {
-	if iri.Prefix == "" && iri.Suffix == "" {
-		return ""
-	}
-	return path.Join(iri.Prefix, iri.Suffix)
-}
-
-// Parent returns IRI that is a prefix of this one.
-func (iri IRI) Parent() IRI {
-	seq := strings.Split(iri.Prefix, "/")
-	if len(seq) == 1 {
-		return IRI{}
-	}
-	return IRI{path.Join(seq[0 : len(seq)-1]...), seq[len(seq)-1]}
-}
-
-// Heir returns a IRI that descendant of this one.
-func (iri IRI) Heir(suffix string) IRI {
-	if iri.Prefix == "" && iri.Suffix == "" {
-		return IRI{Prefix: suffix}
-	}
-	return IRI{path.Join(iri.Prefix, iri.Suffix), suffix}
-}
-
-// MarshalJSON `IRI ⟼ "/prefix/suffix"`
-func (iri IRI) MarshalJSON() ([]byte, error) {
-	if iri.Prefix == "" && iri.Suffix == "" {
-		return json.Marshal(iri.Path())
-	}
-	return json.Marshal("/" + iri.Path())
-}
-
-// UnmarshalJSON `"/prefix/suffix" ⟼ IRI`
-func (iri *IRI) UnmarshalJSON(b []byte) error {
-	path := ""
-	err := json.Unmarshal(b, &path)
-	if err != nil {
-		return err
-	}
-
-	if path[0] != '/' {
-		return InvalidIRI{string(b)}
-	}
-
-	*iri = ParseIRI(path[1:])
-	return nil
-}
-
-// MarshalDynamoDBAttributeValue `IRI ⟼ "prefix/suffix"`
-func (iri IRI) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	if iri.Prefix == "" && iri.Suffix == "" {
-		av.NULL = aws.Bool(true)
-		return nil
-	}
-
-	val, err := dynamodbattribute.Marshal(iri.Path())
-	if err != nil {
-		return err
-	}
-
-	av.S = val.S
-	return nil
-}
-
-// UnmarshalDynamoDBAttributeValue `"prefix/suffix" ⟼ IRI`
-func (iri *IRI) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	path := aws.StringValue(av.S)
-
-	*iri = ParseIRI(path)
-	return nil
-}
-
-// ID is a primary key for Entities
-type ID struct {
-	IRI IRI `dynamodbav:"id" json:"id"`
-}
-
-// ParseID parses string to ID type
-func ParseID(s string) ID {
-	return ID{ParseIRI(s)}
-}
-
-// NewID creates unique
-func NewID(prefix string, suffix ...string) ID {
-	if len(suffix) == 0 {
-		return ID{IRI{Prefix: prefix}}
-	}
-
-	return ID{IRI{Prefix: prefix, Suffix: suffix[0]}}
-}
-
-// Key return reference to primary key.
-// The function adopts any type which embeds dynamo.ID into Entity interface
-func (id ID) Key() IRI {
-	return id.IRI
-}
-
-// Path converts IRI to absolute path
-func (id ID) Path() string {
-	return id.IRI.Path()
-}
-
-// Prefix returns IRI prefix
-func (id ID) Prefix() string {
-	return id.IRI.Prefix
-}
-
-// Suffix returns IRI suffix
-func (id ID) Suffix() string {
-	return id.IRI.Suffix
-}
-
-// Parent returns ID that is a prefix of this one.
-func (id ID) Parent() ID {
-	return ID{id.IRI.Parent()}
-}
-
-// Heir returns a ID that descendant of this one.
-func (id ID) Heir(suffix string) ID {
-	return ID{id.IRI.Heir(suffix)}
+	Recv(iri.Thing) (io.ReadCloser, error)
 }
 
 //
 // NotFound is an error to handle unknown elements
 type NotFound struct {
-	Key IRI
+	Key string
 }
 
 func (e NotFound) Error() string {
 	return fmt.Sprintf("Not Found %v", e.Key)
-}
-
-//
-// InvalidIRI is caused by JSON unmarshal if text representation of
-// IRI type is not valid
-type InvalidIRI struct {
-	IRI string
-}
-
-func (e InvalidIRI) Error() string {
-	return fmt.Sprintf("Invalid IRI %v", e.IRI)
 }
 
 //

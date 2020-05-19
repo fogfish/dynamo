@@ -11,11 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/fogfish/dynamo"
+	"github.com/fogfish/iri"
 	"github.com/fogfish/it"
 )
 
 func TestS3Get(t *testing.T) {
-	val := person{ID: dynamo.NewID("dead", "beef")}
+	val := person{IRI: iri.New("dead:beef")}
 	err := apiS3().Get(&val)
 
 	it.Ok(t).
@@ -33,7 +34,7 @@ func TestS3Remove(t *testing.T) {
 
 func TestS3Update(t *testing.T) {
 	val := person{
-		ID:  dynamo.NewID("dead", "beef"),
+		IRI: iri.New("dead:beef"),
 		Age: 64,
 	}
 	err := apiS3().Update(&val)
@@ -45,7 +46,7 @@ func TestS3Update(t *testing.T) {
 
 func TestS3Match(t *testing.T) {
 	cnt := 0
-	seq := apiS3().Match(dynamo.NewID("dead"))
+	seq := apiS3().Match(iri.New("dead"))
 
 	for seq.Tail() {
 		cnt++
