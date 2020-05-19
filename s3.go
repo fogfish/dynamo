@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/fogfish/iri"
 )
 
 // S3 is a service connection handle
@@ -41,17 +42,17 @@ func (dynamo *S3) Mock(db s3iface.S3API) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo S3) Get(entity Entity) (err error) {
+func (dynamo S3) Get(entity iri.Thing) (err error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Key().Path()),
+		Key:    aws.String(entity.Identity().Path()),
 	}
 	val, err := dynamo.db.GetObject(req)
 	if err != nil {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == s3.ErrCodeNoSuchKey {
-				return NotFound{entity.Key()}
+				return NotFound{entity.Identity().Path()}
 			}
 			return err
 		default:
@@ -64,7 +65,7 @@ func (dynamo S3) Get(entity Entity) (err error) {
 }
 
 // Put writes entity
-func (dynamo S3) Put(entity Entity) (err error) {
+func (dynamo S3) Put(entity iri.Thing) (err error) {
 	gen, err := json.Marshal(entity)
 	if err != nil {
 		return
@@ -72,7 +73,7 @@ func (dynamo S3) Put(entity Entity) (err error) {
 
 	req := &s3.PutObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Key().Path()),
+		Key:    aws.String(entity.Identity().Path()),
 		Body:   aws.ReadSeekCloser(bytes.NewReader(gen)),
 	}
 
@@ -81,10 +82,10 @@ func (dynamo S3) Put(entity Entity) (err error) {
 }
 
 // Remove discards the entity from the bucket
-func (dynamo S3) Remove(entity Entity) (err error) {
+func (dynamo S3) Remove(entity iri.Thing) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Key().Path()),
+		Key:    aws.String(entity.Identity().Path()),
 	}
 
 	_, err = dynamo.db.DeleteObject(req)
@@ -93,7 +94,7 @@ func (dynamo S3) Remove(entity Entity) (err error) {
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo S3) Update(entity Entity) (err error) {
+func (dynamo S3) Update(entity iri.Thing) (err error) {
 	par, err := dynamodbattribute.MarshalMap(entity)
 	if err != nil {
 		return
@@ -133,7 +134,7 @@ type SeqS3 struct {
 }
 
 // Head selects the first element of matched collection.
-func (seq *SeqS3) Head(v Entity) error {
+func (seq *SeqS3) Head(v iri.Thing) error {
 	if seq.at == -1 {
 		seq.at++
 	}
@@ -162,11 +163,11 @@ func (seq *SeqS3) Error() error {
 }
 
 // Match applies a pattern matching to elements in the bucket
-func (dynamo S3) Match(key Entity) Seq {
+func (dynamo S3) Match(key iri.Thing) Seq {
 	req := &s3.ListObjectsV2Input{
 		Bucket:  dynamo.bucket,
 		MaxKeys: aws.Int64(1000),
-		Prefix:  aws.String(key.Key().Prefix),
+		Prefix:  aws.String(key.Identity().Path()),
 	}
 
 	val, err := dynamo.db.ListObjectsV2(req)
@@ -189,10 +190,10 @@ func (dynamo S3) Match(key Entity) Seq {
 //-----------------------------------------------------------------------------
 
 // Recv establishes bytes stream to S3 object
-func (dynamo S3) Recv(entity Entity) (io.ReadCloser, error) {
+func (dynamo S3) Recv(entity iri.Thing) (io.ReadCloser, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Key().Path()),
+		Key:    aws.String(entity.Identity().Path()),
 	}
 
 	item, _ := dynamo.db.GetObjectRequest(req)

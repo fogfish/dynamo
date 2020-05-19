@@ -9,11 +9,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/fogfish/dynamo"
+	"github.com/fogfish/iri"
 	"github.com/fogfish/it"
 )
 
 type person struct {
-	dynamo.ID
+	iri.IRI
 	Name    string `dynamodbav:"name,omitempty"`
 	Age     int    `dynamodbav:"age,omitempty"`
 	Address string `dynamodbav:"address,omitempty"`
@@ -21,7 +22,7 @@ type person struct {
 
 func entity() person {
 	return person{
-		ID:      dynamo.NewID("dead", "beef"),
+		IRI:     iri.New("dead:beef"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -29,7 +30,7 @@ func entity() person {
 }
 
 func TestDdbGet(t *testing.T) {
-	val := person{ID: dynamo.NewID("dead", "beef")}
+	val := person{IRI: iri.New("dead:beef")}
 	err := apiDB().Get(&val)
 
 	it.Ok(t).
@@ -47,7 +48,7 @@ func TestDdbRemove(t *testing.T) {
 
 func TestDdbUpdate(t *testing.T) {
 	val := person{
-		ID:  dynamo.NewID("dead", "beef"),
+		IRI: iri.New("dead:beef"),
 		Age: 65,
 	}
 	err := apiDB().Update(&val)
@@ -59,7 +60,7 @@ func TestDdbUpdate(t *testing.T) {
 
 func TestDdbMatch(t *testing.T) {
 	cnt := 0
-	seq := apiDB().Match(dynamo.NewID("dead"))
+	seq := apiDB().Match(iri.New("dead"))
 
 	for seq.Tail() {
 		cnt++

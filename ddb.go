@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/fogfish/iri"
 )
 
 // DB is a service connection handle
@@ -44,7 +45,7 @@ func (dynamo *DB) Mock(db dynamodbiface.DynamoDBAPI) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo DB) Get(entity Entity) (err error) {
+func (dynamo DB) Get(entity iri.Thing) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -60,9 +61,7 @@ func (dynamo DB) Get(entity Entity) (err error) {
 	}
 
 	if val.Item == nil {
-		prefix, _ := gen["prefix"]
-		suffix, _ := gen["suffix"]
-		err = NotFound{IRI{aws.StringValue(prefix.S), aws.StringValue(suffix.S)}}
+		err = NotFound{entity.Identity().Compact().String()}
 		return
 	}
 
@@ -76,7 +75,7 @@ func (dynamo DB) Get(entity Entity) (err error) {
 }
 
 // Put writes entity
-func (dynamo DB) Put(entity Entity) (err error) {
+func (dynamo DB) Put(entity iri.Thing) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -92,7 +91,7 @@ func (dynamo DB) Put(entity Entity) (err error) {
 }
 
 // Remove discards the entity from the table
-func (dynamo DB) Remove(entity Entity) (err error) {
+func (dynamo DB) Remove(entity iri.Thing) (err error) {
 
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
@@ -108,7 +107,7 @@ func (dynamo DB) Remove(entity Entity) (err error) {
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo DB) Update(entity Entity) (err error) {
+func (dynamo DB) Update(entity iri.Thing) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -157,7 +156,7 @@ type SeqDB struct {
 }
 
 // Head selects the first element of matched collection.
-func (seq *SeqDB) Head(v Entity) error {
+func (seq *SeqDB) Head(v iri.Thing) error {
 	if seq.at == -1 {
 		seq.at++
 	}
@@ -180,7 +179,7 @@ func (seq *SeqDB) Error() error {
 }
 
 // Match applies a pattern matching to elements in the table
-func (dynamo DB) Match(key Entity) Seq {
+func (dynamo DB) Match(key iri.Thing) Seq {
 	gen, err := pattern(dynamodbattribute.MarshalMap(key))
 	if err != nil {
 		return &SeqDB{-1, nil, err}
@@ -190,6 +189,7 @@ func (dynamo DB) Match(key Entity) Seq {
 		KeyConditionExpression:    aws.String("prefix = :prefix"),
 		ExpressionAttributeValues: exprOf(gen),
 		TableName:                 dynamo.table,
+		// ScanIndexForward:          aws.Bool(false),
 	}
 	val, err := dynamo.db.Query(req)
 	if err != nil {
@@ -211,11 +211,10 @@ func marshal(gen map[string]*dynamodb.AttributeValue, err error) (map[string]*dy
 		return nil, err
 	}
 
-	iri := ParseIRI(aws.StringValue(gen["id"].S))
-	gen["prefix"] = &dynamodb.AttributeValue{S: aws.String(iri.Prefix)}
-
-	if iri.Suffix != "" {
-		gen["suffix"] = &dynamodb.AttributeValue{S: aws.String(iri.Suffix)}
+	iri := iri.New(aws.StringValue(gen["id"].S))
+	gen["prefix"] = &dynamodb.AttributeValue{S: aws.String(iri.Prefix())}
+	if iri.Suffix() != "" {
+		gen["suffix"] = &dynamodb.AttributeValue{S: aws.String(iri.Suffix())}
 	}
 
 	delete(gen, "id")
@@ -241,8 +240,8 @@ func unmarshal(ddb map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.At
 		return nil, errors.New("Invalid DDB schema")
 	}
 
-	iri := IRI{aws.StringValue(prefix.S), aws.StringValue(suffix.S)}
-	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.Path())}
+	iri := iri.New(aws.StringValue(prefix.S)).Heir(aws.StringValue(suffix.S))
+	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.Compact().String())}
 
 	delete(ddb, "prefix")
 	delete(ddb, "suffix")
