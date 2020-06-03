@@ -63,6 +63,20 @@ func TestS3Match(t *testing.T) {
 		If(cnt).Should().Equal(2)
 }
 
+func TestS3MatchWithFMap(t *testing.T) {
+	seq, err := apiS3().Match(iri.New("dead")).FMap(
+		func(gen dynamo.Gen) (iri.Thing, error) {
+			val := &person{}
+			return gen.To(val)
+		},
+	)
+
+	thing := entity()
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(seq).Should().Equal([]iri.Thing{&thing, &thing})
+}
+
 //-----------------------------------------------------------------------------
 //
 // Mock S3

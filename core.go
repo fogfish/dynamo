@@ -155,18 +155,37 @@ type KeyValPattern interface {
 }
 
 //
-// Seq is an interface iterate through collection of objects
-//   for seq.Tail() {
-//	   val := &Person{}
-//     err := seq.Head(val)
-//     ...
-//   }
+// Seq is an interface to transform collection of objects
 //
-//   if err := seq.Error(); err != nil { ... }
+//   db.Match(iri.New("users")).FMap(func(gen Gen) (iri.Thing, error) {
+//      val = &Person{}
+//      return gen.To(val)
+//   })
 type Seq interface {
+	SeqLazy
+
+	// Sequence transformer
+	FMap(FMap) ([]iri.Thing, error)
+}
+
+// SeqLazy is an interface to iterate through collection of objects
+type SeqLazy interface {
+	// Head lifts first element of sequence
 	Head(iri.Thing) error
+	// Tail evaluates tail of sequence
 	Tail() bool
+	// Error returns error of stream evaluation
 	Error() error
+}
+
+//
+// FMap is a transformer of generic representation to concrete type
+type FMap func(Gen) (iri.Thing, error)
+
+//
+// Gen is a generic representation of storage type
+type Gen interface {
+	To(iri.Thing) (iri.Thing, error)
 }
 
 // Blob is a generic byte stream trait to access large binary data

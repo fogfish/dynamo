@@ -148,33 +148,56 @@ func (dynamo DB) Update(entity iri.Thing) (err error) {
 //
 //-----------------------------------------------------------------------------
 
-// SeqDB is an iterator over match results
-type SeqDB struct {
+// dbSeq is an iterator over matched results
+type dbSeq struct {
 	at    int
 	items []map[string]*dynamodb.AttributeValue
 	err   error
 }
 
+// dbGen is type alias for generic representation
+type dbGen map[string]*dynamodb.AttributeValue
+
+// Lifts generic representation to Thing
+func (gen dbGen) To(thing iri.Thing) (iri.Thing, error) {
+	item, err := unmarshal(gen)
+	if err != nil {
+		return nil, err
+	}
+	err = dynamodbattribute.UnmarshalMap(item, thing)
+	return thing, err
+}
+
+// FMap transforms sequence
+func (seq *dbSeq) FMap(f FMap) ([]iri.Thing, error) {
+	things := []iri.Thing{}
+	for _, entity := range seq.items {
+		thing, err := f(dbGen(entity))
+		if err != nil {
+			return nil, err
+		}
+		things = append(things, thing)
+	}
+	return things, nil
+}
+
 // Head selects the first element of matched collection.
-func (seq *SeqDB) Head(v iri.Thing) error {
+func (seq *dbSeq) Head(thing iri.Thing) error {
 	if seq.at == -1 {
 		seq.at++
 	}
-	item, err := unmarshal(seq.items[seq.at])
-	if err != nil {
-		return err
-	}
-	return dynamodbattribute.UnmarshalMap(item, v)
+	_, err := dbGen(seq.items[seq.at]).To(thing)
+	return err
 }
 
 // Tail selects the all elements except the first one
-func (seq *SeqDB) Tail() bool {
+func (seq *dbSeq) Tail() bool {
 	seq.at++
 	return seq.err == nil && seq.at < len(seq.items)
 }
 
 // Error indicates if any error appears during I/O
-func (seq *SeqDB) Error() error {
+func (seq *dbSeq) Error() error {
 	return seq.err
 }
 
@@ -182,7 +205,7 @@ func (seq *SeqDB) Error() error {
 func (dynamo DB) Match(key iri.Thing) Seq {
 	gen, err := pattern(dynamodbattribute.MarshalMap(key))
 	if err != nil {
-		return &SeqDB{-1, nil, err}
+		return &dbSeq{-1, nil, err}
 	}
 
 	req := &dynamodb.QueryInput{
@@ -193,10 +216,10 @@ func (dynamo DB) Match(key iri.Thing) Seq {
 	}
 	val, err := dynamo.db.Query(req)
 	if err != nil {
-		return &SeqDB{-1, nil, err}
+		return &dbSeq{-1, nil, err}
 	}
 
-	return &SeqDB{-1, val.Items, nil}
+	return &dbSeq{-1, val.Items, nil}
 }
 
 //-----------------------------------------------------------------------------

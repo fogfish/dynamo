@@ -77,6 +77,20 @@ func TestDdbMatch(t *testing.T) {
 		If(cnt).Should().Equal(2)
 }
 
+func TestDdbMatchWithFMap(t *testing.T) {
+	seq, err := apiDB().Match(iri.New("dead")).FMap(
+		func(gen dynamo.Gen) (iri.Thing, error) {
+			val := &person{}
+			return gen.To(val)
+		},
+	)
+
+	thing := entity()
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(seq).Should().Equal([]iri.Thing{&thing, &thing})
+}
+
 //-----------------------------------------------------------------------------
 //
 // Mock Dynamo DB
