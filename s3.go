@@ -125,40 +125,66 @@ func (dynamo S3) Update(entity iri.Thing) (err error) {
 //
 //-----------------------------------------------------------------------------
 
-// SeqS3 is an iterator over match results
-type SeqS3 struct {
+// s3Seq is an iterator over matched results
+type s3Seq struct {
 	at    int
 	items []*string
 	err   error
 	s3    *S3
 }
 
+// s3Gen is type alias for generic representation
+type s3Gen struct {
+	s3  *S3
+	key *string
+}
+
+// Lifts generic representation to Thing
+func (gen s3Gen) To(thing iri.Thing) (iri.Thing, error) {
+	req := &s3.GetObjectInput{
+		Bucket: gen.s3.bucket,
+		Key:    gen.key,
+	}
+	val, err := gen.s3.db.GetObject(req)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.NewDecoder(val.Body).Decode(thing)
+	return thing, err
+}
+
+// FMap transforms sequence
+func (seq *s3Seq) FMap(f FMap) ([]iri.Thing, error) {
+	things := []iri.Thing{}
+	for _, entity := range seq.items {
+		thing, err := f(s3Gen{s3: seq.s3, key: entity})
+		if err != nil {
+			return nil, err
+		}
+		things = append(things, thing)
+	}
+	return things, nil
+}
+
 // Head selects the first element of matched collection.
-func (seq *SeqS3) Head(v iri.Thing) error {
+func (seq *s3Seq) Head(thing iri.Thing) error {
 	if seq.at == -1 {
 		seq.at++
 	}
 
-	req := &s3.GetObjectInput{
-		Bucket: seq.s3.bucket,
-		Key:    seq.items[seq.at],
-	}
-	val, err := seq.s3.db.GetObject(req)
-	if err != nil {
-		seq.err = err
-		return err
-	}
-	return json.NewDecoder(val.Body).Decode(v)
+	_, err := s3Gen{s3: seq.s3, key: seq.items[seq.at]}.To(thing)
+	return err
 }
 
 // Tail selects the all elements except the first one
-func (seq *SeqS3) Tail() bool {
+func (seq *s3Seq) Tail() bool {
 	seq.at++
 	return seq.err == nil && seq.at < len(seq.items)
 }
 
 // Error indicates if any error appears during I/O
-func (seq *SeqS3) Error() error {
+func (seq *s3Seq) Error() error {
 	return seq.err
 }
 
@@ -172,7 +198,7 @@ func (dynamo S3) Match(key iri.Thing) Seq {
 
 	val, err := dynamo.db.ListObjectsV2(req)
 	if err != nil {
-		return &SeqS3{-1, nil, err, nil}
+		return &s3Seq{-1, nil, err, nil}
 	}
 
 	items := make([]*string, 0)
@@ -180,7 +206,7 @@ func (dynamo S3) Match(key iri.Thing) Seq {
 		items = append(items, x.Key)
 	}
 
-	return &SeqS3{-1, items, nil, &dynamo}
+	return &s3Seq{-1, items, nil, &dynamo}
 }
 
 //-----------------------------------------------------------------------------
