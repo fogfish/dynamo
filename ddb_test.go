@@ -77,6 +77,17 @@ func TestDdbMatch(t *testing.T) {
 		If(cnt).Should().Equal(2)
 }
 
+func TestDdbMatchHead(t *testing.T) {
+	seq := apiDB().Match(iri.New("dead"))
+
+	val := person{}
+	err := seq.Head(&val)
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(val).Should().Equal(entity())
+}
+
 //
 // Use type aliases and methods to implement FMap
 type persons []person

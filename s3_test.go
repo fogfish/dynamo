@@ -63,6 +63,17 @@ func TestS3Match(t *testing.T) {
 		If(cnt).Should().Equal(2)
 }
 
+func TestS3MatchHead(t *testing.T) {
+	seq := apiS3().Match(iri.New("dead"))
+
+	val := person{}
+	err := seq.Head(&val)
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(val).Should().Equal(entity())
+}
+
 func TestS3MatchWithFMap(t *testing.T) {
 	pseq := persons{}
 	tseq, err := apiS3().Match(iri.New("dead")).FMap(pseq.Join)
