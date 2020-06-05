@@ -159,13 +159,12 @@ type dbSeq struct {
 type dbGen map[string]*dynamodb.AttributeValue
 
 // Lifts generic representation to Thing
-func (gen dbGen) To(thing iri.Thing) (iri.Thing, error) {
+func (gen dbGen) To(thing iri.Thing) error {
 	item, err := unmarshal(gen)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	err = dynamodbattribute.UnmarshalMap(item, thing)
-	return thing, err
+	return dynamodbattribute.UnmarshalMap(item, thing)
 }
 
 // FMap transforms sequence
@@ -186,8 +185,7 @@ func (seq *dbSeq) Head(thing iri.Thing) error {
 	if seq.at == -1 {
 		seq.at++
 	}
-	_, err := dbGen(seq.items[seq.at]).To(thing)
-	return err
+	return dbGen(seq.items[seq.at]).To(thing)
 }
 
 // Tail selects the all elements except the first one
