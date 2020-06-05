@@ -77,18 +77,39 @@ func TestDdbMatch(t *testing.T) {
 		If(cnt).Should().Equal(2)
 }
 
+func TestDdbMatchHead(t *testing.T) {
+	seq := apiDB().Match(iri.New("dead"))
+
+	val := person{}
+	err := seq.Head(&val)
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(val).Should().Equal(entity())
+}
+
+//
+// Use type aliases and methods to implement FMap
+type persons []person
+
+func (seq *persons) Join(gen dynamo.Gen) (iri.Thing, error) {
+	val := person{}
+	if fail := gen.To(&val); fail != nil {
+		return nil, fail
+	}
+	*seq = append(*seq, val)
+	return &val, nil
+}
+
 func TestDdbMatchWithFMap(t *testing.T) {
-	seq, err := apiDB().Match(iri.New("dead")).FMap(
-		func(gen dynamo.Gen) (iri.Thing, error) {
-			val := &person{}
-			return gen.To(val)
-		},
-	)
+	pseq := persons{}
+	tseq, err := apiDB().Match(iri.New("dead")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(seq).Should().Equal([]iri.Thing{&thing, &thing})
+		If(tseq).Should().Equal([]iri.Thing{&thing, &thing}).
+		If(pseq).Should().Equal(persons{thing, thing})
 }
 
 //-----------------------------------------------------------------------------

@@ -185,7 +185,7 @@ type FMap func(Gen) (iri.Thing, error)
 //
 // Gen is a generic representation of storage type
 type Gen interface {
-	To(iri.Thing) (iri.Thing, error)
+	To(iri.Thing) error
 }
 
 // Blob is a generic byte stream trait to access large binary data

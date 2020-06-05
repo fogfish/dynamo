@@ -140,18 +140,17 @@ type s3Gen struct {
 }
 
 // Lifts generic representation to Thing
-func (gen s3Gen) To(thing iri.Thing) (iri.Thing, error) {
+func (gen s3Gen) To(thing iri.Thing) error {
 	req := &s3.GetObjectInput{
 		Bucket: gen.s3.bucket,
 		Key:    gen.key,
 	}
 	val, err := gen.s3.db.GetObject(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = json.NewDecoder(val.Body).Decode(thing)
-	return thing, err
+	return json.NewDecoder(val.Body).Decode(thing)
 }
 
 // FMap transforms sequence
@@ -173,8 +172,7 @@ func (seq *s3Seq) Head(thing iri.Thing) error {
 		seq.at++
 	}
 
-	_, err := s3Gen{s3: seq.s3, key: seq.items[seq.at]}.To(thing)
-	return err
+	return s3Gen{s3: seq.s3, key: seq.items[seq.at]}.To(thing)
 }
 
 // Tail selects the all elements except the first one

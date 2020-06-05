@@ -63,18 +63,26 @@ func TestS3Match(t *testing.T) {
 		If(cnt).Should().Equal(2)
 }
 
+func TestS3MatchHead(t *testing.T) {
+	seq := apiS3().Match(iri.New("dead"))
+
+	val := person{}
+	err := seq.Head(&val)
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(val).Should().Equal(entity())
+}
+
 func TestS3MatchWithFMap(t *testing.T) {
-	seq, err := apiS3().Match(iri.New("dead")).FMap(
-		func(gen dynamo.Gen) (iri.Thing, error) {
-			val := &person{}
-			return gen.To(val)
-		},
-	)
+	pseq := persons{}
+	tseq, err := apiS3().Match(iri.New("dead")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(seq).Should().Equal([]iri.Thing{&thing, &thing})
+		If(tseq).Should().Equal([]iri.Thing{&thing, &thing}).
+		If(pseq).Should().Equal(persons{thing, thing})
 }
 
 //-----------------------------------------------------------------------------

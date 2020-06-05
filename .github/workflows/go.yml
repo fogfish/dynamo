@@ -1,0 +1,77 @@
+name: Go
+on: [push, pull_request]
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+  
+    ##
+    ##
+    - name: golang
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.14
+      id: go
+
+    ##
+    ##
+    - name: fix GOPATH
+      run: |
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
+      shell: bash
+
+    ##
+    ##
+    - name: checkout
+      uses: actions/checkout@v2
+      with:
+        path: src/github.com/${{ github.repository }}
+
+    ##
+    ##
+    - name: go get tools
+      run: |
+        go get golang.org/x/lint/golint
+        go get github.com/mattn/goveralls
+        go get github.com/go-playground/overalls
+
+    ##
+    ##
+    - name: go get deps
+      run: |
+        go get -v -t -d github.com/${{ github.repository }}/...
+    
+    ##
+    ##
+    - name: go build
+      run: go build -v github.com/${{ github.repository }}/...
+
+    ##
+    ##
+    - name: go test
+      run: go test github.com/${{ github.repository }}/...
+
+    ##
+    ##
+    - name: coverage
+      env:
+        COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        overalls -project=github.com/${{ github.repository }}
+        goveralls -coverprofile=$(go env GOPATH)/src/github.com/${{ github.repository }}/overalls.coverprofile -service=github
+
+    ##
+    ##
+    - name: go vet
+      run: go vet github.com/${{ github.repository }}/...
+
+    ##
+    ##
+    - name: golint
+      run: |
+        golint -set_exit_status github.com/${{ github.repository }}/...
