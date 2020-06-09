@@ -13,27 +13,27 @@ import (
 )
 
 type Item struct {
-	iri.IRI
-	Ref *iri.Compact `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
-	Tag string       `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
+	iri.ID
+	Ref *iri.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag string   `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
 }
 
 var fixtureItem Item = Item{
-	IRI: iri.New("foo:prefix:suffix"),
-	Ref: iri.New("foo:a:suffix").Compact(),
+	ID:  iri.New("foo:prefix:suffix"),
+	Ref: iri.New("foo:a:suffix").ToIRI(),
 	Tag: "tag",
 }
 var fixtureJson string = "{\"id\":\"foo:prefix:suffix\",\"ref\":\"foo:a:suffix\",\"tag\":\"tag\"}"
 
 var fixtureEmptyItem Item = Item{
-	IRI: iri.New("foo:prefix:suffix"),
+	ID: iri.New("foo:prefix:suffix"),
 }
 var fixtureEmptyJson string = "{\"id\":\"foo:prefix:suffix\"}"
 
 var fixtureDdb map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{
-	"id":  &dynamodb.AttributeValue{S: aws.String("foo:prefix:suffix")},
-	"ref": &dynamodb.AttributeValue{S: aws.String("foo:a:suffix")},
-	"tag": &dynamodb.AttributeValue{S: aws.String("tag")},
+	"id":  {S: aws.String("foo:prefix:suffix")},
+	"ref": {S: aws.String("foo:a:suffix")},
+	"tag": {S: aws.String("tag")},
 }
 
 func TestMarshalJSON(t *testing.T) {
