@@ -61,7 +61,7 @@ func (dynamo DB) Get(entity iri.Thing) (err error) {
 	}
 
 	if val.Item == nil {
-		err = NotFound{entity.Identity().Compact().String()}
+		err = NotFound{entity.Identity().IRI.String()}
 		return
 	}
 
@@ -262,7 +262,7 @@ func unmarshal(ddb map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.At
 	}
 
 	iri := iri.New(aws.StringValue(prefix.S)).Heir(aws.StringValue(suffix.S))
-	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.Compact().String())}
+	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.IRI.String())}
 
 	delete(ddb, "prefix")
 	delete(ddb, "suffix")

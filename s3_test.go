@@ -16,7 +16,7 @@ import (
 )
 
 func TestS3Get(t *testing.T) {
-	val := person{IRI: iri.New("dead:beef")}
+	val := person{ID: iri.New("dead:beef")}
 	err := apiS3().Get(&val)
 
 	it.Ok(t).
@@ -34,7 +34,7 @@ func TestS3Remove(t *testing.T) {
 
 func TestS3Update(t *testing.T) {
 	val := person{
-		IRI: iri.New("dead:beef"),
+		ID:  iri.New("dead:beef"),
 		Age: 64,
 	}
 	err := apiS3().Update(&val)
