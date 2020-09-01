@@ -6,12 +6,12 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/fogfish/iri"
@@ -93,30 +93,61 @@ func (dynamo S3) Remove(entity iri.Thing) (err error) {
 
 }
 
+type tGen map[string]interface{}
+
+func (z tGen) Identity() iri.ID { return z["id"].(iri.ID) }
+
 // Update applies a partial patch to entity and returns new values
 func (dynamo S3) Update(entity iri.Thing) (err error) {
-	par, err := dynamodbattribute.MarshalMap(entity)
-	if err != nil {
-		return
-	}
+	gen := tGen{"id": entity.Identity()}
+	dynamo.Get(&gen)
 
-	dynamo.Get(entity)
-	gen, err := dynamodbattribute.MarshalMap(entity)
-	if err != nil {
-		return
-	}
+	var par tGen
+	parbin, _ := json.Marshal(entity)
+	json.Unmarshal(parbin, &par)
 
 	for keyA, valA := range par {
-		gen[keyA] = valA
+		if !reflect.ValueOf(valA).IsZero() {
+			gen[keyA] = valA
+		}
 	}
 
-	err = dynamodbattribute.UnmarshalMap(gen, entity)
+	genbin, _ := json.Marshal(gen)
+	json.Unmarshal(genbin, &entity)
+
+	err = json.Unmarshal(genbin, &entity)
 	if err != nil {
 		return
 	}
 
 	err = dynamo.Put(entity)
 	return
+
+	//
+	// Corrupts target structure
+	//
+	// par, err := dynamodbattribute.MarshalMap(entity)
+	// if err != nil {
+	// 	return
+	// }
+
+	// dynamo.Get(entity)
+	// gen, err := dynamodbattribute.MarshalMap(entity)
+	// if err != nil {
+	// 	return
+	// }
+
+	// for keyA, valA := range par {
+	// 	gen[keyA] = valA
+	// }
+
+	// err = dynamodbattribute.UnmarshalMap(gen, entity)
+	// if err != nil {
+	// 	return
+	// }
+
+	// err = dynamo.Put(entity)
+	// return
 }
 
 //-----------------------------------------------------------------------------

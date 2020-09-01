@@ -143,3 +143,83 @@ func (mockS3) ListObjectsV2(*s3.ListObjectsV2Input) (*s3.ListObjectsV2Output, er
 		},
 	}, nil
 }
+
+//-----------------------------------------------------------------------------
+//
+// Corrupted Update
+//
+//-----------------------------------------------------------------------------
+
+//
+// dynamodbattribute.MarshalMap / dynamodbattribute.UnmarshalMap corrupts struct(s)
+// it do not resets the slice to zero when decoding generic structure back to the interface
+// as the result old values might leakout while doing s3 update
+// this test case ensures correctness of update function
+type seqItem struct {
+	iri.ID
+	Flag  bool   `dynamodbav:"flag,omitempty"`
+	Label string `dynamodbav:"label,omitempty"`
+}
+
+type seqType struct {
+	iri.ID
+	List []seqItem `dynamodbav:"list,omitempty"`
+}
+
+func seqLong() seqType {
+	return seqType{
+		ID: iri.New("seq"),
+		List: []seqItem{
+			{ID: iri.New("1"), Flag: true, Label: "a"},
+			{ID: iri.New("2"), Flag: true, Label: "b"},
+			{ID: iri.New("3"), Label: "c"},
+			{ID: iri.New("4"), Label: "d"},
+		},
+	}
+}
+
+func seqShort() seqType {
+	return seqType{
+		ID: iri.New("seq"),
+		List: []seqItem{
+			{ID: iri.New("5"), Label: "e"},
+			{ID: iri.New("6"), Label: "f"},
+		},
+	}
+}
+
+func TestSeqS3Update(t *testing.T) {
+	val := seqShort()
+	err := apiSeqS3().Update(&val)
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(val).Should().Equal(seqShort())
+}
+
+func apiSeqS3() *dynamo.S3 {
+	client := &dynamo.S3{}
+	client.Mock(&mockSeqS3{})
+	return client
+}
+
+type mockSeqS3 struct{ s3iface.S3API }
+
+func (mockSeqS3) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
+	if aws.StringValue(input.Key) != "seq" {
+		return nil, errors.New("Unexpected request.")
+	}
+
+	val, _ := json.Marshal(seqLong())
+	return &s3.GetObjectOutput{
+		Body: aws.ReadSeekCloser(bytes.NewReader(val)),
+	}, nil
+}
+
+func (mockSeqS3) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
+	if aws.StringValue(input.Key) != "seq" {
+		return nil, errors.New("Unexpected request.")
+	}
+
+	return &s3.PutObjectOutput{}, nil
+}
