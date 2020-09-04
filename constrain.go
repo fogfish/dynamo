@@ -176,7 +176,7 @@ func (e ElemIs) compare(fn string, val interface{}) Config {
 			return
 		}
 
-		let := fmt.Sprintf(":tec%s", e.string)
+		let := fmt.Sprintf(":__%s__", e.string)
 		expressionAttributeValues[let] = lit
 		*conditionExpression = aws.String(e.string + " " + fn + " " + let)
 		return

@@ -87,9 +87,21 @@ func (dynamo DB) Put(entity iri.Thing, config ...Config) (err error) {
 		TableName: dynamo.table,
 	}
 	if len(config) > 0 {
+		req.ExpressionAttributeValues = map[string]*dynamodb.AttributeValue{}
 		config[0](&req.ConditionExpression, req.ExpressionAttributeValues)
 	}
 	_, err = dynamo.db.PutItem(req)
+	if err != nil {
+		switch v := err.(type) {
+		case awserr.Error:
+			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+				return PreConditionFailed{entity.Identity().IRI.String()}
+			}
+			return
+		default:
+			return
+		}
+	}
 
 	return
 }
@@ -107,10 +119,23 @@ func (dynamo DB) Remove(entity iri.Thing, config ...Config) (err error) {
 		TableName: dynamo.table,
 	}
 	if len(config) > 0 {
+		req.ExpressionAttributeValues = map[string]*dynamodb.AttributeValue{}
 		config[0](&req.ConditionExpression, req.ExpressionAttributeValues)
 	}
 
 	_, err = dynamo.db.DeleteItem(req)
+	if err != nil {
+		switch v := err.(type) {
+		case awserr.Error:
+			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+				return PreConditionFailed{entity.Identity().IRI.String()}
+			}
+			return
+		default:
+			return
+		}
+	}
+
 	return
 }
 
