@@ -161,12 +161,12 @@ type persons []person
 
 // Join is a monoid to append generic element into sequence 
 func (seq *persons) Join(gen dynamo.Gen) (iri.Thing, error) {
-	val := person{}
-	if fail := gen.To(&val); fail != nil {
-		return nil, fail
-	}
-	*seq = append(*seq, val)
-	return &val, nil
+  val := person{}
+  if fail := gen.To(&val); fail != nil {
+    return nil, fail
+  }
+  *seq = append(*seq, val)
+  return &val, nil
 }
 
 // and final magic to discover hierarchy of elements
