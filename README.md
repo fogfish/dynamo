@@ -12,14 +12,10 @@ The library implements a simple key-value abstraction to store algebraic data ty
 
 ## Inspiration
 
-The library encourages developers to use Golang struct to define domain
-models, write correct, maintainable code. The library uses generic
-programming style to implement actual storage I/O, while expose external
-domain object as interface{} with implicit conversion back and forth
-between a concrete struct(s).
+The library encourages developers to use Golang struct to define domain models, write correct, maintainable code. The library uses generic programming style to implement actual storage I/O, while expose external domain object as `interface{}` with implicit conversion back and forth
+between a concrete struct(s). The library uses [AWS Golang SDK](https://aws.amazon.com/sdk-for-go/) under the hood
 
-Essentially, it implement a following generic key-value trait to access
-domain objects. The library AWS Go SDK under the hood
+Essentially, the library implement a following generic key-value trait to access domain objects. 
 
 ```scala
 trait KeyVal[T] {
@@ -35,7 +31,216 @@ trait KeyVal[T] {
 
 The latest version of the library is available at its `master` branch. All development, including new features and bug fixes, take place on the `master` branch using forking and pull requests as described in contribution guidelines.
 
-The library is optimized to operate with generic Dynamo DB schemas:
+- [Getting Started](#getting-started)
+  - [Data types definition](#data-types-definition)
+  - [DynamoDB IO](#dynamodb-io)
+  - [Hierarchical structures](#hierarchical-structures)
+  - [Linked data](#linked-data)
+  - [Optimistic Locking](#optimistic-locking)
+  - [Configure DynamoDB](#configure-dynamodb)
+  - [Other storages](#other-storages)
+
+
+### Data types definition
+
+Data types definition is an essential part of development with `dynamo` library. Golang structs declares domain of your application. Public fields are serialized into DynamoDB attributes, the field tag `dynamodbav` controls marshal/unmarshal process. 
+
+The library demands from each structure embedding of `iri.ID` type (this type is implemented by another [package](https://github.com/fogfish/iri)). This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied for DynamoDB I/O. Secondly, this type facilitates linked-data, hierarchical structures and cheap relations between data elements.
+
+```go
+import "github.com/fogfish/iri"
+
+type Person struct {
+  iri.ID
+  Name    string `dynamodbav:"name,omitempty"`
+  Age     int    `dynamodbav:"age,omitempty"`
+  Address string `dynamodbav:"address,omitempty"`
+}
+
+//
+// this data type is a normal Golang struct
+// just create and instance filling required fields
+// ID is own data type thus use iri.New(...)
+var person := Person{
+  ID:      iri.New("8980789222")
+  Name:    "Verner Pleishner",
+  Age:     64,
+  Address: "Blumenstrasse 14, Berne, 3013",
+}
+```
+
+This is it! Your application is ready to read/write data to/form DynamoDB tables.
+
+
+### DynamoDB I/O
+
+Please see [the code example](example/keyval/main.go) and try it
+
+```bash
+go run example/keyval/main.go ddb:///my-table
+```
+
+The following code snippet shows a typical I/O patterns
+
+```go
+import (
+  "github.com/fogfish/dynamo"
+)
+
+//
+// Create dynamodb client and bind it with the table
+// Use URI notation to specify the diver (ddb://) and the table (/my-table) 
+db := dynamo.Must(dynamo.New("ddb:///my-table"))
+
+//
+// Write the struct with Put
+if err := db.Put(person); err != nil {
+}
+
+//
+// Lookup the struct using Get. This function takes "empty" structure as a placeholder and
+// fill it with a data upon the completion. The only requirement - ID has to be defined.
+person := Person{ID: iri.New("8980789222")}
+switch err := db.Get(&person).(type) {
+case nil:
+  // success
+case dynamo.NotFound:
+  // not found
+default:
+  // other i/o error
+}
+
+//
+// Apply a partial update using Update function. This function takes a partially defined
+// structure, patches the instance at storage and returns remaining attributes.
+person := Person{
+  ID:      iri.New("8980789222"),
+  Address: "Viktoriastrasse 37, Berne, 3013",
+}
+if err := db.Update(&person); err != nil {
+}
+
+//
+// Remove the struct using Remove. Either give struct or ID to it
+if err := db.Remove(iri.New("8980789222")); err != nil {
+}
+```
+
+### Hierarchical structures
+
+The library support definition of `A ⟼ B` relation for data. Message threads are a classical
+examples for such hierarchies:
+
+```
+A
+├ B
+├ C
+│ ├ D  
+│ └ E
+│   └ F
+└ G
+```
+
+The data type `iri.ID` is core type to organize hierarchies. An application declares node path by colon separated strings. For example, the root is `iri.New("A")`, 2nd rank node `iri.New("A:C")` and so on `iri.New("A:C:E:F")`. Each `id` declares either node or its sub children. The library implement a `Match` function, supply the node identity and it returns sequence of child elements. 
+
+```go
+//
+// Match uses iri.ID to match DynamoDB entries. It returns a sequence of 
+// generic representations that has to be transformed into actual data types
+// FMap is an utility it takes a closure function that lifts generic to the struct. 
+db.Match(iri.New("A:C")).FMap(
+  func(gen dynamo.Gen) (iri.Thing, error) {
+    p := person{}
+    return gen.To(&p)
+  }
+)
+
+//
+// Type aliases is the best approach to lift generic sequence in type safe one.
+type persons []person
+
+// Join is a monoid to append generic element into sequence 
+func (seq *persons) Join(gen dynamo.Gen) (iri.Thing, error) {
+  val := person{}
+  if fail := gen.To(&val); fail != nil {
+    return nil, fail
+  }
+  *seq = append(*seq, val)
+  return &val, nil
+}
+
+// and final magic to discover hierarchy of elements
+seq := persons{}
+db.Match(iri.New("A:C")).FMap(seq.Join)
+```
+
+See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for api spec and [advanced example](example) app.
+
+
+### Linked data
+
+Cross-linking of structured data is an essential part of type safe domain driven design. The library helps developers to model relations between data instances using familiar data type:
+
+```go
+type Person struct {
+  iri.ID
+  Account *iri.IRI `dynamodbav:"name,omitempty"`
+}
+```
+
+`iri.ID` and `iri.IRI` are sibling, equivalent data types. `ID` is only used as primary key, `IRI` is a "pointer" to linked-data.
+
+
+### Optimistic Locking
+
+Optimistic Locking is a lightweight approach to ensure causal ordering of read, write operations to database. AWS made a great post about [Optimistic Locking with Version Number](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBMapper.OptimisticLocking.html).
+
+The `dynamo` library implements type safe conditional expressions to achieve optimistic locking. This feature is vital when your serverless application concurrently updates same entity in the database.
+
+Let's consider a following example. 
+
+```go
+type Person struct {
+  iri.ID
+  Name    string `dynamodbav:"anothername,omitempty"`
+}
+```
+
+An optimistic locking on this structure is straightforward from DynamoDB perspective. Just make a request with conditional expression:
+
+```golang
+&dynamodb.UpdateItemInput{
+  ConditionExpression: "anothername = :anothername",
+  ExpressionAttributeValues: /* ":anothername" : {S: "Verner Pleishner"} */
+}
+```
+
+However, the application operates with struct types. How to define a condition expression on the field `Name`? Golang struct defines and refers the field by `Name` but DynamoDB stores it under the attribute `anothername`. Struct field `dynamodbav` tag specifies serialization rules. Golang does not support a typesafe approach to build a correspondence between `Name` ⟷ `anothername`. Developers have to utilize dynamodb attribute name(s) in conditional expression and Golang struct name in rest of the code. It becomes confusing and hard to maintain. The library defines set of helper types and functions to declare and use conditional expression in type safe manner:
+
+```go
+type Person struct {
+  iri.ID
+  Name    string `dynamodbav:"anothername,omitempty"`
+}
+var Name = Thing(Person{}).Field("Name")
+
+switch err := db.Update(&person, Name.Eq("Verner Pleishner")).(type) {
+case nil:
+  // success
+case dynamo.PreConditionFailed:
+  // not found
+default:
+  // other i/o error
+}
+```
+
+See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for all supported constrains.
+
+
+### Configure DynamoDB
+
+The `dynamo` library is optimized to operate with generic Dynamo DB that declares both partition and sort keys with fixed names. Use the following schema:
+
 
 ```typescript
 const Schema = (): ddb.TableProps => ({
@@ -45,78 +250,28 @@ const Schema = (): ddb.TableProps => ({
 })
 ```
 
-Import the library in your code, use URI to specify service and name of the bucket. It supports:
-* `s3:///my-bucket`
-* `ddb:///my-table`
+
+### Other storages
+
+The library advances its simple I/O interface to AWS S3 bucket, allowing to persist data types to multiple storage simultaneously.
 
 ```go
-import (
-  "github.com/fogfish/dynamo"
-)
+//
+// Create client and bind it with DynamoDB the table
+db := dynamo.Must(dynamo.New("ddb:///my-table"))
 
-type Person struct {
-  dynamo.ID
-  Name    string `dynamodbav:"name,omitempty"`
-  Age     int    `dynamodbav:"age,omitempty"`
-  Address string `dynamodbav:"address,omitempty"`
-}
-
-func main() {
-  db := dynamo.New("ddb:///my-table")
-
-  //
-  err := db.Put(
-    Person{
-      dynamo.UID("dead", "beef"),
-      "Verner Pleishner",
-      64,
-      "Blumenstrasse 14, Berne, 3013",
-    }
-  )
-
-  //
-  person := Person{ID: dynamo.UID("dead", "beef")}
-  err = db.Get(&person{})
-
-  //
-  seq := db.Match(dynamo.Prefix("dead"))
-  for seq.Tail() {
-    p := &person{}
-    err = seq.Head(p)
-  }
-  if err := seq.Error(); err != nil {/* ... */}
-
-  //
-  db.Remove(dynamo.UID("dead", "beef"))
-}
+//
+// Create client and bind it with S3 bucket
+s3 := dynamo.Must(dynamo.New("s3:///my-bucket"))
 ```
 
-See the [go doc](http://godoc.org/github.com/fogfish/dynamo) for api spec and [advanced example](example) app.
+There are few fundamental differences about AWS S3 bucket
+* use `s3` schema of connection URI;
+* primary key `iri.ID` is serialized to S3 bucket path. (e.g. `iri.New("A:C:E:F") ⟼ A/C/E/F`);
+* storage persists struct to JSON, use `json` field tags to specify serialization rules;
+* optimistic locking is not supported yet, any conditional expression is silently ignored;
+* `Update` is not thread safe.
 
-### Linked data
-
-Interlinking of structured data is essential part of data design. Use `dynamo.IRI` type to model relations between data instances
-
-```go
-type Person struct {
-  dynamo.ID
-  Account dynamo.IRI `dynamodbav:"name,omitempty"`
-}
-```
-
-`dynamo.ID` and `dynamo.IRI` are equivalent data types. The first one is used as primary key, the latter one is a linked identity.
-
-### Use with AWS DynamoDB
-
-* create I/O handler using ddb schema `dynamo.New("ddb:///my-table")`
-* provision DynamoDB table with few mandatory attributes primary key `prefix` and sort key `suffix`.
-* storage persists struct fields at table columns, use `dynamodbav` field tags to specify serialization rules
-
-### Use with AWS S3
-
-* create I/O handler using s3 schema `dynamo.New("s3:///my-bucket")`
-* primary key `dynamo.ID` is serialized to S3 bucket path `prefix/suffix`
-* storage persists struct to JSON, use `json` field tags to specify serialization rules
 
 
 ## How To Contribute

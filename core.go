@@ -143,10 +143,10 @@ type KeyVal interface {
 
 // KeyValPure defines a generic key-value I/O
 type KeyValPure interface {
-	Put(iri.Thing) error
 	Get(iri.Thing) error
-	Remove(iri.Thing) error
-	Update(iri.Thing) error
+	Put(iri.Thing, ...Config) error
+	Remove(iri.Thing, ...Config) error
+	Update(iri.Thing, ...Config) error
 }
 
 // KeyValPattern defines simples pattern matching lookup I/O
@@ -201,6 +201,17 @@ type NotFound struct {
 
 func (e NotFound) Error() string {
 	return fmt.Sprintf("Not Found %v", e.Key)
+}
+
+//
+// PreConditionFailed is an error to handler aborted I/O on
+// requests with conditional expressions
+type PreConditionFailed struct {
+	Key string
+}
+
+func (e PreConditionFailed) Error() string {
+	return fmt.Sprintf("Pre Condition Failed %v", e.Key)
 }
 
 //
