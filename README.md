@@ -206,8 +206,7 @@ type Person struct {
 }
 ```
 
-An optimistic locking on this structure is straightforward from DynamoDB perspective. Just
-make a request with conditional expression:
+An optimistic locking on this structure is straightforward from DynamoDB perspective. Just make a request with conditional expression:
 
 ```golang
 &dynamodb.UpdateItemInput{
