@@ -45,7 +45,7 @@ The latest version of the library is available at its `master` branch. All devel
 
 Data types definition is an essential part of development with `dynamo` library. Golang structs declares domain of your application. Public fields are serialized into DynamoDB attributes, the field tag `dynamodbav` controls marshal/unmarshal process. 
 
-The library demands from each structure embedding of `iri.ID` type. This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied for DynamoDB I/O. Secondly, this type facilitates linked-data, hierarchical structures and cheap relations between data elements.
+The library demands from each structure embedding of `iri.ID` type (this type is implemented by another [package](https://github.com/fogfish/iri)). This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied for DynamoDB I/O. Secondly, this type facilitates linked-data, hierarchical structures and cheap relations between data elements.
 
 ```go
 import "github.com/fogfish/iri"
