@@ -150,7 +150,7 @@ The data type `iri.ID` is core type to organize hierarchies. An application decl
 // FMap is an utility it takes a closure function that lifts generic to the struct. 
 db.Match(iri.New("A:C")).FMap(
   func(gen dynamo.Gen) (iri.Thing, error) {
-	  p := person{}
+    p := person{}
     return gen.To(&p)
   }
 )
