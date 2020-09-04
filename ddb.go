@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -75,7 +76,7 @@ func (dynamo DB) Get(entity iri.Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo DB) Put(entity iri.Thing) (err error) {
+func (dynamo DB) Put(entity iri.Thing, config ...Config) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -85,13 +86,16 @@ func (dynamo DB) Put(entity iri.Thing) (err error) {
 		Item:      gen,
 		TableName: dynamo.table,
 	}
+	if len(config) > 0 {
+		config[0](&req.ConditionExpression, req.ExpressionAttributeValues)
+	}
 	_, err = dynamo.db.PutItem(req)
 
 	return
 }
 
 // Remove discards the entity from the table
-func (dynamo DB) Remove(entity iri.Thing) (err error) {
+func (dynamo DB) Remove(entity iri.Thing, config ...Config) (err error) {
 
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
@@ -102,12 +106,16 @@ func (dynamo DB) Remove(entity iri.Thing) (err error) {
 		Key:       keyOnly(gen),
 		TableName: dynamo.table,
 	}
+	if len(config) > 0 {
+		config[0](&req.ConditionExpression, req.ExpressionAttributeValues)
+	}
+
 	_, err = dynamo.db.DeleteItem(req)
 	return
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo DB) Update(entity iri.Thing) (err error) {
+func (dynamo DB) Update(entity iri.Thing, config ...Config) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -123,19 +131,32 @@ func (dynamo DB) Update(entity iri.Thing) (err error) {
 			update = append(update, "#"+k+"="+":"+k)
 		}
 	}
-	expresion := aws.String("SET " + strings.Join(update, ","))
+	expression := aws.String("SET " + strings.Join(update, ","))
 
 	req := &dynamodb.UpdateItemInput{
 		Key:                       keyOnly(gen),
 		ExpressionAttributeNames:  names,
 		ExpressionAttributeValues: values,
-		UpdateExpression:          expresion,
+		UpdateExpression:          expression,
 		TableName:                 dynamo.table,
 		ReturnValues:              aws.String("ALL_NEW"),
 	}
+
+	if len(config) > 0 {
+		config[0](&req.ConditionExpression, req.ExpressionAttributeValues)
+	}
+
 	val, err := dynamo.db.UpdateItem(req)
 	if err != nil {
-		return
+		switch v := err.(type) {
+		case awserr.Error:
+			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+				return PreConditionFailed{entity.Identity().IRI.String()}
+			}
+			return
+		default:
+			return
+		}
 	}
 
 	dynamodbattribute.UnmarshalMap(val.Attributes, &entity)

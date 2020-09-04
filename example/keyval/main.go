@@ -23,6 +23,17 @@ type person struct {
 	Address string `dynamodbav:"address,omitempty" json:"address,omitempty"`
 }
 
+type persons []person
+
+func (seq *persons) Join(gen dynamo.Gen) (iri.Thing, error) {
+	val := person{}
+	if fail := gen.To(&val); fail != nil {
+		return nil, fail
+	}
+	*seq = append(*seq, val)
+	return &val, nil
+}
+
 func main() {
 	db, err := dynamo.New(os.Args[1])
 	if err != nil {
@@ -50,9 +61,14 @@ func examplePut(db dynamo.KeyVal) {
 func exampleGet(db dynamo.KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &person{ID: id(i)}
-		err := db.Get(val)
-
-		fmt.Println("=[ get ]=> ", either(err, val))
+		switch err := db.Get(val).(type) {
+		case nil:
+			fmt.Println("=[ get ]=> ", val)
+		case dynamo.NotFound:
+			fmt.Println("=[ get ]=> Not found: ", val.ID)
+		default:
+			fmt.Println("=[ get ]=> Fail: ", err)
+		}
 	}
 }
 
@@ -66,18 +82,14 @@ func exampleUpdate(db dynamo.KeyVal) {
 }
 
 func exampleMatch(db dynamo.KeyVal) {
-	seq := db.Match(iri.New("test"))
+	seq := persons{}
+	_, err := db.Match(iri.New("test")).FMap(seq.Join)
 
-	for seq.Tail() {
-		val := &person{}
-		err := seq.Head(val)
-		fmt.Println("=[ match ]=> ", either(err, val))
-	}
-
-	if err := seq.Error(); err != nil {
+	if err == nil {
+		fmt.Println("=[ match ]=> ", seq)
+	} else {
 		fmt.Println("=[ match ]=> ", err)
 	}
-
 }
 
 func exampleRemove(db dynamo.KeyVal) {
@@ -90,7 +102,12 @@ func exampleRemove(db dynamo.KeyVal) {
 }
 
 func folk(x int) *person {
-	return &person{id(x), "Verner Pleishner", 64, "Blumenstrasse 14, Berne, 3013"}
+	return &person{
+		ID:      id(x),
+		Name:    "Verner Pleishner",
+		Age:     64,
+		Address: "Blumenstrasse 14, Berne, 3013",
+	}
 }
 
 func id(x int) iri.ID {

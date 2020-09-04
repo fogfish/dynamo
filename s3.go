@@ -65,7 +65,7 @@ func (dynamo S3) Get(entity iri.Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo S3) Put(entity iri.Thing) (err error) {
+func (dynamo S3) Put(entity iri.Thing, _ ...Config) (err error) {
 	gen, err := json.Marshal(entity)
 	if err != nil {
 		return
@@ -82,7 +82,7 @@ func (dynamo S3) Put(entity iri.Thing) (err error) {
 }
 
 // Remove discards the entity from the bucket
-func (dynamo S3) Remove(entity iri.Thing) (err error) {
+func (dynamo S3) Remove(entity iri.Thing, _ ...Config) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(entity.Identity().Path()),
@@ -98,7 +98,7 @@ type tGen map[string]interface{}
 func (z tGen) Identity() iri.ID { return z["id"].(iri.ID) }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo S3) Update(entity iri.Thing) (err error) {
+func (dynamo S3) Update(entity iri.Thing, _ ...Config) (err error) {
 	gen := tGen{"id": entity.Identity()}
 	dynamo.Get(&gen)
 
