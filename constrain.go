@@ -189,17 +189,7 @@ Exists attribute constrain
   name.Exists(x) ⟼ attribute_exists(name)
 */
 func (e ElemIs) Exists() Config {
-	return func(
-		conditionExpression **string,
-		expressionAttributeValues map[string]*dynamodb.AttributeValue,
-	) {
-		if e.string == "" {
-			return
-		}
-
-		*conditionExpression = aws.String(fmt.Sprintf("attribute_exists(%s)", e.string))
-		return
-	}
+	return e.constrain("attribute_exists")
 }
 
 /*
@@ -208,6 +198,10 @@ NotExists attribute constrain
 	name.Exists(x) ⟼ attribute_not_exists(name)
 */
 func (e ElemIs) NotExists() Config {
+	return e.constrain("attribute_not_exists")
+}
+
+func (e ElemIs) constrain(fn string) Config {
 	return func(
 		conditionExpression **string,
 		expressionAttributeValues map[string]*dynamodb.AttributeValue,
@@ -216,7 +210,7 @@ func (e ElemIs) NotExists() Config {
 			return
 		}
 
-		*conditionExpression = aws.String(fmt.Sprintf("attribute_not_exists(%s)", e.string))
+		*conditionExpression = aws.String(fmt.Sprintf("%s(%s)", fn, e.string))
 		return
 	}
 }
