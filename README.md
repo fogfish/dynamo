@@ -224,7 +224,14 @@ type Person struct {
 }
 var Name = Thing(Person{}).Field("Name")
 
-db.Update(&person, Name.Eq("Verner Pleishner"))
+switch err := db.Update(&person, Name.Eq("Verner Pleishner")).(type) {
+case nil:
+  // success
+case dynamo.PreConditionFailed:
+  // not found
+default:
+  // other i/o error
+}
 ```
 
 See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for all supported constrains.
