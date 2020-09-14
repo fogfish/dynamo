@@ -120,32 +120,6 @@ func (dynamo S3) Update(entity iri.Thing, _ ...Config) (err error) {
 
 	err = dynamo.Put(entity)
 	return
-
-	//
-	// Corrupts target structure
-	//
-	// par, err := dynamodbattribute.MarshalMap(entity)
-	// if err != nil {
-	// 	return
-	// }
-
-	// dynamo.Get(entity)
-	// gen, err := dynamodbattribute.MarshalMap(entity)
-	// if err != nil {
-	// 	return
-	// }
-
-	// for keyA, valA := range par {
-	// 	gen[keyA] = valA
-	// }
-
-	// err = dynamodbattribute.UnmarshalMap(gen, entity)
-	// if err != nil {
-	// 	return
-	// }
-
-	// err = dynamo.Put(entity)
-	// return
 }
 
 //-----------------------------------------------------------------------------
