@@ -157,13 +157,13 @@ func (mockS3) ListObjectsV2(*s3.ListObjectsV2Input) (*s3.ListObjectsV2Output, er
 // this test case ensures correctness of update function
 type seqItem struct {
 	iri.ID
-	Flag  bool   `dynamodbav:"flag,omitempty"`
-	Label string `dynamodbav:"label,omitempty"`
+	Flag  bool   `json:"flag,omitempty"`
+	Label string `json:"label,omitempty"`
 }
 
 type seqType struct {
 	iri.ID
-	List []seqItem `dynamodbav:"list,omitempty"`
+	List []seqItem `json:"list,omitempty"`
 }
 
 func seqLong() seqType {
