@@ -111,9 +111,7 @@ func (dynamo S3) Update(entity iri.Thing, _ ...Config) (err error) {
 			gen[keyA] = valA
 		}
 	}
-
 	genbin, _ := json.Marshal(gen)
-	json.Unmarshal(genbin, &entity)
 
 	err = json.Unmarshal(genbin, &entity)
 	if err != nil {
