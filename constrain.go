@@ -40,7 +40,7 @@ TypeOf declares type descriptor to express I/O conditions.
 Let's consider a following example:
 
   type Person struct {
-    iri.ID
+    curie.ID
     Name    string `dynamodbav:"anothername,omitempty"`
   }
 
