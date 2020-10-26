@@ -2,9 +2,9 @@
 
 The library implements a simple key-value abstraction to store algebraic data types at AWS storage services: AWS DynamoDB and AWS S3.
 
-[![Documentation](https://godoc.org/github.com/fogfish/dynamo?status.svg)](http://godoc.org/github.com/fogfish/dynamo)
-[![Build Status](https://secure.travis-ci.org/fogfish/dynamo.svg?branch=master)](http://travis-ci.org/fogfish/dynamo)
-[![Git Hub](https://img.shields.io/github/last-commit/fogfish/dynamo.svg)](http://travis-ci.org/fogfish/dynamo)
+[![Documentation](https://pkg.go.dev/badge/github.com/fogfish/dynamo)](https://pkg.go.dev/github.com/fogfish/dynamo)
+[![Build Status](https://github.com/fogfish/dynamo/workflows/build/badge.svg)](https://github.com/fogfish/dynamo/actions/)
+[![Git Hub](https://img.shields.io/github/last-commit/fogfish/dynamo.svg)](https://github.com/fogfish/dynamo)
 [![Coverage Status](https://coveralls.io/repos/github/fogfish/dynamo/badge.svg?branch=master)](https://coveralls.io/github/fogfish/dynamo?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fogfish/dynamo)](https://goreportcard.com/report/github.com/fogfish/dynamo)
 [![Maintainability](https://api.codeclimate.com/v1/badges/8a8746f9cbaba81bb44b/maintainability)](https://codeclimate.com/github/fogfish/dynamo/maintainability)
@@ -29,7 +29,7 @@ trait KeyVal[T] {
 
 ## Getting started
 
-The latest version of the library is available at its `master` branch. All development, including new features and bug fixes, take place on the `master` branch using forking and pull requests as described in contribution guidelines.
+The latest version of the library is available at its `main` branch. All development, including new features and bug fixes, take place on the `main` branch using forking and pull requests as described in contribution guidelines.
 
 - [Getting Started](#getting-started)
   - [Data types definition](#data-types-definition)
@@ -45,13 +45,13 @@ The latest version of the library is available at its `master` branch. All devel
 
 Data types definition is an essential part of development with `dynamo` library. Golang structs declares domain of your application. Public fields are serialized into DynamoDB attributes, the field tag `dynamodbav` controls marshal/unmarshal process. 
 
-The library demands from each structure embedding of `iri.ID` type (this type is implemented by another [package](https://github.com/fogfish/iri)). This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied for DynamoDB I/O. Secondly, this type facilitates linked-data, hierarchical structures and cheap relations between data elements.
+The library demands from each structure embedding of `curie.ID` type (this type is implemented by another [package](https://github.com/fogfish/curie)). This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied for DynamoDB I/O. Secondly, this type facilitates linked-data, hierarchical structures and cheap relations between data elements.
 
 ```go
-import "github.com/fogfish/iri"
+import "github.com/fogfish/curie"
 
 type Person struct {
-  iri.ID
+  curie.ID
   Name    string `dynamodbav:"name,omitempty"`
   Age     int    `dynamodbav:"age,omitempty"`
   Address string `dynamodbav:"address,omitempty"`
@@ -60,9 +60,9 @@ type Person struct {
 //
 // this data type is a normal Golang struct
 // just create and instance filling required fields
-// ID is own data type thus use iri.New(...)
+// ID is own data type thus use curie.New(...)
 var person := Person{
-  ID:      iri.New("8980789222")
+  ID:      curie.New("8980789222")
   Name:    "Verner Pleishner",
   Age:     64,
   Address: "Blumenstrasse 14, Berne, 3013",
@@ -98,9 +98,10 @@ if err := db.Put(person); err != nil {
 }
 
 //
-// Lookup the struct using Get. This function takes "empty" structure as a placeholder and
-// fill it with a data upon the completion. The only requirement - ID has to be defined.
-person := Person{ID: iri.New("8980789222")}
+// Lookup the struct using Get. This function takes "empty" structure as
+// a placeholder and fill it with a data upon the completion. The only
+// requirement - ID has to be defined.
+person := Person{ID: curie.New("8980789222")}
 switch err := db.Get(&person).(type) {
 case nil:
   // success
@@ -111,10 +112,11 @@ default:
 }
 
 //
-// Apply a partial update using Update function. This function takes a partially defined
-// structure, patches the instance at storage and returns remaining attributes.
+// Apply a partial update using Update function. This function takes 
+// a partially defined structure, patches the instance at storage and 
+// returns remaining attributes.
 person := Person{
-  ID:      iri.New("8980789222"),
+  ID:      curie.New("8980789222"),
   Address: "Viktoriastrasse 37, Berne, 3013",
 }
 if err := db.Update(&person); err != nil {
@@ -122,14 +124,13 @@ if err := db.Update(&person); err != nil {
 
 //
 // Remove the struct using Remove. Either give struct or ID to it
-if err := db.Remove(iri.New("8980789222")); err != nil {
+if err := db.Remove(curie.New("8980789222")); err != nil {
 }
 ```
 
 ### Hierarchical structures
 
-The library support definition of `A ⟼ B` relation for data. Message threads are a classical
-examples for such hierarchies:
+The library support definition of `A ⟼ B` relation for data. Message threads are a classical examples for such hierarchies:
 
 ```
 A
@@ -141,15 +142,16 @@ A
 └ G
 ```
 
-The data type `iri.ID` is core type to organize hierarchies. An application declares node path by colon separated strings. For example, the root is `iri.New("A")`, 2nd rank node `iri.New("A:C")` and so on `iri.New("A:C:E:F")`. Each `id` declares either node or its sub children. The library implement a `Match` function, supply the node identity and it returns sequence of child elements. 
+The data type `curie.ID` is core type to organize hierarchies. An application declares node path by colon separated strings. For example, the root is `curie.New("A")`, 2nd rank node `curie.New("A:C")` and so on `curie.New("A:C:E:F")`. Each `id` declares either node or its sub children. The library implement a `Match` function, supply the node identity and it returns sequence of child elements. 
 
 ```go
 //
-// Match uses iri.ID to match DynamoDB entries. It returns a sequence of 
+// Match uses curie.ID to match DynamoDB entries. It returns a sequence of 
 // generic representations that has to be transformed into actual data types
-// FMap is an utility it takes a closure function that lifts generic to the struct. 
-db.Match(iri.New("A:C")).FMap(
-  func(gen dynamo.Gen) (iri.Thing, error) {
+// FMap is an utility it takes a closure function that lifts generic to
+// the struct. 
+db.Match(curie.New("A:C")).FMap(
+  func(gen dynamo.Gen) (curie.Thing, error) {
     p := person{}
     return gen.To(&p)
   }
@@ -160,7 +162,7 @@ db.Match(iri.New("A:C")).FMap(
 type persons []person
 
 // Join is a monoid to append generic element into sequence 
-func (seq *persons) Join(gen dynamo.Gen) (iri.Thing, error) {
+func (seq *persons) Join(gen dynamo.Gen) (curie.Thing, error) {
   val := person{}
   if fail := gen.To(&val); fail != nil {
     return nil, fail
@@ -171,7 +173,7 @@ func (seq *persons) Join(gen dynamo.Gen) (iri.Thing, error) {
 
 // and final magic to discover hierarchy of elements
 seq := persons{}
-db.Match(iri.New("A:C")).FMap(seq.Join)
+db.Match(curie.New("A:C")).FMap(seq.Join)
 ```
 
 See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for api spec and [advanced example](example) app.
@@ -183,12 +185,12 @@ Cross-linking of structured data is an essential part of type safe domain driven
 
 ```go
 type Person struct {
-  iri.ID
-  Account *iri.IRI `dynamodbav:"name,omitempty"`
+  curie.ID
+  Account *curie.IRI `dynamodbav:"name,omitempty"`
 }
 ```
 
-`iri.ID` and `iri.IRI` are sibling, equivalent data types. `ID` is only used as primary key, `IRI` is a "pointer" to linked-data.
+`curie.ID` and `curie.IRI` are sibling, equivalent data types. `ID` is only used as primary key, `IRI` is a "pointer" to linked-data.
 
 
 ### Optimistic Locking
@@ -201,7 +203,7 @@ Let's consider a following example.
 
 ```go
 type Person struct {
-  iri.ID
+  curie.ID
   Name    string `dynamodbav:"anothername,omitempty"`
 }
 ```
@@ -219,7 +221,7 @@ However, the application operates with struct types. How to define a condition e
 
 ```go
 type Person struct {
-  iri.ID
+  curie.ID
   Name    string `dynamodbav:"anothername,omitempty"`
 }
 var Name = Thing(Person{}).Field("Name")
@@ -267,7 +269,7 @@ s3 := dynamo.Must(dynamo.New("s3:///my-bucket"))
 
 There are few fundamental differences about AWS S3 bucket
 * use `s3` schema of connection URI;
-* primary key `iri.ID` is serialized to S3 bucket path. (e.g. `iri.New("A:C:E:F") ⟼ A/C/E/F`);
+* primary key `curie.ID` is serialized to S3 bucket path. (e.g. `curie.New("A:C:E:F") ⟼ A/C/E/F`);
 * storage persists struct to JSON, use `json` field tags to specify serialization rules;
 * optimistic locking is not supported yet, any conditional expression is silently ignored;
 * `Update` is not thread safe.

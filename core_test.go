@@ -7,32 +7,33 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/iri"
 	"github.com/fogfish/it"
 )
 
 type Item struct {
-	iri.ID
-	Ref *iri.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
-	Tag string   `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
+	curie.ID
+	Ref *curie.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag string     `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
 }
 
+var fixtureLink curie.ID = curie.New("foo:a/suffix")
 var fixtureItem Item = Item{
-	ID:  iri.New("foo:prefix:suffix"),
-	Ref: iri.New("foo:a:suffix").ToIRI(),
+	ID:  curie.New("foo:prefix/suffix"),
+	Ref: &fixtureLink.IRI,
 	Tag: "tag",
 }
-var fixtureJson string = "{\"id\":\"foo:prefix:suffix\",\"ref\":\"foo:a:suffix\",\"tag\":\"tag\"}"
+var fixtureJson string = "{\"id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
 
 var fixtureEmptyItem Item = Item{
-	ID: iri.New("foo:prefix:suffix"),
+	ID: curie.New("foo:prefix/suffix"),
 }
-var fixtureEmptyJson string = "{\"id\":\"foo:prefix:suffix\"}"
+var fixtureEmptyJson string = "{\"id\":\"[foo:prefix/suffix]\"}"
 
 var fixtureDdb map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{
-	"id":  {S: aws.String("foo:prefix:suffix")},
-	"ref": {S: aws.String("foo:a:suffix")},
+	"id":  {S: aws.String("foo:prefix/suffix")},
+	"ref": {S: aws.String("foo:a/suffix")},
 	"tag": {S: aws.String("tag")},
 }
 

@@ -38,7 +38,7 @@
 // strongly expressed by struct in Go.
 //
 //   type Person struct {
-//     iri.IRI
+//     curie.ID
 //     Name    string `dynamodbav:"name,omitempty"`
 //     Age     int    `dynamodbav:"age,omitempty"`
 //     Address string `dynamodbav:"address,omitempty"`
@@ -56,30 +56,38 @@
 // Creates a new entity, or replaces an old entity with a new value.
 //   err := db.Put(
 //     Person{
-//       iri.New("dead:beef"),
+//       curie.New("8980789222"),
 //       "Verner Pleishner",
 //       64,
 //       "Blumenstrasse 14, Berne, 3013",
 //     }
 //   )
 //
-// Lookup the entity
-//   person := Person{IRI: iri.New("dead:beef")}
-//   err := db.Get(&person)
+// Lookup the struct using Get. This function takes "empty" structure as
+// a placeholder and fill it with a data upon the completion. The only
+// requirement - ID has to be defined.
+//
+//   person := Person{ID: curie.New("8980789222")}
+//   switch err := db.Get(&person).(type) {
+//   case nil:
+//     // success
+//   case dynamo.NotFound:
+//     // not found
+//   default:
+//     // other i/o error
+//   }
 //
 // Remove the entity
-//   err := db.Remove(iri.New("dead:beef"))
+//   err := db.Remove(curie.New("8980789222"))
 //
-// Partial update of the entity
-//   err := db.Update(Person{IRI: iri.New("dead:beef"), Age: 65})
-//
-// Lookup sequence of items
-//   seq := db.Match(iri.New("dead"))
-//   for seq.Tail() {
-//	   val := &Person{}
-//     err := seq.Head(val)
-//     ...
+// Apply a partial update using Update function. This function takes
+// a partially defined structure, patches the instance at storage and
+// returns remaining attributes.
+//   person := Person{
+//     ID:      curie.New("8980789222"),
+//     Address: "Viktoriastrasse 37, Berne, 3013",
 //   }
+//   if err := db.Update(&person); err != nil { ... }
 //
 // Use following DynamoDB schema:
 //
@@ -97,11 +105,11 @@
 // Use `dynamo.IRI` type to model relations between data instances
 //
 //   type Person struct {
-//     iri.IRI
-//     Account *iri.Compact `dynamodbav:"name,omitempty"`
+//     curie.ID
+//     Account *curie.IRI `dynamodbav:"name,omitempty"`
 //   }
 //
-// `iri.IRI` and `iri.Compact` are equivalent data types. The first one
+// `curie.ID` and `curie.IRI` are equivalent data types. The first one
 // is used as primary key, the latter one is a linked identity.
 //
 // Use with AWS DynamoDB
@@ -118,7 +126,7 @@
 //
 // ↣ create I/O handler using s3 schema `dynamo.New("s3:///my-bucket")`
 //
-// ↣ primary key `iri.IRI` is serialized to S3 bucket path `prefix/suffix`
+// ↣ primary key `curie.ID` is serialized to S3 bucket path `prefix/suffix`
 //
 // ↣ storage persists struct to JSON, use `json` field tags to specify
 // serialization rules
@@ -131,7 +139,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/fogfish/iri"
+	"github.com/fogfish/curie"
 )
 
 //
@@ -143,21 +151,21 @@ type KeyVal interface {
 
 // KeyValPure defines a generic key-value I/O
 type KeyValPure interface {
-	Get(iri.Thing) error
-	Put(iri.Thing, ...Config) error
-	Remove(iri.Thing, ...Config) error
-	Update(iri.Thing, ...Config) error
+	Get(curie.Thing) error
+	Put(curie.Thing, ...Config) error
+	Remove(curie.Thing, ...Config) error
+	Update(curie.Thing, ...Config) error
 }
 
 // KeyValPattern defines simples pattern matching lookup I/O
 type KeyValPattern interface {
-	Match(iri.Thing) Seq
+	Match(curie.Thing) Seq
 }
 
 //
 // Seq is an interface to transform collection of objects
 //
-//   db.Match(iri.New("users")).FMap(func(gen Gen) (iri.Thing, error) {
+//   db.Match(curie.New("users")).FMap(func(gen Gen) (curie.Thing, error) {
 //      val = &Person{}
 //      return gen.To(val)
 //   })
@@ -165,13 +173,13 @@ type Seq interface {
 	SeqLazy
 
 	// Sequence transformer
-	FMap(FMap) ([]iri.Thing, error)
+	FMap(FMap) ([]curie.Thing, error)
 }
 
 // SeqLazy is an interface to iterate through collection of objects
 type SeqLazy interface {
 	// Head lifts first element of sequence
-	Head(iri.Thing) error
+	Head(curie.Thing) error
 	// Tail evaluates tail of sequence
 	Tail() bool
 	// Error returns error of stream evaluation
@@ -180,17 +188,17 @@ type SeqLazy interface {
 
 //
 // FMap is a transformer of generic representation to concrete type
-type FMap func(Gen) (iri.Thing, error)
+type FMap func(Gen) (curie.Thing, error)
 
 //
 // Gen is a generic representation of storage type
 type Gen interface {
-	To(iri.Thing) error
+	To(curie.Thing) error
 }
 
 // Blob is a generic byte stream trait to access large binary data
 type Blob interface {
-	Recv(iri.Thing) (io.ReadCloser, error)
+	Recv(curie.Thing) (io.ReadCloser, error)
 }
 
 //
