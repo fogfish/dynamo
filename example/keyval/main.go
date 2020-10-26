@@ -12,12 +12,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/iri"
 )
 
 type person struct {
-	iri.ID
+	curie.ID
 	Name    string `dynamodbav:"name,omitempty" json:"name,omitempty"`
 	Age     int    `dynamodbav:"age,omitempty" json:"age,omitempty"`
 	Address string `dynamodbav:"address,omitempty" json:"address,omitempty"`
@@ -25,7 +25,7 @@ type person struct {
 
 type persons []person
 
-func (seq *persons) Join(gen dynamo.Gen) (iri.Thing, error) {
+func (seq *persons) Join(gen dynamo.Gen) (curie.Thing, error) {
 	val := person{}
 	if fail := gen.To(&val); fail != nil {
 		return nil, fail
@@ -83,7 +83,7 @@ func exampleUpdate(db dynamo.KeyVal) {
 
 func exampleMatch(db dynamo.KeyVal) {
 	seq := persons{}
-	_, err := db.Match(iri.New("test")).FMap(seq.Join)
+	_, err := db.Match(curie.New("test:")).FMap(seq.Join)
 
 	if err == nil {
 		fmt.Println("=[ match ]=> ", seq)
@@ -110,8 +110,8 @@ func folk(x int) *person {
 	}
 }
 
-func id(x int) iri.ID {
-	return iri.New("test:%v", x)
+func id(x int) curie.ID {
+	return curie.New("test:%v", x)
 }
 
 func either(e error, x interface{}) interface{} {

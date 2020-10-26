@@ -131,7 +131,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/fogfish/iri"
+	"github.com/fogfish/curie"
 )
 
 //
@@ -143,15 +143,15 @@ type KeyVal interface {
 
 // KeyValPure defines a generic key-value I/O
 type KeyValPure interface {
-	Get(iri.Thing) error
-	Put(iri.Thing, ...Config) error
-	Remove(iri.Thing, ...Config) error
-	Update(iri.Thing, ...Config) error
+	Get(curie.Thing) error
+	Put(curie.Thing, ...Config) error
+	Remove(curie.Thing, ...Config) error
+	Update(curie.Thing, ...Config) error
 }
 
 // KeyValPattern defines simples pattern matching lookup I/O
 type KeyValPattern interface {
-	Match(iri.Thing) Seq
+	Match(curie.Thing) Seq
 }
 
 //
@@ -165,13 +165,13 @@ type Seq interface {
 	SeqLazy
 
 	// Sequence transformer
-	FMap(FMap) ([]iri.Thing, error)
+	FMap(FMap) ([]curie.Thing, error)
 }
 
 // SeqLazy is an interface to iterate through collection of objects
 type SeqLazy interface {
 	// Head lifts first element of sequence
-	Head(iri.Thing) error
+	Head(curie.Thing) error
 	// Tail evaluates tail of sequence
 	Tail() bool
 	// Error returns error of stream evaluation
@@ -180,17 +180,17 @@ type SeqLazy interface {
 
 //
 // FMap is a transformer of generic representation to concrete type
-type FMap func(Gen) (iri.Thing, error)
+type FMap func(Gen) (curie.Thing, error)
 
 //
 // Gen is a generic representation of storage type
 type Gen interface {
-	To(iri.Thing) error
+	To(curie.Thing) error
 }
 
 // Blob is a generic byte stream trait to access large binary data
 type Blob interface {
-	Recv(iri.Thing) (io.ReadCloser, error)
+	Recv(curie.Thing) (io.ReadCloser, error)
 }
 
 //

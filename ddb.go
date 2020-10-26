@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/fogfish/iri"
+	"github.com/fogfish/curie"
 )
 
 // DB is a service connection handle
@@ -46,7 +46,7 @@ func (dynamo *DB) Mock(db dynamodbiface.DynamoDBAPI) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo DB) Get(entity iri.Thing) (err error) {
+func (dynamo DB) Get(entity curie.Thing) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -76,7 +76,7 @@ func (dynamo DB) Get(entity iri.Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo DB) Put(entity iri.Thing, config ...Config) (err error) {
+func (dynamo DB) Put(entity curie.Thing, config ...Config) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -107,7 +107,7 @@ func (dynamo DB) Put(entity iri.Thing, config ...Config) (err error) {
 }
 
 // Remove discards the entity from the table
-func (dynamo DB) Remove(entity iri.Thing, config ...Config) (err error) {
+func (dynamo DB) Remove(entity curie.Thing, config ...Config) (err error) {
 
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
@@ -140,7 +140,7 @@ func (dynamo DB) Remove(entity iri.Thing, config ...Config) (err error) {
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo DB) Update(entity iri.Thing, config ...Config) (err error) {
+func (dynamo DB) Update(entity curie.Thing, config ...Config) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -205,7 +205,7 @@ type dbSeq struct {
 type dbGen map[string]*dynamodb.AttributeValue
 
 // Lifts generic representation to Thing
-func (gen dbGen) To(thing iri.Thing) error {
+func (gen dbGen) To(thing curie.Thing) error {
 	item, err := unmarshal(gen)
 	if err != nil {
 		return err
@@ -214,8 +214,8 @@ func (gen dbGen) To(thing iri.Thing) error {
 }
 
 // FMap transforms sequence
-func (seq *dbSeq) FMap(f FMap) ([]iri.Thing, error) {
-	things := []iri.Thing{}
+func (seq *dbSeq) FMap(f FMap) ([]curie.Thing, error) {
+	things := []curie.Thing{}
 	for _, entity := range seq.items {
 		thing, err := f(dbGen(entity))
 		if err != nil {
@@ -227,7 +227,7 @@ func (seq *dbSeq) FMap(f FMap) ([]iri.Thing, error) {
 }
 
 // Head selects the first element of matched collection.
-func (seq *dbSeq) Head(thing iri.Thing) error {
+func (seq *dbSeq) Head(thing curie.Thing) error {
 	if seq.at == -1 {
 		seq.at++
 	}
@@ -246,7 +246,7 @@ func (seq *dbSeq) Error() error {
 }
 
 // Match applies a pattern matching to elements in the table
-func (dynamo DB) Match(key iri.Thing) Seq {
+func (dynamo DB) Match(key curie.Thing) Seq {
 	gen, err := pattern(dynamodbattribute.MarshalMap(key))
 	if err != nil {
 		return &dbSeq{-1, nil, err}
@@ -278,7 +278,7 @@ func marshal(gen map[string]*dynamodb.AttributeValue, err error) (map[string]*dy
 		return nil, err
 	}
 
-	iri := iri.New(aws.StringValue(gen["id"].S))
+	iri := curie.New(aws.StringValue(gen["id"].S))
 	gen["prefix"] = &dynamodb.AttributeValue{S: aws.String(iri.Prefix())}
 	if iri.Suffix() != "" {
 		gen["suffix"] = &dynamodb.AttributeValue{S: aws.String(iri.Suffix())}
@@ -307,7 +307,7 @@ func unmarshal(ddb map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.At
 		return nil, errors.New("Invalid DDB schema")
 	}
 
-	iri := iri.New(aws.StringValue(prefix.S)).Heir(aws.StringValue(suffix.S))
+	iri := curie.New(aws.StringValue(prefix.S)).Join(aws.StringValue(suffix.S))
 	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.IRI.String())}
 
 	delete(ddb, "prefix")

@@ -8,13 +8,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/iri"
 	"github.com/fogfish/it"
 )
 
 type person struct {
-	iri.ID
+	curie.ID
 	Name    string `dynamodbav:"name,omitempty"`
 	Age     int    `dynamodbav:"age,omitempty"`
 	Address string `dynamodbav:"address,omitempty"`
@@ -22,7 +22,7 @@ type person struct {
 
 func entity() person {
 	return person{
-		ID:      iri.New("dead:beef"),
+		ID:      curie.New("dead:beef"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -30,7 +30,7 @@ func entity() person {
 }
 
 func TestDdbGet(t *testing.T) {
-	val := person{ID: iri.New("dead:beef")}
+	val := person{ID: curie.New("dead:beef")}
 	err := apiDB().Get(&val)
 
 	it.Ok(t).
@@ -48,7 +48,7 @@ func TestDdbRemove(t *testing.T) {
 
 func TestDdbUpdate(t *testing.T) {
 	val := person{
-		ID:  iri.New("dead:beef"),
+		ID:  curie.New("dead:beef"),
 		Age: 65,
 	}
 	err := apiDB().Update(&val)
@@ -60,7 +60,7 @@ func TestDdbUpdate(t *testing.T) {
 
 func TestDdbMatch(t *testing.T) {
 	cnt := 0
-	seq := apiDB().Match(iri.New("dead"))
+	seq := apiDB().Match(curie.New("dead:"))
 
 	for seq.Tail() {
 		cnt++
@@ -78,7 +78,7 @@ func TestDdbMatch(t *testing.T) {
 }
 
 func TestDdbMatchHead(t *testing.T) {
-	seq := apiDB().Match(iri.New("dead"))
+	seq := apiDB().Match(curie.New("dead:"))
 
 	val := person{}
 	err := seq.Head(&val)
@@ -92,7 +92,7 @@ func TestDdbMatchHead(t *testing.T) {
 // Use type aliases and methods to implement FMap
 type persons []person
 
-func (seq *persons) Join(gen dynamo.Gen) (iri.Thing, error) {
+func (seq *persons) Join(gen dynamo.Gen) (curie.Thing, error) {
 	val := person{}
 	if fail := gen.To(&val); fail != nil {
 		return nil, fail
@@ -103,12 +103,12 @@ func (seq *persons) Join(gen dynamo.Gen) (iri.Thing, error) {
 
 func TestDdbMatchWithFMap(t *testing.T) {
 	pseq := persons{}
-	tseq, err := apiDB().Match(iri.New("dead")).FMap(pseq.Join)
+	tseq, err := apiDB().Match(curie.New("dead:")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(tseq).Should().Equal([]iri.Thing{&thing, &thing}).
+		If(tseq).Should().Equal([]curie.Thing{&thing, &thing}).
 		If(pseq).Should().Equal(persons{thing, thing})
 }
 
@@ -130,7 +130,7 @@ type mockDDB struct {
 
 func (mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
-		"prefix": {S: aws.String("dead")},
+		"prefix": {S: aws.String("dead:")},
 		"suffix": {S: aws.String("beef")},
 	}
 	if !reflect.DeepEqual(expect, input.Key) {
@@ -139,7 +139,7 @@ func (mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, e
 
 	return &dynamodb.GetItemOutput{
 		Item: map[string]*dynamodb.AttributeValue{
-			"prefix":  {S: aws.String("dead")},
+			"prefix":  {S: aws.String("dead:")},
 			"suffix":  {S: aws.String("beef")},
 			"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 			"name":    {S: aws.String("Verner Pleishner")},
@@ -150,7 +150,7 @@ func (mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, e
 
 func (mockDDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
-		"prefix":  {S: aws.String("dead")},
+		"prefix":  {S: aws.String("dead:")},
 		"suffix":  {S: aws.String("beef")},
 		"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 		"name":    {S: aws.String("Verner Pleishner")},
@@ -165,7 +165,7 @@ func (mockDDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, e
 
 func (mockDDB) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
-		"prefix": {S: aws.String("dead")},
+		"prefix": {S: aws.String("dead:")},
 		"suffix": {S: aws.String("beef")},
 	}
 	if !reflect.DeepEqual(expect, input.Key) {
@@ -177,7 +177,7 @@ func (mockDDB) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteItem
 
 func (mockDDB) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
-		"prefix": {S: aws.String("dead")},
+		"prefix": {S: aws.String("dead:")},
 		"suffix": {S: aws.String("beef")},
 	}
 	if !reflect.DeepEqual(expect, input.Key) {
@@ -193,7 +193,7 @@ func (mockDDB) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItem
 
 	return &dynamodb.UpdateItemOutput{
 		Attributes: map[string]*dynamodb.AttributeValue{
-			"prefix":  {S: aws.String("dead")},
+			"prefix":  {S: aws.String("dead:")},
 			"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 			"name":    {S: aws.String("Verner Pleishner")},
 			"suffix":  {S: aws.String("beef")},
@@ -204,7 +204,7 @@ func (mockDDB) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItem
 
 func (mockDDB) Query(input *dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
-		":prefix": {S: aws.String("dead")},
+		":prefix": {S: aws.String("dead:")},
 	}
 	if !reflect.DeepEqual(expect, input.ExpressionAttributeValues) {
 		return nil, errors.New("Unexpected entity.")
@@ -215,14 +215,14 @@ func (mockDDB) Query(input *dynamodb.QueryInput) (*dynamodb.QueryOutput, error) 
 		Count:        aws.Int64(2),
 		Items: []map[string]*dynamodb.AttributeValue{
 			{
-				"prefix":  {S: aws.String("dead")},
+				"prefix":  {S: aws.String("dead:")},
 				"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 				"name":    {S: aws.String("Verner Pleishner")},
 				"suffix":  {S: aws.String("beef")},
 				"age":     {N: aws.String("64")},
 			},
 			{
-				"prefix":  {S: aws.String("dead")},
+				"prefix":  {S: aws.String("dead:")},
 				"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 				"name":    {S: aws.String("Verner Pleishner")},
 				"suffix":  {S: aws.String("beef")},

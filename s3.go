@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-	"github.com/fogfish/iri"
+	"github.com/fogfish/curie"
 )
 
 // S3 is a service connection handle
@@ -42,7 +42,7 @@ func (dynamo *S3) Mock(db s3iface.S3API) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo S3) Get(entity iri.Thing) (err error) {
+func (dynamo S3) Get(entity curie.Thing) (err error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(entity.Identity().Path()),
@@ -65,7 +65,7 @@ func (dynamo S3) Get(entity iri.Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo S3) Put(entity iri.Thing, _ ...Config) (err error) {
+func (dynamo S3) Put(entity curie.Thing, _ ...Config) (err error) {
 	gen, err := json.Marshal(entity)
 	if err != nil {
 		return
@@ -82,7 +82,7 @@ func (dynamo S3) Put(entity iri.Thing, _ ...Config) (err error) {
 }
 
 // Remove discards the entity from the bucket
-func (dynamo S3) Remove(entity iri.Thing, _ ...Config) (err error) {
+func (dynamo S3) Remove(entity curie.Thing, _ ...Config) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(entity.Identity().Path()),
@@ -95,10 +95,10 @@ func (dynamo S3) Remove(entity iri.Thing, _ ...Config) (err error) {
 
 type tGen map[string]interface{}
 
-func (z tGen) Identity() iri.ID { return z["id"].(iri.ID) }
+func (z tGen) Identity() curie.ID { return z["id"].(curie.ID) }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo S3) Update(entity iri.Thing, _ ...Config) (err error) {
+func (dynamo S3) Update(entity curie.Thing, _ ...Config) (err error) {
 	gen := tGen{"id": entity.Identity()}
 	dynamo.Get(&gen)
 
@@ -143,7 +143,7 @@ type s3Gen struct {
 }
 
 // Lifts generic representation to Thing
-func (gen s3Gen) To(thing iri.Thing) error {
+func (gen s3Gen) To(thing curie.Thing) error {
 	req := &s3.GetObjectInput{
 		Bucket: gen.s3.bucket,
 		Key:    gen.key,
@@ -157,8 +157,8 @@ func (gen s3Gen) To(thing iri.Thing) error {
 }
 
 // FMap transforms sequence
-func (seq *s3Seq) FMap(f FMap) ([]iri.Thing, error) {
-	things := []iri.Thing{}
+func (seq *s3Seq) FMap(f FMap) ([]curie.Thing, error) {
+	things := []curie.Thing{}
 	for _, entity := range seq.items {
 		thing, err := f(s3Gen{s3: seq.s3, key: entity})
 		if err != nil {
@@ -170,7 +170,7 @@ func (seq *s3Seq) FMap(f FMap) ([]iri.Thing, error) {
 }
 
 // Head selects the first element of matched collection.
-func (seq *s3Seq) Head(thing iri.Thing) error {
+func (seq *s3Seq) Head(thing curie.Thing) error {
 	if seq.at == -1 {
 		seq.at++
 	}
@@ -190,7 +190,7 @@ func (seq *s3Seq) Error() error {
 }
 
 // Match applies a pattern matching to elements in the bucket
-func (dynamo S3) Match(key iri.Thing) Seq {
+func (dynamo S3) Match(key curie.Thing) Seq {
 	req := &s3.ListObjectsV2Input{
 		Bucket:  dynamo.bucket,
 		MaxKeys: aws.Int64(1000),
@@ -217,7 +217,7 @@ func (dynamo S3) Match(key iri.Thing) Seq {
 //-----------------------------------------------------------------------------
 
 // Recv establishes bytes stream to S3 object
-func (dynamo S3) Recv(entity iri.Thing) (io.ReadCloser, error) {
+func (dynamo S3) Recv(entity curie.Thing) (io.ReadCloser, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(entity.Identity().Path()),

@@ -7,8 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/iri"
 	"github.com/fogfish/it"
 )
 
@@ -102,7 +102,7 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 func TestDdbUpdateWithConstrain(t *testing.T) {
 	ceq := dynamo.Thing(person{}).Field("Name")
 	val := person{
-		ID:  iri.New("dead:beef"),
+		ID:  curie.New("dead:beef"),
 		Age: 65,
 	}
 
