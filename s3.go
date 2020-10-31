@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fogfish/curie"
 )
 
@@ -216,7 +217,7 @@ func (dynamo S3) Match(key curie.Thing) Seq {
 //
 //-----------------------------------------------------------------------------
 
-// Recv establishes bytes stream to S3 object
+// Recv establishes ingress bytes stream to S3 object
 func (dynamo S3) Recv(entity curie.Thing) (io.ReadCloser, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
@@ -252,4 +253,17 @@ func (dynamo S3) Recv(entity curie.Thing) (io.ReadCloser, error) {
 	}
 
 	return in.Body, nil
+}
+
+// Send establishes egress bytes stream to S3 object
+func (dynamo S3) Send(entity curie.Thing, stream io.Reader) error {
+	up := s3manager.NewUploader(dynamo.io)
+
+	_, err := up.Upload(&s3manager.UploadInput{
+		Bucket: dynamo.bucket,
+		Key:    aws.String(entity.Identity().Path()),
+		Body:   stream,
+	})
+
+	return err
 }
