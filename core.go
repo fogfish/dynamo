@@ -199,6 +199,7 @@ type Gen interface {
 // Blob is a generic byte stream trait to access large binary data
 type Blob interface {
 	Recv(curie.Thing) (io.ReadCloser, error)
+	Send(curie.Thing, io.Reader) error
 }
 
 //
