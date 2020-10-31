@@ -195,7 +195,7 @@ func (e ElemIs) Exists() Config {
 /*
 
 NotExists attribute constrain
-	name.Exists(x) ⟼ attribute_not_exists(name)
+	name.NotExists(x) ⟼ attribute_not_exists(name)
 */
 func (e ElemIs) NotExists() Config {
 	return e.constrain("attribute_not_exists")
