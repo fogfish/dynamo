@@ -87,8 +87,11 @@ func (dynamo DB) Put(entity curie.Thing, config ...Config) (err error) {
 		TableName: dynamo.table,
 	}
 	if len(config) > 0 {
-		req.ExpressionAttributeValues = map[string]*dynamodb.AttributeValue{}
-		config[0](&req.ConditionExpression, req.ExpressionAttributeValues)
+		values := map[string]*dynamodb.AttributeValue{}
+		config[0](&req.ConditionExpression, values)
+		if len(values) > 0 {
+			req.ExpressionAttributeValues = values
+		}
 	}
 	_, err = dynamo.db.PutItem(req)
 	if err != nil {
@@ -119,8 +122,11 @@ func (dynamo DB) Remove(entity curie.Thing, config ...Config) (err error) {
 		TableName: dynamo.table,
 	}
 	if len(config) > 0 {
-		req.ExpressionAttributeValues = map[string]*dynamodb.AttributeValue{}
-		config[0](&req.ConditionExpression, req.ExpressionAttributeValues)
+		values := map[string]*dynamodb.AttributeValue{}
+		config[0](&req.ConditionExpression, values)
+		if len(values) > 0 {
+			req.ExpressionAttributeValues = values
+		}
 	}
 
 	_, err = dynamo.db.DeleteItem(req)
