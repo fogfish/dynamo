@@ -138,6 +138,7 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/fogfish/curie"
 )
@@ -198,8 +199,10 @@ type Gen interface {
 
 // Blob is a generic byte stream trait to access large binary data
 type Blob interface {
+	KeyVal
+	URL(curie.Thing, time.Duration) (string, error)
 	Recv(curie.Thing) (io.ReadCloser, error)
-	Send(curie.Thing, io.Reader) error
+	Send(curie.Thing, string, io.Reader) error
 }
 
 //

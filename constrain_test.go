@@ -21,6 +21,7 @@ var Name = dynamo.Thing(tConstrain{}).Field("Name")
 func TestCompare(t *testing.T) {
 	var (
 		expr *string                             = nil
+		name map[string]*string                  = map[string]*string{}
 		vals map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{}
 	)
 
@@ -34,7 +35,7 @@ func TestCompare(t *testing.T) {
 	}
 
 	for op, fn := range spec {
-		fn("abc")(&expr, vals)
+		fn("abc")(&expr, name, vals)
 
 		expectExpr := fmt.Sprintf("anothername %s :__anothername__", op)
 		expectVals := &dynamodb.AttributeValue{S: aws.String("abc")}
@@ -48,33 +49,39 @@ func TestCompare(t *testing.T) {
 func TestExists(t *testing.T) {
 	var (
 		expr *string                             = nil
+		name map[string]*string                  = map[string]*string{}
 		vals map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{}
 	)
 
-	Name.Exists()(&expr, vals)
+	Name.Exists()(&expr, name, vals)
 
-	expectExpr := "attribute_exists(anothername)"
+	expectExpr := "attribute_exists(#__anothername__)"
 	expectVals := map[string]*dynamodb.AttributeValue{}
+	expectName := map[string]*string{"#__anothername__": aws.String("anothername")}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).
-		If(vals).Should().Equal(expectVals)
+		If(vals).Should().Equal(expectVals).
+		If(name).Should().Equal(expectName)
 }
 
 func TestNotExists(t *testing.T) {
 	var (
 		expr *string                             = nil
+		name map[string]*string                  = map[string]*string{}
 		vals map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{}
 	)
 
-	Name.NotExists()(&expr, vals)
+	Name.NotExists()(&expr, name, vals)
 
-	expectExpr := "attribute_not_exists(anothername)"
+	expectExpr := "attribute_not_exists(#__anothername__)"
 	expectVals := map[string]*dynamodb.AttributeValue{}
+	expectName := map[string]*string{"#__anothername__": aws.String("anothername")}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).
-		If(vals).Should().Equal(expectVals)
+		If(vals).Should().Equal(expectVals).
+		If(name).Should().Equal(expectName)
 }
 
 func TestDdbPutWithConstrain(t *testing.T) {

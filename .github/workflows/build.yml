@@ -17,8 +17,8 @@ jobs:
 
       - name: fix GOPATH
         run: |
-          echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
-          echo "##[add-path]$GITHUB_WORKSPACE/bin"
+          echo "GOPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
         shell: bash
 
       - name: checkout

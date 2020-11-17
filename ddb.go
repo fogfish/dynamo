@@ -86,13 +86,10 @@ func (dynamo DB) Put(entity curie.Thing, config ...Config) (err error) {
 		Item:      gen,
 		TableName: dynamo.table,
 	}
-	if len(config) > 0 {
-		values := map[string]*dynamodb.AttributeValue{}
-		config[0](&req.ConditionExpression, values)
-		if len(values) > 0 {
-			req.ExpressionAttributeValues = values
-		}
-	}
+	names, values := maybeConditionExpression(&req.ConditionExpression, config)
+	req.ExpressionAttributeValues = values
+	req.ExpressionAttributeNames = names
+
 	_, err = dynamo.db.PutItem(req)
 	if err != nil {
 		switch v := err.(type) {
@@ -121,13 +118,9 @@ func (dynamo DB) Remove(entity curie.Thing, config ...Config) (err error) {
 		Key:       keyOnly(gen),
 		TableName: dynamo.table,
 	}
-	if len(config) > 0 {
-		values := map[string]*dynamodb.AttributeValue{}
-		config[0](&req.ConditionExpression, values)
-		if len(values) > 0 {
-			req.ExpressionAttributeValues = values
-		}
-	}
+	names, values := maybeConditionExpression(&req.ConditionExpression, config)
+	req.ExpressionAttributeValues = values
+	req.ExpressionAttributeNames = names
 
 	_, err = dynamo.db.DeleteItem(req)
 	if err != nil {
@@ -142,6 +135,32 @@ func (dynamo DB) Remove(entity curie.Thing, config ...Config) (err error) {
 		}
 	}
 
+	return
+}
+
+func maybeConditionExpression(
+	conditionExpression **string,
+	config []Config,
+) (
+	expressionAttributeNames map[string]*string,
+	expressionAttributeValues map[string]*dynamodb.AttributeValue,
+) {
+	if len(config) > 0 {
+		expressionAttributeNames = map[string]*string{}
+		expressionAttributeValues = map[string]*dynamodb.AttributeValue{}
+		config[0](
+			conditionExpression,
+			expressionAttributeNames,
+			expressionAttributeValues,
+		)
+		// Unfortunately empty maps are not accepted by DynamoDB
+		if len(expressionAttributeNames) == 0 {
+			expressionAttributeNames = nil
+		}
+		if len(expressionAttributeValues) == 0 {
+			expressionAttributeValues = nil
+		}
+	}
 	return
 }
 
@@ -174,7 +193,11 @@ func (dynamo DB) Update(entity curie.Thing, config ...Config) (err error) {
 	}
 
 	if len(config) > 0 {
-		config[0](&req.ConditionExpression, req.ExpressionAttributeValues)
+		config[0](
+			&req.ConditionExpression,
+			req.ExpressionAttributeNames,
+			req.ExpressionAttributeValues,
+		)
 	}
 
 	val, err := dynamo.db.UpdateItem(req)

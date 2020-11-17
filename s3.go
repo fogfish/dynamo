@@ -217,15 +217,20 @@ func (dynamo S3) Match(key curie.Thing) Seq {
 //
 //-----------------------------------------------------------------------------
 
-// Recv establishes ingress bytes stream to S3 object
-func (dynamo S3) Recv(entity curie.Thing) (io.ReadCloser, error) {
+// URL returns absolute URL downloadable using HTTPS protocol
+func (dynamo S3) URL(entity curie.Thing, expire time.Duration) (string, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(entity.Identity().Path()),
 	}
 
 	item, _ := dynamo.db.GetObjectRequest(req)
-	url, err := item.Presign(20 * time.Minute)
+	return item.Presign(expire)
+}
+
+// Recv establishes ingress bytes stream to S3 object
+func (dynamo S3) Recv(entity curie.Thing) (io.ReadCloser, error) {
+	url, err := dynamo.URL(entity, 20*time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -256,13 +261,14 @@ func (dynamo S3) Recv(entity curie.Thing) (io.ReadCloser, error) {
 }
 
 // Send establishes egress bytes stream to S3 object
-func (dynamo S3) Send(entity curie.Thing, stream io.Reader) error {
+func (dynamo S3) Send(entity curie.Thing, mime string, stream io.Reader) error {
 	up := s3manager.NewUploader(dynamo.io)
 
 	_, err := up.Upload(&s3manager.UploadInput{
-		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
-		Body:   stream,
+		Bucket:      dynamo.bucket,
+		Key:         aws.String(entity.Identity().Path()),
+		Body:        stream,
+		ContentType: aws.String(mime),
 	})
 
 	return err

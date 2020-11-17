@@ -71,6 +71,7 @@ Config is a function that applies conditional expression to the DynamoDb request
 */
 type Config func(
 	conditionExpression **string,
+	expressionAttributeNames map[string]*string,
 	expressionAttributeValues map[string]*dynamodb.AttributeValue,
 )
 
@@ -165,6 +166,7 @@ func (e ElemIs) Ge(val interface{}) Config {
 func (e ElemIs) compare(fn string, val interface{}) Config {
 	return func(
 		conditionExpression **string,
+		expressionAttributeNames map[string]*string,
 		expressionAttributeValues map[string]*dynamodb.AttributeValue,
 	) {
 		if e.string == "" {
@@ -204,13 +206,17 @@ func (e ElemIs) NotExists() Config {
 func (e ElemIs) constrain(fn string) Config {
 	return func(
 		conditionExpression **string,
+		expressionAttributeNames map[string]*string,
 		expressionAttributeValues map[string]*dynamodb.AttributeValue,
 	) {
 		if e.string == "" {
 			return
 		}
 
-		*conditionExpression = aws.String(fmt.Sprintf("%s(%s)", fn, e.string))
+		key := fmt.Sprintf("#__%s__", e.string)
+		expressionAttributeNames[key] = aws.String(e.string)
+
+		*conditionExpression = aws.String(fmt.Sprintf("%s(%s)", fn, key))
 		return
 	}
 }
