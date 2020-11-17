@@ -87,12 +87,17 @@ func (dynamo DB) Put(entity curie.Thing, config ...Config) (err error) {
 		TableName: dynamo.table,
 	}
 	if len(config) > 0 {
+		names := map[string]*string{}
 		values := map[string]*dynamodb.AttributeValue{}
-		config[0](&req.ConditionExpression, values)
+		config[0](&req.ConditionExpression, names, values)
 		if len(values) > 0 {
 			req.ExpressionAttributeValues = values
 		}
+		if len(names) > 0 {
+			req.ExpressionAttributeNames = names
+		}
 	}
+
 	_, err = dynamo.db.PutItem(req)
 	if err != nil {
 		switch v := err.(type) {
@@ -122,10 +127,14 @@ func (dynamo DB) Remove(entity curie.Thing, config ...Config) (err error) {
 		TableName: dynamo.table,
 	}
 	if len(config) > 0 {
+		names := map[string]*string{}
 		values := map[string]*dynamodb.AttributeValue{}
-		config[0](&req.ConditionExpression, values)
+		config[0](&req.ConditionExpression, names, values)
 		if len(values) > 0 {
 			req.ExpressionAttributeValues = values
+		}
+		if len(names) > 0 {
+			req.ExpressionAttributeNames = names
 		}
 	}
 
@@ -174,7 +183,11 @@ func (dynamo DB) Update(entity curie.Thing, config ...Config) (err error) {
 	}
 
 	if len(config) > 0 {
-		config[0](&req.ConditionExpression, req.ExpressionAttributeValues)
+		config[0](
+			&req.ConditionExpression,
+			req.ExpressionAttributeNames,
+			req.ExpressionAttributeValues,
+		)
 	}
 
 	val, err := dynamo.db.UpdateItem(req)
