@@ -84,6 +84,36 @@ func TestNotExists(t *testing.T) {
 		If(name).Should().Equal(expectName)
 }
 
+func TestIs(t *testing.T) {
+	var (
+		expr *string                             = nil
+		name map[string]*string                  = map[string]*string{}
+		vals map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{}
+	)
+
+	Name.Is("_")(&expr, name, vals)
+
+	expectExpr := "attribute_not_exists(#__anothername__)"
+	expectVals := map[string]*dynamodb.AttributeValue{}
+	expectName := map[string]*string{"#__anothername__": aws.String("anothername")}
+
+	it.Ok(t).
+		If(*expr).Should().Equal(expectExpr).
+		If(vals).Should().Equal(expectVals).
+		If(name).Should().Equal(expectName)
+
+	//
+	Name.Is("abc")(&expr, name, vals)
+
+	expectExpr = fmt.Sprintf("anothername = :__anothername__")
+	expectVals = map[string]*dynamodb.AttributeValue{":__anothername__": &dynamodb.AttributeValue{S: aws.String("abc")}}
+
+	it.Ok(t).
+		If(*expr).Should().Equal(expectExpr).
+		If(vals).Should().Equal(expectVals).
+		If(name).Should().Equal(expectName)
+}
+
 func TestDdbPutWithConstrain(t *testing.T) {
 	ceq := dynamo.Thing(person{}).Field("Name")
 
