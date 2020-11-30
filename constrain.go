@@ -163,6 +163,18 @@ func (e ElemIs) Ge(val interface{}) Config {
 	return e.compare(">=", val)
 }
 
+/*
+
+Is matches either Eq or NotExists if value is not defined
+*/
+func (e ElemIs) Is(val string) Config {
+	if val == "_" {
+		return e.NotExists()
+	}
+
+	return e.Eq(val)
+}
+
 func (e ElemIs) compare(fn string, val interface{}) Config {
 	return func(
 		conditionExpression **string,
