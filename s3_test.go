@@ -137,6 +137,7 @@ func (mockS3) DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput,
 
 func (mockS3) ListObjectsV2(*s3.ListObjectsV2Input) (*s3.ListObjectsV2Output, error) {
 	return &s3.ListObjectsV2Output{
+		KeyCount: aws.Int64(2),
 		Contents: []*s3.Object{
 			{Key: aws.String("dead/beef")},
 			{Key: aws.String("dead/beef")},
