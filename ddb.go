@@ -10,6 +10,7 @@ package dynamo
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -30,6 +31,7 @@ type DB struct {
 
 func newDB(table string) *DB {
 	io := session.Must(session.NewSession())
+	// TODO: aws config , aws.NewConfig().WithMaxRetries(10)
 	db := dynamodb.New(io)
 	return &DB{io, db, aws.String(table)}
 }
@@ -223,17 +225,10 @@ func (dynamo DB) Update(entity curie.Thing, config ...Config) (err error) {
 //
 //-----------------------------------------------------------------------------
 
-// dbSeq is an iterator over matched results
-type dbSeq struct {
-	at    int
-	items []map[string]*dynamodb.AttributeValue
-	err   error
-}
-
 // dbGen is type alias for generic representation
 type dbGen map[string]*dynamodb.AttributeValue
 
-// Lifts generic representation to Thing
+// To lifts generic representation to Thing
 func (gen dbGen) To(thing curie.Thing) error {
 	item, err := unmarshal(gen)
 	if err != nil {
@@ -242,11 +237,76 @@ func (gen dbGen) To(thing curie.Thing) error {
 	return dynamodbattribute.UnmarshalMap(item, thing)
 }
 
+// dbSlice active page
+type dbSlice struct {
+	head int
+	heap []map[string]*dynamodb.AttributeValue
+}
+
+func mkDbSlice(heap []map[string]*dynamodb.AttributeValue) *dbSlice {
+	return &dbSlice{
+		head: 0,
+		heap: heap,
+	}
+}
+
+func (slice *dbSlice) Head() dbGen {
+	if slice.head < len(slice.heap) {
+		return dbGen(slice.heap[slice.head])
+	}
+	return nil
+}
+
+func (slice *dbSlice) Tail() bool {
+	slice.head++
+	return slice.head < len(slice.heap)
+}
+
+// dbSeq is an iterator over matched results
+type dbSeq struct {
+	dynamo *DB
+	q      *dynamodb.QueryInput
+	slice  *dbSlice
+	stream bool
+	err    error
+}
+
+func mkDbSeq(dynamo *DB, q *dynamodb.QueryInput, err error) *dbSeq {
+	return &dbSeq{
+		dynamo: dynamo,
+		q:      q,
+		slice:  nil,
+		stream: true,
+		err:    err,
+	}
+}
+
+func (seq *dbSeq) seed() error {
+	if seq.slice != nil && seq.q.ExclusiveStartKey == nil {
+		return fmt.Errorf("End of Stream")
+	}
+
+	val, err := seq.dynamo.db.Query(seq.q)
+	if err != nil {
+		seq.err = err
+		return err
+	}
+
+	if *val.Count == 0 {
+		return fmt.Errorf("End of Stream")
+	}
+
+	seq.slice = mkDbSlice(val.Items)
+	seq.q.ExclusiveStartKey = val.LastEvaluatedKey
+
+	return nil
+}
+
 // FMap transforms sequence
 func (seq *dbSeq) FMap(f FMap) ([]curie.Thing, error) {
 	things := []curie.Thing{}
-	for _, entity := range seq.items {
-		thing, err := f(dbGen(entity))
+	for seq.Tail() {
+		thing, err := f(seq.slice.Head())
 		if err != nil {
 			return nil, err
 		}
@@ -257,16 +317,48 @@ func (seq *dbSeq) FMap(f FMap) ([]curie.Thing, error) {
 
 // Head selects the first element of matched collection.
 func (seq *dbSeq) Head(thing curie.Thing) error {
-	if seq.at == -1 {
-		seq.at++
+	if seq.slice == nil {
+		if err := seq.seed(); err != nil {
+			return err
+		}
 	}
-	return dbGen(seq.items[seq.at]).To(thing)
+
+	return seq.slice.Head().To(thing)
 }
 
 // Tail selects the all elements except the first one
 func (seq *dbSeq) Tail() bool {
-	seq.at++
-	return seq.err == nil && seq.at < len(seq.items)
+	switch {
+	case seq.err != nil:
+		return false
+	case seq.slice == nil:
+		if err := seq.seed(); err != nil {
+			return false
+		}
+		return true
+	case seq.err == nil && !seq.slice.Tail():
+		if !seq.stream {
+			return false
+		}
+
+		if err := seq.seed(); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+// Cursor is the global position in the sequence
+func (seq *dbSeq) Cursor() *curie.ID {
+	if seq.q.ExclusiveStartKey != nil {
+		val := seq.q.ExclusiveStartKey
+		prefix, _ := val["prefix"]
+		suffix, _ := val["suffix"]
+		iri := curie.New(aws.StringValue(prefix.S)).Join(aws.StringValue(suffix.S))
+		return &iri
+	}
+
+	return nil
 }
 
 // Error indicates if any error appears during I/O
@@ -274,25 +366,46 @@ func (seq *dbSeq) Error() error {
 	return seq.err
 }
 
+// Limit sequence size to N elements, fetch a page of sequence
+func (seq *dbSeq) Limit(n int64) Seq {
+	seq.q.Limit = aws.Int64(n)
+	seq.stream = false
+	return seq
+}
+
+// Continue limited sequence from the cursor
+func (seq *dbSeq) Continue(cursor *curie.ID) Seq {
+	if cursor != nil {
+		key := map[string]*dynamodb.AttributeValue{}
+		key["prefix"] = &dynamodb.AttributeValue{S: aws.String(cursor.Prefix())}
+		if cursor.Suffix() != "" {
+			key["suffix"] = &dynamodb.AttributeValue{S: aws.String(cursor.Suffix())}
+		}
+		seq.q.ExclusiveStartKey = key
+	}
+	return seq
+}
+
+// Reverse order of sequence
+func (seq *dbSeq) Reverse() Seq {
+	seq.q.ScanIndexForward = aws.Bool(false)
+	return seq
+}
+
 // Match applies a pattern matching to elements in the table
 func (dynamo DB) Match(key curie.Thing) Seq {
 	gen, err := pattern(dynamodbattribute.MarshalMap(key))
 	if err != nil {
-		return &dbSeq{-1, nil, err}
+		return mkDbSeq(nil, nil, err)
 	}
 
-	req := &dynamodb.QueryInput{
+	q := &dynamodb.QueryInput{
 		KeyConditionExpression:    aws.String("prefix = :prefix"),
 		ExpressionAttributeValues: exprOf(gen),
 		TableName:                 dynamo.table,
-		// ScanIndexForward:          aws.Bool(false),
-	}
-	val, err := dynamo.db.Query(req)
-	if err != nil {
-		return &dbSeq{-1, nil, err}
 	}
 
-	return &dbSeq{-1, val.Items, nil}
+	return mkDbSeq(&dynamo, q, err)
 }
 
 //-----------------------------------------------------------------------------

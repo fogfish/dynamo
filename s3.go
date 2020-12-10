@@ -3,6 +3,7 @@ package dynamo
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -129,14 +130,6 @@ func (dynamo S3) Update(entity curie.Thing, _ ...Config) (err error) {
 //
 //-----------------------------------------------------------------------------
 
-// s3Seq is an iterator over matched results
-type s3Seq struct {
-	at    int
-	items []*string
-	err   error
-	s3    *S3
-}
-
 // s3Gen is type alias for generic representation
 type s3Gen struct {
 	s3  *S3
@@ -157,11 +150,60 @@ func (gen s3Gen) To(thing curie.Thing) error {
 	return json.NewDecoder(val.Body).Decode(thing)
 }
 
+// s3Seq is an iterator over matched results
+type s3Seq struct {
+	s3     *S3
+	q      *s3.ListObjectsV2Input
+	at     int
+	items  []*string
+	stream bool
+	err    error
+}
+
+func mkS3Seq(s3 *S3, q *s3.ListObjectsV2Input, err error) *s3Seq {
+	return &s3Seq{
+		s3:     s3,
+		q:      q,
+		at:     0,
+		items:  nil,
+		stream: true,
+		err:    err,
+	}
+}
+
+func (seq *s3Seq) seed() error {
+	if seq.items != nil && seq.q.StartAfter == nil {
+		return fmt.Errorf("End of Stream")
+	}
+
+	val, err := seq.s3.db.ListObjectsV2(seq.q)
+	if err != nil {
+		seq.err = err
+		return err
+	}
+
+	if *val.KeyCount == 0 {
+		return fmt.Errorf("End of Stream")
+	}
+
+	items := make([]*string, 0)
+	for _, x := range val.Contents {
+		items = append(items, x.Key)
+	}
+
+	seq.at = 0
+	seq.items = items
+	if len(items) > 0 && val.NextContinuationToken != nil {
+		seq.q.StartAfter = items[len(items)-1]
+	}
+	return nil
+}
+
 // FMap transforms sequence
 func (seq *s3Seq) FMap(f FMap) ([]curie.Thing, error) {
 	things := []curie.Thing{}
-	for _, entity := range seq.items {
-		thing, err := f(s3Gen{s3: seq.s3, key: entity})
+	for seq.Tail() {
+		thing, err := f(s3Gen{s3: seq.s3, key: seq.items[seq.at]})
 		if err != nil {
 			return nil, err
 		}
@@ -172,8 +214,10 @@ func (seq *s3Seq) FMap(f FMap) ([]curie.Thing, error) {
 
 // Head selects the first element of matched collection.
 func (seq *s3Seq) Head(thing curie.Thing) error {
-	if seq.at == -1 {
-		seq.at++
+	if seq.items == nil {
+		if err := seq.seed(); err != nil {
+			return err
+		}
 	}
 
 	return s3Gen{s3: seq.s3, key: seq.items[seq.at]}.To(thing)
@@ -182,12 +226,61 @@ func (seq *s3Seq) Head(thing curie.Thing) error {
 // Tail selects the all elements except the first one
 func (seq *s3Seq) Tail() bool {
 	seq.at++
-	return seq.err == nil && seq.at < len(seq.items)
+
+	switch {
+	case seq.err != nil:
+		return false
+	case seq.items == nil:
+		if err := seq.seed(); err != nil {
+			return false
+		}
+		return true
+	case seq.err == nil && seq.at >= len(seq.items):
+		if !seq.stream {
+			return false
+		}
+
+		if err := seq.seed(); err != nil {
+			return false
+		}
+		return true
+	}
+
+	return true
+}
+
+// Cursor is the global position in the sequence
+func (seq *s3Seq) Cursor() *curie.ID {
+	if seq.q.StartAfter != nil {
+		iri := curie.New(aws.StringValue(seq.q.StartAfter))
+		return &iri
+	}
+	return nil
 }
 
 // Error indicates if any error appears during I/O
 func (seq *s3Seq) Error() error {
 	return seq.err
+}
+
+// Limit sequence to N elements
+func (seq *s3Seq) Limit(n int64) Seq {
+	seq.q.MaxKeys = aws.Int64(n)
+	seq.stream = false
+	return seq
+}
+
+// Continue limited sequence from the cursor
+func (seq *s3Seq) Continue(cursor *curie.ID) Seq {
+	if cursor != nil {
+		seq.q.StartAfter = aws.String(cursor.Path())
+	}
+	return seq
+}
+
+// Reverse order of sequence
+func (seq *s3Seq) Reverse() Seq {
+	return seq
 }
 
 // Match applies a pattern matching to elements in the bucket
@@ -198,17 +291,7 @@ func (dynamo S3) Match(key curie.Thing) Seq {
 		Prefix:  aws.String(key.Identity().Path()),
 	}
 
-	val, err := dynamo.db.ListObjectsV2(req)
-	if err != nil {
-		return &s3Seq{-1, nil, err, nil}
-	}
-
-	items := make([]*string, 0)
-	for _, x := range val.Contents {
-		items = append(items, x.Key)
-	}
-
-	return &s3Seq{-1, items, nil, &dynamo}
+	return mkS3Seq(&dynamo, req, nil)
 }
 
 //-----------------------------------------------------------------------------

@@ -172,6 +172,7 @@ type KeyValPattern interface {
 //   })
 type Seq interface {
 	SeqLazy
+	SeqConfig
 
 	// Sequence transformer
 	FMap(FMap) ([]curie.Thing, error)
@@ -185,6 +186,18 @@ type SeqLazy interface {
 	Tail() bool
 	// Error returns error of stream evaluation
 	Error() error
+	// Cursor is the global position in the sequence
+	Cursor() *curie.ID
+}
+
+// SeqConfig define sequence behavior
+type SeqConfig interface {
+	// Limit sequence size to N elements, fetch a page of sequence
+	Limit(int64) Seq
+	// Continue limited sequence from the cursor
+	Continue(cursor *curie.ID) Seq
+	// Reverse order of sequence
+	Reverse() Seq
 }
 
 //
