@@ -171,6 +171,14 @@ func mkS3Seq(s3 *S3, q *s3.ListObjectsV2Input, err error) *s3Seq {
 	}
 }
 
+func (seq *s3Seq) maybeSeed() error {
+	if !seq.stream {
+		return fmt.Errorf("End of Stream")
+	}
+
+	return seq.seed()
+}
+
 func (seq *s3Seq) seed() error {
 	if seq.items != nil && seq.q.StartAfter == nil {
 		return fmt.Errorf("End of Stream")
@@ -231,22 +239,14 @@ func (seq *s3Seq) Tail() bool {
 	case seq.err != nil:
 		return false
 	case seq.items == nil:
-		if err := seq.seed(); err != nil {
-			return false
-		}
-		return true
+		err := seq.seed()
+		return err == nil
 	case seq.err == nil && seq.at >= len(seq.items):
-		if !seq.stream {
-			return false
-		}
-
-		if err := seq.seed(); err != nil {
-			return false
-		}
+		err := seq.maybeSeed()
+		return err == nil
+	default:
 		return true
 	}
-
-	return true
 }
 
 // Cursor is the global position in the sequence

@@ -35,6 +35,7 @@ The latest version of the library is available at its `main` branch. All develop
   - [Data types definition](#data-types-definition)
   - [DynamoDB IO](#dynamodb-io)
   - [Hierarchical structures](#hierarchical-structures)
+  - [Sequences and Pagination](#sequences-and-pagination)
   - [Linked data](#linked-data)
   - [Optimistic Locking](#optimistic-locking)
   - [Configure DynamoDB](#configure-dynamodb)
@@ -177,6 +178,24 @@ db.Match(curie.New("A:C")).FMap(seq.Join)
 ```
 
 See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for api spec and [advanced example](example) app.
+
+
+### Sequences and Pagination
+
+Hierarchical structures is the way to organize collections, lists, sets, etc. The `Match` returns a lazy [Sequence](https://pkg.go.dev/github.com/fogfish/dynamo?readme=expanded#Seq) that represents your entire collection. Sometimes, your need to split the collection into sequence of pages.
+
+```go
+// 1. Set the limit on the stream 
+seq := db.Match(curie.New("A:C")).Limit(25)
+// 2. Consume the stream
+seq.FMap(persons.Join)
+// 3. Read cursor value
+cursor := seq.Cursor()
+
+
+// 4. Continue I/O with a new stream, supply the cursor
+seq := db.Match(curie.New("A:C")).Limit(25).Continue(cursor)
+```
 
 
 ### Linked data

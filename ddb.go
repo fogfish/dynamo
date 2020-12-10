@@ -281,6 +281,14 @@ func mkDbSeq(dynamo *DB, q *dynamodb.QueryInput, err error) *dbSeq {
 	}
 }
 
+func (seq *dbSeq) maybeSeed() error {
+	if !seq.stream {
+		return fmt.Errorf("End of Stream")
+	}
+
+	return seq.seed()
+}
+
 func (seq *dbSeq) seed() error {
 	if seq.slice != nil && seq.q.ExclusiveStartKey == nil {
 		return fmt.Errorf("End of Stream")
@@ -332,20 +340,14 @@ func (seq *dbSeq) Tail() bool {
 	case seq.err != nil:
 		return false
 	case seq.slice == nil:
-		if err := seq.seed(); err != nil {
-			return false
-		}
-		return true
+		err := seq.seed()
+		return err == nil
 	case seq.err == nil && !seq.slice.Tail():
-		if !seq.stream {
-			return false
-		}
-
-		if err := seq.seed(); err != nil {
-			return false
-		}
+		err := seq.maybeSeed()
+		return err == nil
+	default:
+		return true
 	}
-	return true
 }
 
 // Cursor is the global position in the sequence
