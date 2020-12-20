@@ -48,7 +48,7 @@ func (dynamo *DB) Mock(db dynamodbiface.DynamoDBAPI) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo DB) Get(entity curie.Thing) (err error) {
+func (dynamo DB) Get(entity Thing) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -64,7 +64,7 @@ func (dynamo DB) Get(entity curie.Thing) (err error) {
 	}
 
 	if val.Item == nil {
-		err = NotFound{entity.Identity().IRI.String()}
+		err = NotFound{entity.Identity().String()}
 		return
 	}
 
@@ -78,7 +78,7 @@ func (dynamo DB) Get(entity curie.Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo DB) Put(entity curie.Thing, config ...Config) (err error) {
+func (dynamo DB) Put(entity Thing, config ...Config) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -97,7 +97,7 @@ func (dynamo DB) Put(entity curie.Thing, config ...Config) (err error) {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{entity.Identity().IRI.String()}
+				return PreConditionFailed{entity.Identity().String()}
 			}
 			return
 		default:
@@ -109,7 +109,7 @@ func (dynamo DB) Put(entity curie.Thing, config ...Config) (err error) {
 }
 
 // Remove discards the entity from the table
-func (dynamo DB) Remove(entity curie.Thing, config ...Config) (err error) {
+func (dynamo DB) Remove(entity Thing, config ...Config) (err error) {
 
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
@@ -129,7 +129,7 @@ func (dynamo DB) Remove(entity curie.Thing, config ...Config) (err error) {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{entity.Identity().IRI.String()}
+				return PreConditionFailed{entity.Identity().String()}
 			}
 			return
 		default:
@@ -167,7 +167,7 @@ func maybeConditionExpression(
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo DB) Update(entity curie.Thing, config ...Config) (err error) {
+func (dynamo DB) Update(entity Thing, config ...Config) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -207,7 +207,7 @@ func (dynamo DB) Update(entity curie.Thing, config ...Config) (err error) {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{entity.Identity().IRI.String()}
+				return PreConditionFailed{entity.Identity().String()}
 			}
 			return
 		default:
@@ -229,7 +229,7 @@ func (dynamo DB) Update(entity curie.Thing, config ...Config) (err error) {
 type dbGen map[string]*dynamodb.AttributeValue
 
 // To lifts generic representation to Thing
-func (gen dbGen) To(thing curie.Thing) error {
+func (gen dbGen) To(thing Thing) error {
 	item, err := unmarshal(gen)
 	if err != nil {
 		return err
@@ -311,8 +311,8 @@ func (seq *dbSeq) seed() error {
 }
 
 // FMap transforms sequence
-func (seq *dbSeq) FMap(f FMap) ([]curie.Thing, error) {
-	things := []curie.Thing{}
+func (seq *dbSeq) FMap(f FMap) ([]Thing, error) {
+	things := []Thing{}
 	for seq.Tail() {
 		thing, err := f(seq.slice.Head())
 		if err != nil {
@@ -324,7 +324,7 @@ func (seq *dbSeq) FMap(f FMap) ([]curie.Thing, error) {
 }
 
 // Head selects the first element of matched collection.
-func (seq *dbSeq) Head(thing curie.Thing) error {
+func (seq *dbSeq) Head(thing Thing) error {
 	if seq.slice == nil {
 		if err := seq.seed(); err != nil {
 			return err
@@ -351,7 +351,7 @@ func (seq *dbSeq) Tail() bool {
 }
 
 // Cursor is the global position in the sequence
-func (seq *dbSeq) Cursor() *curie.ID {
+func (seq *dbSeq) Cursor() *curie.IRI {
 	if seq.q.ExclusiveStartKey != nil {
 		val := seq.q.ExclusiveStartKey
 		prefix, _ := val["prefix"]
@@ -376,7 +376,7 @@ func (seq *dbSeq) Limit(n int64) Seq {
 }
 
 // Continue limited sequence from the cursor
-func (seq *dbSeq) Continue(cursor *curie.ID) Seq {
+func (seq *dbSeq) Continue(cursor *curie.IRI) Seq {
 	if cursor != nil {
 		key := map[string]*dynamodb.AttributeValue{}
 		key["prefix"] = &dynamodb.AttributeValue{S: aws.String(cursor.Prefix())}
@@ -395,7 +395,7 @@ func (seq *dbSeq) Reverse() Seq {
 }
 
 // Match applies a pattern matching to elements in the table
-func (dynamo DB) Match(key curie.Thing) Seq {
+func (dynamo DB) Match(key Thing) Seq {
 	gen, err := pattern(dynamodbattribute.MarshalMap(key))
 	if err != nil {
 		return mkDbSeq(nil, nil, err)
@@ -452,7 +452,7 @@ func unmarshal(ddb map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.At
 	}
 
 	iri := curie.New(aws.StringValue(prefix.S)).Join(aws.StringValue(suffix.S))
-	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.IRI.String())}
+	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.String())}
 
 	delete(ddb, "prefix")
 	delete(ddb, "suffix")

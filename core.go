@@ -38,7 +38,7 @@
 // strongly expressed by struct in Go.
 //
 //   type Person struct {
-//     curie.ID
+//     dynamo.ID
 //     Name    string `dynamodbav:"name,omitempty"`
 //     Age     int    `dynamodbav:"age,omitempty"`
 //     Address string `dynamodbav:"address,omitempty"`
@@ -56,7 +56,7 @@
 // Creates a new entity, or replaces an old entity with a new value.
 //   err := db.Put(
 //     Person{
-//       curie.New("8980789222"),
+//       dynamo.NewID("8980789222"),
 //       "Verner Pleishner",
 //       64,
 //       "Blumenstrasse 14, Berne, 3013",
@@ -67,7 +67,7 @@
 // a placeholder and fill it with a data upon the completion. The only
 // requirement - ID has to be defined.
 //
-//   person := Person{ID: curie.New("8980789222")}
+//   person := Person{ID: dynamo.NewID("8980789222")}
 //   switch err := db.Get(&person).(type) {
 //   case nil:
 //     // success
@@ -78,13 +78,13 @@
 //   }
 //
 // Remove the entity
-//   err := db.Remove(curie.New("8980789222"))
+//   err := db.Remove(dynamo.NewID("8980789222"))
 //
 // Apply a partial update using Update function. This function takes
 // a partially defined structure, patches the instance at storage and
 // returns remaining attributes.
 //   person := Person{
-//     ID:      curie.New("8980789222"),
+//     ID:      dynamo.NewID("8980789222"),
 //     Address: "Viktoriastrasse 37, Berne, 3013",
 //   }
 //   if err := db.Update(&person); err != nil { ... }
@@ -105,11 +105,11 @@
 // Use `dynamo.IRI` type to model relations between data instances
 //
 //   type Person struct {
-//     curie.ID
+//     dynamo.ID
 //     Account *curie.IRI `dynamodbav:"name,omitempty"`
 //   }
 //
-// `curie.ID` and `curie.IRI` are equivalent data types. The first one
+// `dynamo.ID` and `curie.IRI` are equivalent data types. The first one
 // is used as primary key, the latter one is a linked identity.
 //
 // Use with AWS DynamoDB
@@ -126,7 +126,7 @@
 //
 // ↣ create I/O handler using s3 schema `dynamo.New("s3:///my-bucket")`
 //
-// ↣ primary key `curie.ID` is serialized to S3 bucket path `prefix/suffix`
+// ↣ primary key `dynamo.ID` is serialized to S3 bucket path `prefix/suffix`
 //
 // ↣ storage persists struct to JSON, use `json` field tags to specify
 // serialization rules
@@ -152,21 +152,31 @@ type KeyVal interface {
 
 // KeyValPure defines a generic key-value I/O
 type KeyValPure interface {
-	Get(curie.Thing) error
-	Put(curie.Thing, ...Config) error
-	Remove(curie.Thing, ...Config) error
-	Update(curie.Thing, ...Config) error
+	Get(Thing) error
+	Put(Thing, ...Config) error
+	Remove(Thing, ...Config) error
+	Update(Thing, ...Config) error
 }
 
 // KeyValPattern defines simples pattern matching lookup I/O
 type KeyValPattern interface {
-	Match(curie.Thing) Seq
+	Match(Thing) Seq
+}
+
+//
+// FMap is a transformer of generic representation to concrete type
+type FMap func(Gen) (Thing, error)
+
+//
+// Gen is a generic representation of storage type
+type Gen interface {
+	To(Thing) error
 }
 
 //
 // Seq is an interface to transform collection of objects
 //
-//   db.Match(curie.New("users")).FMap(func(gen Gen) (curie.Thing, error) {
+//   db.Match(dynamo.NewID("users")).FMap(func(gen Gen) (dynamo.Thing, error) {
 //      val = &Person{}
 //      return gen.To(val)
 //   })
@@ -175,19 +185,19 @@ type Seq interface {
 	SeqConfig
 
 	// Sequence transformer
-	FMap(FMap) ([]curie.Thing, error)
+	FMap(FMap) ([]Thing, error)
 }
 
 // SeqLazy is an interface to iterate through collection of objects
 type SeqLazy interface {
 	// Head lifts first element of sequence
-	Head(curie.Thing) error
+	Head(Thing) error
 	// Tail evaluates tail of sequence
 	Tail() bool
 	// Error returns error of stream evaluation
 	Error() error
 	// Cursor is the global position in the sequence
-	Cursor() *curie.ID
+	Cursor() *curie.IRI
 }
 
 // SeqConfig define sequence behavior
@@ -195,27 +205,17 @@ type SeqConfig interface {
 	// Limit sequence size to N elements, fetch a page of sequence
 	Limit(int64) Seq
 	// Continue limited sequence from the cursor
-	Continue(cursor *curie.ID) Seq
+	Continue(cursor *curie.IRI) Seq
 	// Reverse order of sequence
 	Reverse() Seq
-}
-
-//
-// FMap is a transformer of generic representation to concrete type
-type FMap func(Gen) (curie.Thing, error)
-
-//
-// Gen is a generic representation of storage type
-type Gen interface {
-	To(curie.Thing) error
 }
 
 // Blob is a generic byte stream trait to access large binary data
 type Blob interface {
 	KeyVal
-	URL(curie.Thing, time.Duration) (string, error)
-	Recv(curie.Thing) (io.ReadCloser, error)
-	Send(curie.Thing, string, io.Reader) error
+	URL(Thing, time.Duration) (string, error)
+	Recv(Thing) (io.ReadCloser, error)
+	Send(Thing, string, io.Reader) error
 }
 
 //

@@ -77,11 +77,11 @@ type Config func(
 
 /*
 
-Thing constructs type descriptor to express I/O conditions.
+Kind constructs type descriptor to express I/O conditions.
 See TypeOf documentation
   var name = Thing(Person{}).Field("Name")
 */
-func Thing(val interface{}) TypeOf {
+func Kind(val interface{}) TypeOf {
 	typeof := reflect.TypeOf(val)
 	if typeof.Kind() == reflect.Ptr {
 		typeof = typeof.Elem()

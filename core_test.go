@@ -13,21 +13,22 @@ import (
 )
 
 type Item struct {
-	curie.ID
-	Ref *curie.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
-	Tag string     `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
+	dynamo.ID
+	Ref *dynamo.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag string      `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
 }
 
-var fixtureLink curie.ID = curie.New("foo:a/suffix")
+var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI{curie.New("foo:a/suffix")}}
+
 var fixtureItem Item = Item{
-	ID:  curie.New("foo:prefix/suffix"),
-	Ref: &fixtureLink.IRI,
+	ID:  dynamo.NewID("foo:prefix/suffix"),
+	Ref: dynamo.NewID("foo:a/suffix").Ref(),
 	Tag: "tag",
 }
 var fixtureJson string = "{\"id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
 
 var fixtureEmptyItem Item = Item{
-	ID: curie.New("foo:prefix/suffix"),
+	ID: dynamo.NewID("foo:prefix/suffix"),
 }
 var fixtureEmptyJson string = "{\"id\":\"[foo:prefix/suffix]\"}"
 
@@ -89,4 +90,14 @@ func TestNew(t *testing.T) {
 	it.Ok(t).
 		If(dynamo.Must(dynamo.New("ddb:///a"))).ShouldNot().Equal(nil).
 		If(dynamo.Must(dynamo.New("s3:///a"))).ShouldNot().Equal(nil)
+}
+
+func TestIDs(t *testing.T) {
+	expect := curie.New("a:b/c")
+	a := dynamo.NewID("a:b/c")
+	b := dynamo.MkID(curie.New("a:b/c"))
+
+	it.Ok(t).
+		If(a.Identity()).Should().Equal(expect).
+		If(b.Identity()).Should().Equal(expect)
 }

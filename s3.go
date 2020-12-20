@@ -44,7 +44,7 @@ func (dynamo *S3) Mock(db s3iface.S3API) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo S3) Get(entity curie.Thing) (err error) {
+func (dynamo S3) Get(entity Thing) (err error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(entity.Identity().Path()),
@@ -67,7 +67,7 @@ func (dynamo S3) Get(entity curie.Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo S3) Put(entity curie.Thing, _ ...Config) (err error) {
+func (dynamo S3) Put(entity Thing, _ ...Config) (err error) {
 	gen, err := json.Marshal(entity)
 	if err != nil {
 		return
@@ -84,7 +84,7 @@ func (dynamo S3) Put(entity curie.Thing, _ ...Config) (err error) {
 }
 
 // Remove discards the entity from the bucket
-func (dynamo S3) Remove(entity curie.Thing, _ ...Config) (err error) {
+func (dynamo S3) Remove(entity Thing, _ ...Config) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(entity.Identity().Path()),
@@ -97,10 +97,10 @@ func (dynamo S3) Remove(entity curie.Thing, _ ...Config) (err error) {
 
 type tGen map[string]interface{}
 
-func (z tGen) Identity() curie.ID { return z["id"].(curie.ID) }
+func (z tGen) Identity() curie.IRI { return z["id"].(curie.IRI) }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo S3) Update(entity curie.Thing, _ ...Config) (err error) {
+func (dynamo S3) Update(entity Thing, _ ...Config) (err error) {
 	gen := tGen{"id": entity.Identity()}
 	dynamo.Get(&gen)
 
@@ -137,7 +137,7 @@ type s3Gen struct {
 }
 
 // Lifts generic representation to Thing
-func (gen s3Gen) To(thing curie.Thing) error {
+func (gen s3Gen) To(thing Thing) error {
 	req := &s3.GetObjectInput{
 		Bucket: gen.s3.bucket,
 		Key:    gen.key,
@@ -208,8 +208,8 @@ func (seq *s3Seq) seed() error {
 }
 
 // FMap transforms sequence
-func (seq *s3Seq) FMap(f FMap) ([]curie.Thing, error) {
-	things := []curie.Thing{}
+func (seq *s3Seq) FMap(f FMap) ([]Thing, error) {
+	things := []Thing{}
 	for seq.Tail() {
 		thing, err := f(s3Gen{s3: seq.s3, key: seq.items[seq.at]})
 		if err != nil {
@@ -221,7 +221,7 @@ func (seq *s3Seq) FMap(f FMap) ([]curie.Thing, error) {
 }
 
 // Head selects the first element of matched collection.
-func (seq *s3Seq) Head(thing curie.Thing) error {
+func (seq *s3Seq) Head(thing Thing) error {
 	if seq.items == nil {
 		if err := seq.seed(); err != nil {
 			return err
@@ -250,7 +250,7 @@ func (seq *s3Seq) Tail() bool {
 }
 
 // Cursor is the global position in the sequence
-func (seq *s3Seq) Cursor() *curie.ID {
+func (seq *s3Seq) Cursor() *curie.IRI {
 	if seq.q.StartAfter != nil {
 		iri := curie.New(aws.StringValue(seq.q.StartAfter))
 		return &iri
@@ -271,7 +271,7 @@ func (seq *s3Seq) Limit(n int64) Seq {
 }
 
 // Continue limited sequence from the cursor
-func (seq *s3Seq) Continue(cursor *curie.ID) Seq {
+func (seq *s3Seq) Continue(cursor *curie.IRI) Seq {
 	if cursor != nil {
 		seq.q.StartAfter = aws.String(cursor.Path())
 	}
@@ -284,7 +284,7 @@ func (seq *s3Seq) Reverse() Seq {
 }
 
 // Match applies a pattern matching to elements in the bucket
-func (dynamo S3) Match(key curie.Thing) Seq {
+func (dynamo S3) Match(key Thing) Seq {
 	req := &s3.ListObjectsV2Input{
 		Bucket:  dynamo.bucket,
 		MaxKeys: aws.Int64(1000),
@@ -301,7 +301,7 @@ func (dynamo S3) Match(key curie.Thing) Seq {
 //-----------------------------------------------------------------------------
 
 // URL returns absolute URL downloadable using HTTPS protocol
-func (dynamo S3) URL(entity curie.Thing, expire time.Duration) (string, error) {
+func (dynamo S3) URL(entity Thing, expire time.Duration) (string, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(entity.Identity().Path()),
@@ -312,7 +312,7 @@ func (dynamo S3) URL(entity curie.Thing, expire time.Duration) (string, error) {
 }
 
 // Recv establishes ingress bytes stream to S3 object
-func (dynamo S3) Recv(entity curie.Thing) (io.ReadCloser, error) {
+func (dynamo S3) Recv(entity Thing) (io.ReadCloser, error) {
 	url, err := dynamo.URL(entity, 20*time.Minute)
 	if err != nil {
 		return nil, err
@@ -344,7 +344,7 @@ func (dynamo S3) Recv(entity curie.Thing) (io.ReadCloser, error) {
 }
 
 // Send establishes egress bytes stream to S3 object
-func (dynamo S3) Send(entity curie.Thing, mime string, stream io.Reader) error {
+func (dynamo S3) Send(entity Thing, mime string, stream io.Reader) error {
 	up := s3manager.NewUploader(dynamo.io)
 
 	_, err := up.Upload(&s3manager.UploadInput{

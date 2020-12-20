@@ -8,13 +8,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
 )
 
 type person struct {
-	curie.ID
+	dynamo.ID
 	Name    string `dynamodbav:"name,omitempty"`
 	Age     int    `dynamodbav:"age,omitempty"`
 	Address string `dynamodbav:"address,omitempty"`
@@ -22,7 +21,7 @@ type person struct {
 
 func entity() person {
 	return person{
-		ID:      curie.New("dead:beef"),
+		ID:      dynamo.NewID("dead:beef"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -30,7 +29,7 @@ func entity() person {
 }
 
 func TestDdbGet(t *testing.T) {
-	val := person{ID: curie.New("dead:beef")}
+	val := person{ID: dynamo.NewID("dead:beef")}
 	err := apiDB().Get(&val)
 
 	it.Ok(t).
@@ -48,7 +47,7 @@ func TestDdbRemove(t *testing.T) {
 
 func TestDdbUpdate(t *testing.T) {
 	val := person{
-		ID:  curie.New("dead:beef"),
+		ID:  dynamo.NewID("dead:beef"),
 		Age: 65,
 	}
 	err := apiDB().Update(&val)
@@ -60,7 +59,7 @@ func TestDdbUpdate(t *testing.T) {
 
 func TestDdbMatch(t *testing.T) {
 	cnt := 0
-	seq := apiDB().Match(curie.New("dead:"))
+	seq := apiDB().Match(dynamo.NewID("dead:"))
 
 	for seq.Tail() {
 		cnt++
@@ -78,7 +77,7 @@ func TestDdbMatch(t *testing.T) {
 }
 
 func TestDdbMatchHead(t *testing.T) {
-	seq := apiDB().Match(curie.New("dead:"))
+	seq := apiDB().Match(dynamo.NewID("dead:"))
 
 	val := person{}
 	err := seq.Head(&val)
@@ -92,7 +91,7 @@ func TestDdbMatchHead(t *testing.T) {
 // Use type aliases and methods to implement FMap
 type persons []person
 
-func (seq *persons) Join(gen dynamo.Gen) (curie.Thing, error) {
+func (seq *persons) Join(gen dynamo.Gen) (dynamo.Thing, error) {
 	val := person{}
 	if fail := gen.To(&val); fail != nil {
 		return nil, fail
@@ -103,12 +102,12 @@ func (seq *persons) Join(gen dynamo.Gen) (curie.Thing, error) {
 
 func TestDdbMatchWithFMap(t *testing.T) {
 	pseq := persons{}
-	tseq, err := apiDB().Match(curie.New("dead:")).FMap(pseq.Join)
+	tseq, err := apiDB().Match(dynamo.NewID("dead:")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(tseq).Should().Equal([]curie.Thing{&thing, &thing}).
+		If(tseq).Should().Equal([]dynamo.Thing{&thing, &thing}).
 		If(pseq).Should().Equal(persons{thing, thing})
 }
 

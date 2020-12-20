@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 )
 
@@ -18,7 +17,7 @@ func main() {
 		panic(err)
 	}
 
-	in, err := db.Recv(curie.New(os.Args[2]))
+	in, err := db.Recv(dynamo.NewID(os.Args[2]))
 	if err != nil {
 		panic(err)
 	}
