@@ -205,11 +205,11 @@ Cross-linking of structured data is an essential part of type safe domain driven
 ```go
 type Person struct {
   dynamo.ID
-  Account *curie.IRI `dynamodbav:"name,omitempty"`
+  Account *dynamo.IRI `dynamodbav:"name,omitempty"`
 }
 ```
 
-`dynamo.ID` and `curie.IRI` are sibling, equivalent data types. `ID` is only used as primary key, `IRI` is a "pointer" to linked-data.
+`dynamo.ID` and `dynamo.IRI` are sibling, equivalent data types. `ID` is only used as primary key, `IRI` is a "pointer" to linked-data.
 
 
 ### Optimistic Locking

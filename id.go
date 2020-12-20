@@ -93,6 +93,14 @@ func (id ID) Identity() curie.IRI {
 
 /*
 
+Ref return reference to dynamo.IRI
+*/
+func (id ID) Ref() *IRI {
+	return &id.IRI
+}
+
+/*
+
 
 Thing is the most generic type of item. The interfaces declares anything with
 unique identifier. Embedding CURIE ID into struct makes it Thing compatible.

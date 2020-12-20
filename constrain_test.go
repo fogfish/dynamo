@@ -138,7 +138,7 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 func TestDdbUpdateWithConstrain(t *testing.T) {
 	ceq := dynamo.Kind(person{}).Field("Name")
 	val := person{
-		//ID:  curie.New("dead:beef"),
+		ID:  dynamo.NewID("dead:beef"),
 		Age: 65,
 	}
 

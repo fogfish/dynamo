@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
 )
@@ -22,7 +21,7 @@ type person struct {
 
 func entity() person {
 	return person{
-		ID:      dynamo.ID{dynamo.IRI{curie.New("dead:beef")}},
+		ID:      dynamo.NewID("dead:beef"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -30,7 +29,7 @@ func entity() person {
 }
 
 func TestDdbGet(t *testing.T) {
-	val := person{ID: dynamo.ID{dynamo.IRI{curie.New("dead:beef")}}}
+	val := person{ID: dynamo.NewID("dead:beef")}
 	err := apiDB().Get(&val)
 
 	it.Ok(t).
@@ -48,7 +47,7 @@ func TestDdbRemove(t *testing.T) {
 
 func TestDdbUpdate(t *testing.T) {
 	val := person{
-		ID:  dynamo.ID{dynamo.IRI{curie.New("dead:beef")}},
+		ID:  dynamo.NewID("dead:beef"),
 		Age: 65,
 	}
 	err := apiDB().Update(&val)
@@ -60,7 +59,7 @@ func TestDdbUpdate(t *testing.T) {
 
 func TestDdbMatch(t *testing.T) {
 	cnt := 0
-	seq := apiDB().Match(dynamo.ID{dynamo.IRI{curie.New("dead:")}})
+	seq := apiDB().Match(dynamo.NewID("dead:"))
 
 	for seq.Tail() {
 		cnt++
@@ -78,7 +77,7 @@ func TestDdbMatch(t *testing.T) {
 }
 
 func TestDdbMatchHead(t *testing.T) {
-	seq := apiDB().Match(dynamo.ID{dynamo.IRI{curie.New("dead:")}})
+	seq := apiDB().Match(dynamo.NewID("dead:"))
 
 	val := person{}
 	err := seq.Head(&val)
@@ -103,7 +102,7 @@ func (seq *persons) Join(gen dynamo.Gen) (dynamo.Thing, error) {
 
 func TestDdbMatchWithFMap(t *testing.T) {
 	pseq := persons{}
-	tseq, err := apiDB().Match(dynamo.ID{dynamo.IRI{curie.New("dead:")}}).FMap(pseq.Join)
+	tseq, err := apiDB().Match(dynamo.NewID("dead:")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).

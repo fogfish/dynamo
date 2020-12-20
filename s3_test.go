@@ -16,9 +16,7 @@ import (
 )
 
 func TestS3Get(t *testing.T) {
-	val := person{
-		ID: dynamo.ID{dynamo.IRI{curie.New("dead:beef")}},
-	}
+	val := person{ID: dynamo.NewID("dead:beef")}
 	err := apiS3().Get(&val)
 
 	it.Ok(t).
@@ -48,7 +46,7 @@ func TestS3Update(t *testing.T) {
 
 func TestS3Match(t *testing.T) {
 	cnt := 0
-	seq := apiS3().Match(dynamo.ID{dynamo.IRI{curie.New("dead:")}})
+	seq := apiS3().Match(dynamo.NewID("dead:"))
 
 	for seq.Tail() {
 		cnt++
@@ -66,7 +64,7 @@ func TestS3Match(t *testing.T) {
 }
 
 func TestS3MatchHead(t *testing.T) {
-	seq := apiS3().Match(dynamo.ID{dynamo.IRI{curie.New("dead:")}})
+	seq := apiS3().Match(dynamo.NewID("dead:"))
 
 	val := person{}
 	err := seq.Head(&val)
@@ -78,7 +76,7 @@ func TestS3MatchHead(t *testing.T) {
 
 func TestS3MatchWithFMap(t *testing.T) {
 	pseq := persons{}
-	tseq, err := apiS3().Match(dynamo.ID{dynamo.IRI{curie.New("dead:")}}).FMap(pseq.Join)
+	tseq, err := apiS3().Match(dynamo.NewID("dead:")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).

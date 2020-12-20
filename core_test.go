@@ -19,19 +19,16 @@ type Item struct {
 }
 
 var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI{curie.New("foo:a/suffix")}}
-var fixtureIRI = &dynamo.IRI{curie.New("foo:a/suffix")}
-
-var xxx = dynamo.IRI{curie.New("foo:prefix/suffix")}
 
 var fixtureItem Item = Item{
-	ID:  dynamo.ID{xxx},
-	Ref: fixtureIRI,
+	ID:  dynamo.NewID("foo:prefix/suffix"),
+	Ref: dynamo.NewID("foo:a/suffix").Ref(),
 	Tag: "tag",
 }
 var fixtureJson string = "{\"id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
 
 var fixtureEmptyItem Item = Item{
-	ID: dynamo.ID{dynamo.IRI{curie.New("foo:prefix/suffix")}},
+	ID: dynamo.NewID("foo:prefix/suffix"),
 }
 var fixtureEmptyJson string = "{\"id\":\"[foo:prefix/suffix]\"}"
 
