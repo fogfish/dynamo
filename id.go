@@ -5,6 +5,7 @@
 // of the MIT license.  See the LICENSE file for details.
 // https://github.com/fogfish/dynamo
 //
+
 package dynamo
 
 import (
