@@ -13,21 +13,25 @@ import (
 )
 
 type Item struct {
-	curie.ID
-	Ref *curie.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
-	Tag string     `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
+	dynamo.ID
+	Ref *dynamo.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag string      `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
 }
 
-var fixtureLink curie.ID = curie.New("foo:a/suffix")
+var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI{curie.New("foo:a/suffix")}}
+var fixtureIRI = &dynamo.IRI{curie.New("foo:a/suffix")}
+
+var xxx = dynamo.IRI{curie.New("foo:prefix/suffix")}
+
 var fixtureItem Item = Item{
-	ID:  curie.New("foo:prefix/suffix"),
-	Ref: &fixtureLink.IRI,
+	ID:  dynamo.ID{xxx},
+	Ref: fixtureIRI,
 	Tag: "tag",
 }
 var fixtureJson string = "{\"id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
 
 var fixtureEmptyItem Item = Item{
-	ID: curie.New("foo:prefix/suffix"),
+	ID: dynamo.ID{dynamo.IRI{curie.New("foo:prefix/suffix")}},
 }
 var fixtureEmptyJson string = "{\"id\":\"[foo:prefix/suffix]\"}"
 
@@ -79,6 +83,8 @@ func TestMarshalDynamo(t *testing.T) {
 
 func TestUnmarshalDynamo(t *testing.T) {
 	var item Item
+
+	dynamodbattribute.UnmarshalMap(fixtureDdb, &item)
 
 	it.Ok(t).
 		If(dynamodbattribute.UnmarshalMap(fixtureDdb, &item)).Should().Equal(nil).

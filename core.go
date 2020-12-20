@@ -152,21 +152,31 @@ type KeyVal interface {
 
 // KeyValPure defines a generic key-value I/O
 type KeyValPure interface {
-	Get(curie.Thing) error
-	Put(curie.Thing, ...Config) error
-	Remove(curie.Thing, ...Config) error
-	Update(curie.Thing, ...Config) error
+	Get(Thing) error
+	Put(Thing, ...Config) error
+	Remove(Thing, ...Config) error
+	Update(Thing, ...Config) error
 }
 
 // KeyValPattern defines simples pattern matching lookup I/O
 type KeyValPattern interface {
-	Match(curie.Thing) Seq
+	Match(Thing) Seq
+}
+
+//
+// FMap is a transformer of generic representation to concrete type
+type FMap func(Gen) (Thing, error)
+
+//
+// Gen is a generic representation of storage type
+type Gen interface {
+	To(Thing) error
 }
 
 //
 // Seq is an interface to transform collection of objects
 //
-//   db.Match(curie.New("users")).FMap(func(gen Gen) (curie.Thing, error) {
+//   db.Match(dynamo.NewID("users")).FMap(func(gen Gen) (dynamo.Thing, error) {
 //      val = &Person{}
 //      return gen.To(val)
 //   })
@@ -175,19 +185,19 @@ type Seq interface {
 	SeqConfig
 
 	// Sequence transformer
-	FMap(FMap) ([]curie.Thing, error)
+	FMap(FMap) ([]Thing, error)
 }
 
 // SeqLazy is an interface to iterate through collection of objects
 type SeqLazy interface {
 	// Head lifts first element of sequence
-	Head(curie.Thing) error
+	Head(Thing) error
 	// Tail evaluates tail of sequence
 	Tail() bool
 	// Error returns error of stream evaluation
 	Error() error
 	// Cursor is the global position in the sequence
-	Cursor() *curie.ID
+	Cursor() *curie.IRI
 }
 
 // SeqConfig define sequence behavior
@@ -195,27 +205,17 @@ type SeqConfig interface {
 	// Limit sequence size to N elements, fetch a page of sequence
 	Limit(int64) Seq
 	// Continue limited sequence from the cursor
-	Continue(cursor *curie.ID) Seq
+	Continue(cursor *curie.IRI) Seq
 	// Reverse order of sequence
 	Reverse() Seq
-}
-
-//
-// FMap is a transformer of generic representation to concrete type
-type FMap func(Gen) (curie.Thing, error)
-
-//
-// Gen is a generic representation of storage type
-type Gen interface {
-	To(curie.Thing) error
 }
 
 // Blob is a generic byte stream trait to access large binary data
 type Blob interface {
 	KeyVal
-	URL(curie.Thing, time.Duration) (string, error)
-	Recv(curie.Thing) (io.ReadCloser, error)
-	Send(curie.Thing, string, io.Reader) error
+	URL(Thing, time.Duration) (string, error)
+	Recv(Thing) (io.ReadCloser, error)
+	Send(Thing, string, io.Reader) error
 }
 
 //

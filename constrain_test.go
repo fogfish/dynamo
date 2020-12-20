@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
 )
@@ -16,7 +15,7 @@ type tConstrain struct {
 	Name string `dynamodbav:"anothername,omitempty"`
 }
 
-var Name = dynamo.Thing(tConstrain{}).Field("Name")
+var Name = dynamo.Kind(tConstrain{}).Field("Name")
 
 func TestCompare(t *testing.T) {
 	var (
@@ -115,7 +114,7 @@ func TestIs(t *testing.T) {
 }
 
 func TestDdbPutWithConstrain(t *testing.T) {
-	ceq := dynamo.Thing(person{}).Field("Name")
+	ceq := dynamo.Kind(person{}).Field("Name")
 
 	success := apiDBWithConstrain().Put(entity(), ceq.Eq("xxx"))
 	failure := apiDBWithConstrain().Put(entity(), ceq.Eq("yyy"))
@@ -126,7 +125,7 @@ func TestDdbPutWithConstrain(t *testing.T) {
 }
 
 func TestDdbRemoveWithConstrain(t *testing.T) {
-	ceq := dynamo.Thing(person{}).Field("Name")
+	ceq := dynamo.Kind(person{}).Field("Name")
 
 	success := apiDBWithConstrain().Remove(entity(), ceq.Eq("xxx"))
 	failure := apiDBWithConstrain().Remove(entity(), ceq.Eq("yyy"))
@@ -137,9 +136,9 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 }
 
 func TestDdbUpdateWithConstrain(t *testing.T) {
-	ceq := dynamo.Thing(person{}).Field("Name")
+	ceq := dynamo.Kind(person{}).Field("Name")
 	val := person{
-		ID:  curie.New("dead:beef"),
+		//ID:  curie.New("dead:beef"),
 		Age: 65,
 	}
 

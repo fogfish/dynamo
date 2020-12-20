@@ -46,13 +46,13 @@ The latest version of the library is available at its `main` branch. All develop
 
 Data types definition is an essential part of development with `dynamo` library. Golang structs declares domain of your application. Public fields are serialized into DynamoDB attributes, the field tag `dynamodbav` controls marshal/unmarshal process. 
 
-The library demands from each structure embedding of `curie.ID` type (this type is implemented by another [package](https://github.com/fogfish/curie)). This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied for DynamoDB I/O. Secondly, this type facilitates linked-data, hierarchical structures and cheap relations between data elements.
+The library demands from each structure embedding of `dynamo.ID` type. This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied for DynamoDB I/O. Secondly, this type facilitates linked-data, hierarchical structures and cheap relations between data elements.
 
 ```go
-import "github.com/fogfish/curie"
+import "github.com/fogfish/dynamo"
 
 type Person struct {
-  curie.ID
+  dynamo.ID
   Name    string `dynamodbav:"name,omitempty"`
   Age     int    `dynamodbav:"age,omitempty"`
   Address string `dynamodbav:"address,omitempty"`
@@ -61,9 +61,9 @@ type Person struct {
 //
 // this data type is a normal Golang struct
 // just create and instance filling required fields
-// ID is own data type thus use curie.New(...)
+// ID is own data type thus use dynamo.NewID(...)
 var person := Person{
-  ID:      curie.New("8980789222")
+  ID:      dynamo.NewID("8980789222")
   Name:    "Verner Pleishner",
   Age:     64,
   Address: "Blumenstrasse 14, Berne, 3013",
@@ -102,7 +102,7 @@ if err := db.Put(person); err != nil {
 // Lookup the struct using Get. This function takes "empty" structure as
 // a placeholder and fill it with a data upon the completion. The only
 // requirement - ID has to be defined.
-person := Person{ID: curie.New("8980789222")}
+person := Person{ID: dynamo.NewID("8980789222")}
 switch err := db.Get(&person).(type) {
 case nil:
   // success
@@ -117,7 +117,7 @@ default:
 // a partially defined structure, patches the instance at storage and 
 // returns remaining attributes.
 person := Person{
-  ID:      curie.New("8980789222"),
+  ID:      dynamo.NewID("8980789222"),
   Address: "Viktoriastrasse 37, Berne, 3013",
 }
 if err := db.Update(&person); err != nil {
@@ -125,7 +125,7 @@ if err := db.Update(&person); err != nil {
 
 //
 // Remove the struct using Remove. Either give struct or ID to it
-if err := db.Remove(curie.New("8980789222")); err != nil {
+if err := db.Remove(dynamo.NewID("8980789222")); err != nil {
 }
 ```
 
@@ -143,16 +143,16 @@ A
 └ G
 ```
 
-The data type `curie.ID` is core type to organize hierarchies. An application declares node path by colon separated strings. For example, the root is `curie.New("A")`, 2nd rank node `curie.New("A:C")` and so on `curie.New("A:C:E:F")`. Each `id` declares either node or its sub children. The library implement a `Match` function, supply the node identity and it returns sequence of child elements. 
+The data type `dynamo.ID` is core type to organize hierarchies. An application declares node path by colon separated strings. For example, the root is `dynamo.NewID("A")`, 2nd rank node `dynamo.NewID("A:C")` and so on `dynamo.NewID("A:C:E:F")`. Each `id` declares either node or its sub children. The library implement a `Match` function, supply the node identity and it returns sequence of child elements. 
 
 ```go
 //
-// Match uses curie.ID to match DynamoDB entries. It returns a sequence of 
+// Match uses dynamo.ID to match DynamoDB entries. It returns a sequence of 
 // generic representations that has to be transformed into actual data types
 // FMap is an utility it takes a closure function that lifts generic to
 // the struct. 
-db.Match(curie.New("A:C")).FMap(
-  func(gen dynamo.Gen) (curie.Thing, error) {
+db.Match(dynamo.NewID("A:C")).FMap(
+  func(gen dynamo.Gen) (dynamo.Thing, error) {
     p := person{}
     return gen.To(&p)
   }
@@ -163,7 +163,7 @@ db.Match(curie.New("A:C")).FMap(
 type persons []person
 
 // Join is a monoid to append generic element into sequence 
-func (seq *persons) Join(gen dynamo.Gen) (curie.Thing, error) {
+func (seq *persons) Join(gen dynamo.Gen) (dynamo.Thing, error) {
   val := person{}
   if fail := gen.To(&val); fail != nil {
     return nil, fail
@@ -174,7 +174,7 @@ func (seq *persons) Join(gen dynamo.Gen) (curie.Thing, error) {
 
 // and final magic to discover hierarchy of elements
 seq := persons{}
-db.Match(curie.New("A:C")).FMap(seq.Join)
+db.Match(dynamo.NewID("A:C")).FMap(seq.Join)
 ```
 
 See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for api spec and [advanced example](example) app.
@@ -186,7 +186,7 @@ Hierarchical structures is the way to organize collections, lists, sets, etc. Th
 
 ```go
 // 1. Set the limit on the stream 
-seq := db.Match(curie.New("A:C")).Limit(25)
+seq := db.Match(dynamo.NewID("A:C")).Limit(25)
 // 2. Consume the stream
 seq.FMap(persons.Join)
 // 3. Read cursor value
@@ -194,7 +194,7 @@ cursor := seq.Cursor()
 
 
 // 4. Continue I/O with a new stream, supply the cursor
-seq := db.Match(curie.New("A:C")).Limit(25).Continue(cursor)
+seq := db.Match(dynamo.NewID("A:C")).Limit(25).Continue(cursor)
 ```
 
 
@@ -204,12 +204,12 @@ Cross-linking of structured data is an essential part of type safe domain driven
 
 ```go
 type Person struct {
-  curie.ID
+  dynamo.ID
   Account *curie.IRI `dynamodbav:"name,omitempty"`
 }
 ```
 
-`curie.ID` and `curie.IRI` are sibling, equivalent data types. `ID` is only used as primary key, `IRI` is a "pointer" to linked-data.
+`dynamo.ID` and `curie.IRI` are sibling, equivalent data types. `ID` is only used as primary key, `IRI` is a "pointer" to linked-data.
 
 
 ### Optimistic Locking
@@ -222,7 +222,7 @@ Let's consider a following example.
 
 ```go
 type Person struct {
-  curie.ID
+  dynamo.ID
   Name    string `dynamodbav:"anothername,omitempty"`
 }
 ```
@@ -240,10 +240,10 @@ However, the application operates with struct types. How to define a condition e
 
 ```go
 type Person struct {
-  curie.ID
+  dynamo.ID
   Name    string `dynamodbav:"anothername,omitempty"`
 }
-var Name = Thing(Person{}).Field("Name")
+var Name = dynamo.Kind(Person{}).Field("Name")
 
 switch err := db.Update(&person, Name.Eq("Verner Pleishner")).(type) {
 case nil:
@@ -288,7 +288,7 @@ s3 := dynamo.Must(dynamo.New("s3:///my-bucket"))
 
 There are few fundamental differences about AWS S3 bucket
 * use `s3` schema of connection URI;
-* primary key `curie.ID` is serialized to S3 bucket path. (e.g. `curie.New("A:C:E:F") ⟼ A/C/E/F`);
+* primary key `dynamo.ID` is serialized to S3 bucket path. (e.g. `dynamo.NewID("A:C:E:F") ⟼ A/C/E/F`);
 * storage persists struct to JSON, use `json` field tags to specify serialization rules;
 * optimistic locking is not supported yet, any conditional expression is silently ignored;
 * `Update` is not thread safe.
