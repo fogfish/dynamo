@@ -38,7 +38,7 @@
 // strongly expressed by struct in Go.
 //
 //   type Person struct {
-//     curie.ID
+//     dynamo.ID
 //     Name    string `dynamodbav:"name,omitempty"`
 //     Age     int    `dynamodbav:"age,omitempty"`
 //     Address string `dynamodbav:"address,omitempty"`
@@ -56,7 +56,7 @@
 // Creates a new entity, or replaces an old entity with a new value.
 //   err := db.Put(
 //     Person{
-//       curie.New("8980789222"),
+//       dynamo.NewID("8980789222"),
 //       "Verner Pleishner",
 //       64,
 //       "Blumenstrasse 14, Berne, 3013",
@@ -67,7 +67,7 @@
 // a placeholder and fill it with a data upon the completion. The only
 // requirement - ID has to be defined.
 //
-//   person := Person{ID: curie.New("8980789222")}
+//   person := Person{ID: dynamo.NewID("8980789222")}
 //   switch err := db.Get(&person).(type) {
 //   case nil:
 //     // success
@@ -78,13 +78,13 @@
 //   }
 //
 // Remove the entity
-//   err := db.Remove(curie.New("8980789222"))
+//   err := db.Remove(dynamo.NewID("8980789222"))
 //
 // Apply a partial update using Update function. This function takes
 // a partially defined structure, patches the instance at storage and
 // returns remaining attributes.
 //   person := Person{
-//     ID:      curie.New("8980789222"),
+//     ID:      dynamo.NewID("8980789222"),
 //     Address: "Viktoriastrasse 37, Berne, 3013",
 //   }
 //   if err := db.Update(&person); err != nil { ... }
@@ -105,11 +105,11 @@
 // Use `dynamo.IRI` type to model relations between data instances
 //
 //   type Person struct {
-//     curie.ID
+//     dynamo.ID
 //     Account *curie.IRI `dynamodbav:"name,omitempty"`
 //   }
 //
-// `curie.ID` and `curie.IRI` are equivalent data types. The first one
+// `dynamo.ID` and `curie.IRI` are equivalent data types. The first one
 // is used as primary key, the latter one is a linked identity.
 //
 // Use with AWS DynamoDB
@@ -126,7 +126,7 @@
 //
 // ↣ create I/O handler using s3 schema `dynamo.New("s3:///my-bucket")`
 //
-// ↣ primary key `curie.ID` is serialized to S3 bucket path `prefix/suffix`
+// ↣ primary key `dynamo.ID` is serialized to S3 bucket path `prefix/suffix`
 //
 // ↣ storage persists struct to JSON, use `json` field tags to specify
 // serialization rules
