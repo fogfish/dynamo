@@ -96,3 +96,13 @@ func TestNew(t *testing.T) {
 		If(dynamo.Must(dynamo.New("ddb:///a"))).ShouldNot().Equal(nil).
 		If(dynamo.Must(dynamo.New("s3:///a"))).ShouldNot().Equal(nil)
 }
+
+func TestIDs(t *testing.T) {
+	expect := curie.New("a:b/c")
+	a := dynamo.NewID("a:b/c")
+	b := dynamo.MkID(curie.New("a:b/c"))
+
+	it.Ok(t).
+		If(a.Identity()).Should().Equal(expect).
+		If(b.Identity()).Should().Equal(expect)
+}
