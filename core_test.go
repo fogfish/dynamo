@@ -81,8 +81,6 @@ func TestMarshalDynamo(t *testing.T) {
 func TestUnmarshalDynamo(t *testing.T) {
 	var item Item
 
-	dynamodbattribute.UnmarshalMap(fixtureDdb, &item)
-
 	it.Ok(t).
 		If(dynamodbattribute.UnmarshalMap(fixtureDdb, &item)).Should().Equal(nil).
 		If(item).Should().Equal(fixtureItem)

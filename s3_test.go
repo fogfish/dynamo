@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
 )
@@ -34,7 +33,7 @@ func TestS3Remove(t *testing.T) {
 
 func TestS3Update(t *testing.T) {
 	val := person{
-		ID:  dynamo.ID{dynamo.IRI{curie.New("dead:beef")}},
+		ID:  dynamo.NewID("dead:beef"),
 		Age: 64,
 	}
 	err := apiS3().Update(&val)
@@ -169,22 +168,22 @@ type seqType struct {
 
 func seqLong() seqType {
 	return seqType{
-		ID: dynamo.ID{dynamo.IRI{curie.New("seq")}},
+		ID: dynamo.NewID("seq"),
 		List: []seqItem{
-			{ID: dynamo.ID{dynamo.IRI{curie.New("1")}}, Flag: true, Label: "a"},
-			{ID: dynamo.ID{dynamo.IRI{curie.New("2")}}, Flag: true, Label: "b"},
-			{ID: dynamo.ID{dynamo.IRI{curie.New("3")}}, Label: "c"},
-			{ID: dynamo.ID{dynamo.IRI{curie.New("4")}}, Label: "d"},
+			{ID: dynamo.NewID("1"), Flag: true, Label: "a"},
+			{ID: dynamo.NewID("2"), Flag: true, Label: "b"},
+			{ID: dynamo.NewID("3"), Label: "c"},
+			{ID: dynamo.NewID("4"), Label: "d"},
 		},
 	}
 }
 
 func seqShort() seqType {
 	return seqType{
-		ID: dynamo.ID{dynamo.IRI{curie.New("seq")}},
+		ID: dynamo.NewID("seq"),
 		List: []seqItem{
-			{ID: dynamo.ID{dynamo.IRI{curie.New("5")}}, Label: "e"},
-			{ID: dynamo.ID{dynamo.IRI{curie.New("6")}}, Label: "f"},
+			{ID: dynamo.NewID("5"), Label: "e"},
+			{ID: dynamo.NewID("6"), Label: "f"},
 		},
 	}
 }
