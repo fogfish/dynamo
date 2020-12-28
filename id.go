@@ -24,6 +24,17 @@ type IRI struct{ curie.IRI }
 
 /*
 
+Unwrap extract curie.IRI from dynamo.IRI
+*/
+func (iri *IRI) Unwrap() *curie.IRI {
+	if iri == nil {
+		return nil
+	}
+	return &iri.IRI
+}
+
+/*
+
 MarshalDynamoDBAttributeValue `IRI ⟼ "prefix:suffix"`
 */
 func (iri IRI) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
@@ -95,7 +106,7 @@ func (id ID) Identity() curie.IRI {
 
 Ref return reference to dynamo.IRI
 */
-func (id ID) Ref() *IRI {
+func (id ID) Unwrap() *IRI {
 	return &id.IRI
 }
 

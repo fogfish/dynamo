@@ -22,7 +22,7 @@ var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI{curie.New("foo:a/suffix")}}
 
 var fixtureItem Item = Item{
 	ID:  dynamo.NewID("foo:prefix/suffix"),
-	Ref: dynamo.NewID("foo:a/suffix").Ref(),
+	Ref: dynamo.NewID("foo:a/suffix").Unwrap(),
 	Tag: "tag",
 }
 var fixtureJson string = "{\"id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
@@ -100,4 +100,14 @@ func TestIDs(t *testing.T) {
 	it.Ok(t).
 		If(a.Identity()).Should().Equal(expect).
 		If(b.Identity()).Should().Equal(expect)
+}
+
+func TestUnwrap(t *testing.T) {
+	c := curie.New("a:b/c")
+	a := dynamo.IRI{c}
+	var b *dynamo.IRI
+
+	it.Ok(t).
+		If(*a.Unwrap()).Should().Equal(c).
+		If(b.Unwrap()).Should().Equal(nil)
 }
