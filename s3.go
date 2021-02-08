@@ -3,6 +3,7 @@ package dynamo
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -134,6 +135,16 @@ func (dynamo S3) Update(entity Thing, _ ...Config) (err error) {
 type s3Gen struct {
 	s3  *S3
 	key *string
+}
+
+// ID lifts generic representation to its Identity
+func (gen s3Gen) ID() (*ID, error) {
+	if gen.key == nil {
+		return nil, errors.New("Eonf Of Stream")
+	}
+
+	id := MkID(curie.New(*gen.key))
+	return &id, nil
 }
 
 // Lifts generic representation to Thing

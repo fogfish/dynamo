@@ -112,6 +112,28 @@ func (id ID) Unwrap() *IRI {
 
 /*
 
+IDs sequence of Identities
+*/
+type IDs []ID
+
+/*
+
+Join lifts sequence of matched objects to seq of IDs
+	seq := dynamo.IDs{}
+	dynamo.Match(...).FMap(seq.Join)
+*/
+func (seq *IDs) Join(gen Gen) (Thing, error) {
+	id, err := gen.ID()
+	if err != nil {
+		return nil, err
+	}
+
+	*seq = append(*seq, *id)
+	return id, nil
+}
+
+/*
+
 
 Thing is the most generic type of item. The interfaces declares anything with
 unique identifier. Embedding CURIE ID into struct makes it Thing compatible.

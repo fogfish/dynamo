@@ -228,6 +228,21 @@ func (dynamo DB) Update(entity Thing, config ...Config) (err error) {
 // dbGen is type alias for generic representation
 type dbGen map[string]*dynamodb.AttributeValue
 
+// ID lifts generic representation to its Identity
+func (gen dbGen) ID() (*ID, error) {
+	prefix, isPrefix := gen["prefix"]
+	suffix, isSuffix := gen["suffix"]
+	if !isPrefix || !isSuffix {
+		return nil, errors.New("Invalid DDB schema")
+	}
+
+	pf := aws.StringValue(prefix.S)
+	sf := aws.StringValue(suffix.S)
+	id := MkID(curie.New(pf).Join(sf))
+
+	return &id, nil
+}
+
 // To lifts generic representation to Thing
 func (gen dbGen) To(thing Thing) error {
 	item, err := unmarshal(gen)
