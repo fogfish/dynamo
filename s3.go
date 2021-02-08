@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -140,10 +141,18 @@ type s3Gen struct {
 // ID lifts generic representation to its Identity
 func (gen s3Gen) ID() (*ID, error) {
 	if gen.key == nil {
-		return nil, errors.New("Eonf Of Stream")
+		return nil, errors.New("End Of Stream")
 	}
 
-	id := MkID(curie.New(*gen.key))
+	var id ID
+	seq := strings.SplitN(*gen.key, "/", 2)
+	switch {
+	case len(seq) == 2:
+		id = MkID(curie.New(strings.Join(seq, ":")))
+	default:
+		id = MkID(curie.New(*gen.key))
+	}
+
 	return &id, nil
 }
 
