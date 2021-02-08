@@ -170,6 +170,7 @@ type FMap func(Gen) (Thing, error)
 //
 // Gen is a generic representation of storage type
 type Gen interface {
+	ID() (*ID, error)
 	To(Thing) error
 }
 

@@ -3,11 +3,13 @@ package dynamo
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -134,6 +136,24 @@ func (dynamo S3) Update(entity Thing, _ ...Config) (err error) {
 type s3Gen struct {
 	s3  *S3
 	key *string
+}
+
+// ID lifts generic representation to its Identity
+func (gen s3Gen) ID() (*ID, error) {
+	if gen.key == nil {
+		return nil, errors.New("End Of Stream")
+	}
+
+	var id ID
+	seq := strings.SplitN(*gen.key, "/", 2)
+	switch {
+	case len(seq) == 2:
+		id = MkID(curie.New(strings.Join(seq, ":")))
+	default:
+		id = MkID(curie.New(*gen.key))
+	}
+
+	return &id, nil
 }
 
 // Lifts generic representation to Thing

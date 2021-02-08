@@ -111,6 +111,16 @@ func TestDdbMatchWithFMap(t *testing.T) {
 		If(pseq).Should().Equal(persons{thing, thing})
 }
 
+func TestDdbMatchIDsWithFMap(t *testing.T) {
+	seq := dynamo.IDs{}
+	_, err := apiDB().Match(dynamo.NewID("dead:")).FMap(seq.Join)
+
+	thing := entity().ID
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(seq).Should().Equal(dynamo.IDs{thing, thing})
+}
+
 //-----------------------------------------------------------------------------
 //
 // Mock Dynamo DB
