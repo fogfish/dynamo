@@ -119,7 +119,7 @@ func folk(x int) *dbPerson {
 	return &dbPerson{
 		ID: id(x),
 		Person: Person{
-			ID:      fmt.Sprintf("person%d", x),
+			UID:     fmt.Sprintf("person%d", x),
 			Name:    "Verner Pleishner",
 			Age:     64,
 			Address: "Blumenstrasse 14, Berne, 3013",
