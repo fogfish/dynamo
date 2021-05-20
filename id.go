@@ -74,7 +74,7 @@ manageable by dynamo interfaces
   }
 */
 type ID struct {
-	IRI IRI `dynamodbav:"id" json:"id"`
+	IRI IRI `dynamodbav:"id" json:"@id"`
 }
 
 /*

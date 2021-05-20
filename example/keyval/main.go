@@ -18,7 +18,7 @@ import (
 //
 // Person type demonstrates composition of core type with db one
 type Person struct {
-	UID     string `dynamodbav:"-" json:"id,omitempty"`
+	ID      string `dynamodbav:"-" json:"id,omitempty"`
 	Name    string `dynamodbav:"name,omitempty" json:"name,omitempty"`
 	Age     int    `dynamodbav:"age,omitempty" json:"age,omitempty"`
 	Address string `dynamodbav:"address,omitempty" json:"address,omitempty"`
@@ -119,7 +119,7 @@ func folk(x int) *dbPerson {
 	return &dbPerson{
 		ID: id(x),
 		Person: Person{
-			UID:     fmt.Sprintf("person%d", x),
+			ID:      fmt.Sprintf("person%d", x),
 			Name:    "Verner Pleishner",
 			Age:     64,
 			Address: "Blumenstrasse 14, Berne, 3013",
