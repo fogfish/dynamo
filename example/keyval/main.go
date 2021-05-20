@@ -16,9 +16,9 @@ import (
 )
 
 //
-// the example here demonstrate composition of core type with db one
+// Person type demonstrates composition of core type with db one
 type Person struct {
-	ID      string `dynamodbav:"-" json:"id,omitempty"`
+	UID     string `dynamodbav:"-" json:"id,omitempty"`
 	Name    string `dynamodbav:"name,omitempty" json:"name,omitempty"`
 	Age     int    `dynamodbav:"age,omitempty" json:"age,omitempty"`
 	Address string `dynamodbav:"address,omitempty" json:"address,omitempty"`
