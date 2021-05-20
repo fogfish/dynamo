@@ -105,7 +105,7 @@ func TestIs(t *testing.T) {
 	Name.Is("abc")(&expr, name, vals)
 
 	expectExpr = fmt.Sprintf("anothername = :__anothername__")
-	expectVals = map[string]*dynamodb.AttributeValue{":__anothername__": &dynamodb.AttributeValue{S: aws.String("abc")}}
+	expectVals = map[string]*dynamodb.AttributeValue{":__anothername__": {S: aws.String("abc")}}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).
