@@ -25,12 +25,12 @@ var fixtureItem Item = Item{
 	Ref: dynamo.NewID("foo:a/suffix").Unwrap(),
 	Tag: "tag",
 }
-var fixtureJson string = "{\"id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
+var fixtureJson string = "{\"@id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
 
 var fixtureEmptyItem Item = Item{
 	ID: dynamo.NewID("foo:prefix/suffix"),
 }
-var fixtureEmptyJson string = "{\"id\":\"[foo:prefix/suffix]\"}"
+var fixtureEmptyJson string = "{\"@id\":\"[foo:prefix/suffix]\"}"
 
 var fixtureDdb map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{
 	"id":  {S: aws.String("foo:prefix/suffix")},
