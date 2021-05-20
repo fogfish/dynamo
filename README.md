@@ -34,6 +34,7 @@ The latest version of the library is available at its `main` branch. All develop
 - [Getting Started](#getting-started)
   - [Data types definition](#data-types-definition)
   - [DynamoDB IO](#dynamodb-io)
+  - [Type composition](#type-composition)
   - [Hierarchical structures](#hierarchical-structures)
   - [Sequences and Pagination](#sequences-and-pagination)
   - [Linked data](#linked-data)
@@ -126,6 +127,25 @@ if err := db.Update(&person); err != nil {
 //
 // Remove the struct using Remove. Either give struct or ID to it
 if err := db.Remove(dynamo.NewID("8980789222")); err != nil {
+}
+```
+
+### Type composition
+
+Often, there is an established system of the types in the application.
+It is not convenient either to inject `dynamo.ID` or re-define a new type just to facilitate storage I/O. The composition of types is the solution. 
+
+```go
+type Person struct {
+  ID      string `dynamodbav:"-"`
+  Name    string `dynamodbav:"name,omitempty"`
+  Age     int    `dynamodbav:"age,omitempty"`
+  Address string `dynamodbav:"address,omitempty"`
+}
+
+type dbPerson struct{
+  dynamo.ID
+  Person
 }
 ```
 
