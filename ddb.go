@@ -78,7 +78,7 @@ func (dynamo DB) Get(entity Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo DB) Put(entity Thing, config ...Config) (err error) {
+func (dynamo DB) Put(entity Thing, config ...Constrain) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return
@@ -109,7 +109,7 @@ func (dynamo DB) Put(entity Thing, config ...Config) (err error) {
 }
 
 // Remove discards the entity from the table
-func (dynamo DB) Remove(entity Thing, config ...Config) (err error) {
+func (dynamo DB) Remove(entity Thing, config ...Constrain) (err error) {
 
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
@@ -142,7 +142,7 @@ func (dynamo DB) Remove(entity Thing, config ...Config) (err error) {
 
 func maybeConditionExpression(
 	conditionExpression **string,
-	config []Config,
+	config []Constrain,
 ) (
 	expressionAttributeNames map[string]*string,
 	expressionAttributeValues map[string]*dynamodb.AttributeValue,
@@ -167,7 +167,7 @@ func maybeConditionExpression(
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo DB) Update(entity Thing, config ...Config) (err error) {
+func (dynamo DB) Update(entity Thing, config ...Constrain) (err error) {
 	gen, err := marshal(dynamodbattribute.MarshalMap(entity))
 	if err != nil {
 		return

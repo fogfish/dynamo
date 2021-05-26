@@ -153,9 +153,9 @@ type KeyVal interface {
 // KeyValPure defines a generic key-value I/O
 type KeyValPure interface {
 	Get(Thing) error
-	Put(Thing, ...Config) error
-	Remove(Thing, ...Config) error
-	Update(Thing, ...Config) error
+	Put(Thing, ...Constrain) error
+	Remove(Thing, ...Constrain) error
+	Update(Thing, ...Constrain) error
 }
 
 // KeyValPattern defines simples pattern matching lookup I/O
@@ -216,7 +216,7 @@ type Blob interface {
 	KeyVal
 	URL(Thing, time.Duration) (string, error)
 	Recv(Thing) (io.ReadCloser, error)
-	Send(Thing, string, io.Reader) error
+	Send(Thing, io.Reader, ...Content) error
 }
 
 //

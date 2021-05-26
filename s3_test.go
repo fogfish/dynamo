@@ -6,10 +6,12 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
 )
@@ -92,6 +94,22 @@ func TestS3MatchIDsWithFMap(t *testing.T) {
 	it.Ok(t).
 		If(err).Should().Equal(nil).
 		If(seq).Should().Equal(dynamo.IDs{thing, thing})
+}
+
+func TestBlobSendContent(t *testing.T) {
+	req := &s3manager.UploadInput{}
+	dynamo.HTTP.CacheControl("max-age=20")(req)
+	dynamo.HTTP.ContentEncoding("identity")(req)
+	dynamo.HTTP.ContentLanguage("en")(req)
+	dynamo.HTTP.ContentType("text/plain")(req)
+	dynamo.HTTP.Expires(time.Now())(req)
+
+	it.Ok(t).
+		If(*req.CacheControl).Equal("max-age=20").
+		If(*req.ContentEncoding).Equal("identity").
+		If(*req.ContentLanguage).Equal("en").
+		If(*req.ContentType).Equal("text/plain").
+		IfNotNil(req.Expires)
 }
 
 //-----------------------------------------------------------------------------
