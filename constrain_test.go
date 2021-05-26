@@ -24,7 +24,7 @@ func TestCompare(t *testing.T) {
 		vals map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{}
 	)
 
-	spec := map[string]func(interface{}) dynamo.Config{
+	spec := map[string]func(interface{}) dynamo.Constrain{
 		"=":  Name.Eq,
 		"<>": Name.Ne,
 		"<":  Name.Lt,

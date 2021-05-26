@@ -67,9 +67,9 @@ type ElemIs struct{ string }
 
 /*
 
-Config is a function that applies conditional expression to the DynamoDb request
+Constrain is a function that applies conditional expression to the DynamoDb request
 */
-type Config func(
+type Constrain func(
 	conditionExpression **string,
 	expressionAttributeNames map[string]*string,
 	expressionAttributeValues map[string]*dynamodb.AttributeValue,
@@ -114,7 +114,7 @@ func (typeof TypeOf) Field(field string) ElemIs {
 Eq is equal constrain
   name.Eq(x) ⟼ Field = :value
 */
-func (e ElemIs) Eq(val interface{}) Config {
+func (e ElemIs) Eq(val interface{}) Constrain {
 	return e.compare("=", val)
 }
 
@@ -123,7 +123,7 @@ func (e ElemIs) Eq(val interface{}) Config {
 Ne is non equal constrain
   name.Ne(x) ⟼ Field <> :value
 */
-func (e ElemIs) Ne(val interface{}) Config {
+func (e ElemIs) Ne(val interface{}) Constrain {
 	return e.compare("<>", val)
 }
 
@@ -132,7 +132,7 @@ func (e ElemIs) Ne(val interface{}) Config {
 Lt is less than constain
   name.Lt(x) ⟼ Field < :value
 */
-func (e ElemIs) Lt(val interface{}) Config {
+func (e ElemIs) Lt(val interface{}) Constrain {
 	return e.compare("<", val)
 }
 
@@ -141,7 +141,7 @@ func (e ElemIs) Lt(val interface{}) Config {
 Le is less or equal constain
   name.Le(x) ⟼ Field <= :value
 */
-func (e ElemIs) Le(val interface{}) Config {
+func (e ElemIs) Le(val interface{}) Constrain {
 	return e.compare("<=", val)
 }
 
@@ -150,7 +150,7 @@ func (e ElemIs) Le(val interface{}) Config {
 Gt is greater than constrain
   name.Le(x) ⟼ Field > :value
 */
-func (e ElemIs) Gt(val interface{}) Config {
+func (e ElemIs) Gt(val interface{}) Constrain {
 	return e.compare(">", val)
 }
 
@@ -159,7 +159,7 @@ func (e ElemIs) Gt(val interface{}) Config {
 Ge is greater or equal constrain
   name.Le(x) ⟼ Field >= :value
 */
-func (e ElemIs) Ge(val interface{}) Config {
+func (e ElemIs) Ge(val interface{}) Constrain {
 	return e.compare(">=", val)
 }
 
@@ -167,7 +167,7 @@ func (e ElemIs) Ge(val interface{}) Config {
 
 Is matches either Eq or NotExists if value is not defined
 */
-func (e ElemIs) Is(val string) Config {
+func (e ElemIs) Is(val string) Constrain {
 	if val == "_" {
 		return e.NotExists()
 	}
@@ -175,7 +175,7 @@ func (e ElemIs) Is(val string) Config {
 	return e.Eq(val)
 }
 
-func (e ElemIs) compare(fn string, val interface{}) Config {
+func (e ElemIs) compare(fn string, val interface{}) Constrain {
 	return func(
 		conditionExpression **string,
 		expressionAttributeNames map[string]*string,
@@ -202,7 +202,7 @@ func (e ElemIs) compare(fn string, val interface{}) Config {
 Exists attribute constrain
   name.Exists(x) ⟼ attribute_exists(name)
 */
-func (e ElemIs) Exists() Config {
+func (e ElemIs) Exists() Constrain {
 	return e.constrain("attribute_exists")
 }
 
@@ -211,11 +211,11 @@ func (e ElemIs) Exists() Config {
 NotExists attribute constrain
 	name.NotExists(x) ⟼ attribute_not_exists(name)
 */
-func (e ElemIs) NotExists() Config {
+func (e ElemIs) NotExists() Constrain {
 	return e.constrain("attribute_not_exists")
 }
 
-func (e ElemIs) constrain(fn string) Config {
+func (e ElemIs) constrain(fn string) Constrain {
 	return func(
 		conditionExpression **string,
 		expressionAttributeNames map[string]*string,

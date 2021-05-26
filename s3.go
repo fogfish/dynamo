@@ -69,7 +69,7 @@ func (dynamo S3) Get(entity Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo S3) Put(entity Thing, _ ...Config) (err error) {
+func (dynamo S3) Put(entity Thing, _ ...Constrain) (err error) {
 	gen, err := json.Marshal(entity)
 	if err != nil {
 		return
@@ -86,7 +86,7 @@ func (dynamo S3) Put(entity Thing, _ ...Config) (err error) {
 }
 
 // Remove discards the entity from the bucket
-func (dynamo S3) Remove(entity Thing, _ ...Config) (err error) {
+func (dynamo S3) Remove(entity Thing, _ ...Constrain) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(entity.Identity().Path()),
@@ -102,7 +102,7 @@ type tGen map[string]interface{}
 func (z tGen) Identity() curie.IRI { return z["id"].(curie.IRI) }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo S3) Update(entity Thing, _ ...Config) (err error) {
+func (dynamo S3) Update(entity Thing, _ ...Constrain) (err error) {
 	gen := tGen{"id": entity.Identity()}
 	dynamo.Get(&gen)
 
@@ -364,15 +364,65 @@ func (dynamo S3) Recv(entity Thing) (io.ReadCloser, error) {
 }
 
 // Send establishes egress bytes stream to S3 object
-func (dynamo S3) Send(entity Thing, mime string, stream io.Reader) error {
+func (dynamo S3) Send(entity Thing, stream io.Reader, opts ...Content) error {
 	up := s3manager.NewUploader(dynamo.io)
 
-	_, err := up.Upload(&s3manager.UploadInput{
-		Bucket:      dynamo.bucket,
-		Key:         aws.String(entity.Identity().Path()),
-		Body:        stream,
-		ContentType: aws.String(mime),
-	})
+	req := &s3manager.UploadInput{
+		Bucket: dynamo.bucket,
+		Key:    aws.String(entity.Identity().Path()),
+		Body:   stream,
+	}
+
+	for _, f := range opts {
+		f(req)
+	}
+	_, err := up.Upload(req)
 
 	return err
+}
+
+// Content configures properties of content distribution
+type Content func(*s3manager.UploadInput)
+
+// UseHTTP type create configuration for Content distribution
+type UseHTTP string
+
+const (
+	// HTTP is default configuration for Content distribution using HTTP
+	HTTP = UseHTTP("content.http")
+)
+
+// CacheControl header
+func (UseHTTP) CacheControl(val string) Content {
+	return func(x *s3manager.UploadInput) {
+		x.CacheControl = aws.String(val)
+	}
+}
+
+// ContentEncoding header
+func (UseHTTP) ContentEncoding(val string) Content {
+	return func(x *s3manager.UploadInput) {
+		x.ContentEncoding = aws.String(val)
+	}
+}
+
+// ContentLanguage header
+func (UseHTTP) ContentLanguage(val string) Content {
+	return func(x *s3manager.UploadInput) {
+		x.ContentLanguage = aws.String(val)
+	}
+}
+
+// ContentType header
+func (UseHTTP) ContentType(val string) Content {
+	return func(x *s3manager.UploadInput) {
+		x.ContentType = aws.String(val)
+	}
+}
+
+// Expires header
+func (UseHTTP) Expires(val time.Time) Content {
+	return func(x *s3manager.UploadInput) {
+		x.Expires = &val
+	}
 }
