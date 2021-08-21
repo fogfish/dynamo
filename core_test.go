@@ -92,6 +92,20 @@ func TestNew(t *testing.T) {
 		If(dynamo.Must(dynamo.New("s3:///a"))).ShouldNot().Equal(nil)
 }
 
+func TestReadOnly(t *testing.T) {
+	it.Ok(t).
+		If(dynamo.MustReadOnly(dynamo.ReadOnly("ddb:///a"))).ShouldNot().Equal(nil).
+		If(dynamo.MustReadOnly(dynamo.ReadOnly("s3:///a"))).ShouldNot().Equal(nil)
+}
+
+func TestStream(t *testing.T) {
+	it.Ok(t).
+		If(dynamo.MustStream(dynamo.Stream("s3:///a"))).ShouldNot().Equal(nil).
+		If(func() {
+			dynamo.MustStream(dynamo.Stream("ddb:///a"))
+		}).Should().Fail()
+}
+
 func TestIDs(t *testing.T) {
 	expect := curie.New("a:b/c")
 	a := dynamo.NewID("a:b/c")

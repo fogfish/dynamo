@@ -135,7 +135,6 @@ package dynamo
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -253,12 +252,16 @@ func (e PreConditionFailed) Error() string {
 	return fmt.Sprintf("Pre Condition Failed %v", e.Key)
 }
 
-//
-// New establishes connection with AWS Storage service,
-// use URI to specify service and name of the bucket.
-// Supported scheme:
-//   s3:///my-bucket
-//   ddb:///my-table
+/*
+
+New establishes connection with AWS Storage service,
+use URI to specify service and name of the bucket.
+
+Supported scheme:
+  s3:///my-bucket
+  ddb:///my-table/my-index?prefix=hashkey&suffix=sortkey
+
+*/
 func New(uri string, defSession ...*session.Session) (KeyVal, error) {
 	awsSession, err := maybeNewSession(defSession)
 	if err != nil {
@@ -282,7 +285,29 @@ func New(uri string, defSession ...*session.Session) (KeyVal, error) {
 //    var io = dynamo.Must(dynamo.New())
 func Must(kv KeyVal, err error) KeyVal {
 	if err != nil {
-		log.Panicln(err)
+		panic(err)
+	}
+	return kv
+}
+
+/*
+
+ReadOnly establishes read-only connection with AWS Storage service.
+*/
+func ReadOnly(uri string, defSession ...*session.Session) (KeyValReader, error) {
+	return New(uri, defSession...)
+}
+
+// MustReadOnly is a helper function to ensure KeyValReader interface is valid and there was no
+// error when calling a New function.
+//
+// This helper is intended to be used in variable initialization to load the
+// interface and configuration at startup. Such as:
+//
+//    var io = dynamo.MustReadOnly(dynamo.ReadOnly())
+func MustReadOnly(kv KeyValReader, err error) KeyValReader {
+	if err != nil {
+		panic(err)
 	}
 	return kv
 }
@@ -309,6 +334,20 @@ func Stream(uri string, defSession ...*session.Session) (Blob, error) {
 	}
 
 	return stream, nil
+}
+
+// MustStream is a helper function to ensure KeyValReader interface is valid and there was no
+// error when calling a New function.
+//
+// This helper is intended to be used in variable initialization to load the
+// interface and configuration at startup. Such as:
+//
+//    var io = dynamo.MustStream(dynamo.Stream())
+func MustStream(kv Blob, err error) Blob {
+	if err != nil {
+		panic(err)
+	}
+	return kv
 }
 
 //
