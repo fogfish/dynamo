@@ -265,36 +265,12 @@ func New(uri string, defSession ...*session.Session) (KeyVal, error) {
 		return nil, err
 	}
 
-	spec, _ := url.Parse(uri)
-	switch {
-	case spec == nil:
-		return nil, fmt.Errorf("Invalid url: %s", uri)
-	case len(spec.Path) < 2:
-		return nil, fmt.Errorf("Invalid url, path to data storage is not defined: %s", uri)
-	case spec.Scheme == "s3":
-		return newS3(awsSession, (*dbURL)(spec)), nil
-	case spec.Scheme == "ddb":
-		return newDB(awsSession, (*dbURL)(spec)), nil
-	default:
-		return nil, fmt.Errorf("Unsupported schema: %s", uri)
-	}
-}
-
-//
-func maybeNewSession(defSession []*session.Session) (*session.Session, error) {
-	if len(defSession) != 0 {
-		return defSession[0], nil
-	}
-
-	awsSession, err := session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	})
-
+	creator, spec, err := factory(uri, defSession...)
 	if err != nil {
 		return nil, err
 	}
 
-	return awsSession, nil
+	return creator(awsSession, spec), nil
 }
 
 // Must is a helper function to ensure KeyVal interface is valid and there was no
@@ -321,17 +297,54 @@ func Stream(uri string, defSession ...*session.Session) (Blob, error) {
 		return nil, err
 	}
 
+	creator, spec, err := factory(uri, defSession...)
+	if err != nil {
+		return nil, err
+	}
+
+	keyval := creator(awsSession, spec)
+	stream, ok := keyval.(Blob)
+	if !ok {
+		return nil, fmt.Errorf("Streaming is not supported by %s", uri)
+	}
+
+	return stream, nil
+}
+
+//
+type creator func(io *session.Session, spec *dbURL) KeyVal
+
+func factory(uri string, defSession ...*session.Session) (creator, *dbURL, error) {
 	spec, _ := url.Parse(uri)
 	switch {
 	case spec == nil:
-		return nil, fmt.Errorf("Invalid url: %s", uri)
+		return nil, nil, fmt.Errorf("Invalid url: %s", uri)
 	case len(spec.Path) < 2:
-		return nil, fmt.Errorf("Invalid url, path to data storage is not defined: %s", uri)
+		return nil, nil, fmt.Errorf("Invalid url, path to data storage is not defined: %s", uri)
 	case spec.Scheme == "s3":
-		return newS3(awsSession, (*dbURL)(spec)), nil
+		return newS3, (*dbURL)(spec), nil
+	case spec.Scheme == "ddb":
+		return newDB, (*dbURL)(spec), nil
 	default:
-		return nil, fmt.Errorf("Unsupported schema: %s", uri)
+		return nil, nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}
+}
+
+//
+func maybeNewSession(defSession []*session.Session) (*session.Session, error) {
+	if len(defSession) != 0 {
+		return defSession[0], nil
+	}
+
+	awsSession, err := session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return awsSession, nil
 }
 
 /*

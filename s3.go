@@ -28,7 +28,7 @@ type S3 struct {
 	bucket *string
 }
 
-func newS3(io *session.Session, spec *dbURL) *S3 {
+func newS3(io *session.Session, spec *dbURL) KeyVal {
 	db := &S3{io: io, db: s3.New(io)}
 
 	// config bucket name

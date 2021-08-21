@@ -37,7 +37,7 @@ type DB struct {
 	index *string
 }
 
-func newDB(io *session.Session, spec *dbURL) *DB {
+func newDB(io *session.Session, spec *dbURL) KeyVal {
 	db := &DB{io: io, db: dynamodb.New(io)}
 
 	// config table name and index name
