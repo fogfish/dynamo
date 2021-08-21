@@ -38,7 +38,7 @@ func (iri *IRI) Unwrap() *curie.IRI {
 MarshalDynamoDBAttributeValue `IRI ⟼ "prefix:suffix"`
 */
 func (iri IRI) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	if iri.Rank() == 0 {
+	if curie.Rank(curie.IRI(iri.IRI)) == 0 {
 		av.NULL = aws.Bool(true)
 		return nil
 	}

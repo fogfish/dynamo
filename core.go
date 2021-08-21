@@ -147,19 +147,31 @@ import (
 //
 // KeyVal is a generic key-value trait to access domain objects.
 type KeyVal interface {
-	KeyValPure
-	KeyValPattern
+	KeyValReader
+	KeyValWriter
 }
 
-// KeyValPure defines a generic key-value I/O
-type KeyValPure interface {
-	Get(Thing) error
+//
+// KeyValWriter defines a generic key-value I/O
+type KeyValWriter interface {
 	Put(Thing, ...Constrain) error
 	Remove(Thing, ...Constrain) error
 	Update(Thing, ...Constrain) error
 }
 
-// KeyValPattern defines simples pattern matching lookup I/O
+//
+// KeyValReader a generic key-value trait to read domain objects
+type KeyValReader interface {
+	KeyValLookup
+	KeyValPattern
+}
+
+// KeyValLookup defines read by key notation
+type KeyValLookup interface {
+	Get(Thing) error
+}
+
+// KeyValPattern defines simple pattern matching lookup I/O
 type KeyValPattern interface {
 	Match(Thing) Seq
 }
@@ -260,9 +272,9 @@ func New(uri string, defSession ...*session.Session) (KeyVal, error) {
 	case len(spec.Path) < 2:
 		return nil, fmt.Errorf("Invalid url, path to data storage is not defined: %s", uri)
 	case spec.Scheme == "s3":
-		return newS3(bucket(spec.Path)), nil
+		return newS3(awsSession, (*dbURL)(spec)), nil
 	case spec.Scheme == "ddb":
-		return newDB(awsSession, spec), nil
+		return newDB(awsSession, (*dbURL)(spec)), nil
 	default:
 		return nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}
@@ -303,20 +315,51 @@ func Must(kv KeyVal, err error) KeyVal {
 // use URI to specify service and name of the bucket.
 // Supported scheme:
 //   s3:///my-bucket
-func Stream(uri string) (Blob, error) {
+func Stream(uri string, defSession ...*session.Session) (Blob, error) {
+	awsSession, err := maybeNewSession(defSession)
+	if err != nil {
+		return nil, err
+	}
+
 	spec, _ := url.Parse(uri)
 	switch {
 	case spec == nil:
 		return nil, fmt.Errorf("Invalid url: %s", uri)
-	case spec.Path == "":
-		return nil, fmt.Errorf("Invalid url, path is missing: %s", uri)
+	case len(spec.Path) < 2:
+		return nil, fmt.Errorf("Invalid url, path to data storage is not defined: %s", uri)
 	case spec.Scheme == "s3":
-		return newS3(bucket(spec.Path)), nil
+		return newS3(awsSession, (*dbURL)(spec)), nil
 	default:
 		return nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}
 }
 
-func bucket(s string) string {
-	return strings.Split(s[1:], "/")[0]
+/*
+
+dbURL custom type with helper functions
+*/
+type dbURL url.URL
+
+// query parameters
+func (uri *dbURL) query(key, def string) string {
+	val := (*url.URL)(uri).Query().Get(key)
+
+	if val == "" {
+		return def
+	}
+
+	return val
+}
+
+// path segments of length
+func (uri *dbURL) segments(n int) []*string {
+	seq := make([]*string, n)
+
+	seg := strings.Split((*url.URL)(uri).Path, "/")[1:]
+	for i, x := range seg {
+		val := x
+		seq[i] = &val
+	}
+
+	return seq
 }

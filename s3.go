@@ -28,10 +28,14 @@ type S3 struct {
 	bucket *string
 }
 
-func newS3(bucket string) *S3 {
-	io := session.Must(session.NewSession())
-	db := s3.New(io)
-	return &S3{io, db, aws.String(bucket)}
+func newS3(io *session.Session, spec *dbURL) *S3 {
+	db := &S3{io: io, db: s3.New(io)}
+
+	// config bucket name
+	seq := spec.segments(2)
+	db.bucket = seq[0]
+
+	return db
 }
 
 // Mock S3 I/O channel
@@ -49,14 +53,14 @@ func (dynamo *S3) Mock(db s3iface.S3API) {
 func (dynamo S3) Get(entity Thing) (err error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
+		Key:    aws.String(curie.Path(entity.Identity())),
 	}
 	val, err := dynamo.db.GetObject(req)
 	if err != nil {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == s3.ErrCodeNoSuchKey {
-				return NotFound{entity.Identity().Path()}
+				return NotFound{curie.Path(entity.Identity())}
 			}
 			return err
 		default:
@@ -77,7 +81,7 @@ func (dynamo S3) Put(entity Thing, _ ...Constrain) (err error) {
 
 	req := &s3.PutObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
+		Key:    aws.String(curie.Path(entity.Identity())),
 		Body:   aws.ReadSeekCloser(bytes.NewReader(gen)),
 	}
 
@@ -89,7 +93,7 @@ func (dynamo S3) Put(entity Thing, _ ...Constrain) (err error) {
 func (dynamo S3) Remove(entity Thing, _ ...Constrain) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
+		Key:    aws.String(curie.Path(entity.Identity())),
 	}
 
 	_, err = dynamo.db.DeleteObject(req)
@@ -293,7 +297,7 @@ func (seq *s3Seq) Limit(n int64) Seq {
 // Continue limited sequence from the cursor
 func (seq *s3Seq) Continue(cursor *curie.IRI) Seq {
 	if cursor != nil {
-		seq.q.StartAfter = aws.String(cursor.Path())
+		seq.q.StartAfter = aws.String(curie.Path(*cursor))
 	}
 	return seq
 }
@@ -308,7 +312,7 @@ func (dynamo S3) Match(key Thing) Seq {
 	req := &s3.ListObjectsV2Input{
 		Bucket:  dynamo.bucket,
 		MaxKeys: aws.Int64(1000),
-		Prefix:  aws.String(key.Identity().Path()),
+		Prefix:  aws.String(curie.Path(key.Identity())),
 	}
 
 	return mkS3Seq(&dynamo, req, nil)
@@ -324,7 +328,7 @@ func (dynamo S3) Match(key Thing) Seq {
 func (dynamo S3) URL(entity Thing, expire time.Duration) (string, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
+		Key:    aws.String(curie.Path(entity.Identity())),
 	}
 
 	item, _ := dynamo.db.GetObjectRequest(req)
@@ -369,7 +373,7 @@ func (dynamo S3) Send(entity Thing, stream io.Reader, opts ...Content) error {
 
 	req := &s3manager.UploadInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
+		Key:    aws.String(curie.Path(entity.Identity())),
 		Body:   stream,
 	}
 

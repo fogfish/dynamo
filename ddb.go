@@ -11,7 +11,6 @@ package dynamo
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -38,32 +37,19 @@ type DB struct {
 	index *string
 }
 
-func newDB(io *session.Session, spec *url.URL) *DB {
+func newDB(io *session.Session, spec *dbURL) *DB {
 	db := &DB{io: io, db: dynamodb.New(io)}
 
 	// config table name and index name
-	seq := strings.Split(spec.Path, "/")
-
-	if len(seq) > 1 {
-		db.table = aws.String(seq[1])
-	}
-
-	if len(seq) > 2 {
-		db.index = aws.String(seq[2])
-	}
+	seq := spec.segments(2)
+	db.table = seq[0]
+	db.index = seq[1]
 
 	// config mapping of Indentity to table attributes
-	prefix := spec.Query().Get("prefix")
-	if prefix == "" {
-		prefix = "prefix"
+	db.ddbConfig = ddbConfig{
+		pkPrefix: spec.query("prefix", "prefix"),
+		skSuffix: spec.query("suffix", "suffix"),
 	}
-
-	suffix := spec.Query().Get("suffix")
-	if suffix == "" {
-		suffix = "suffix"
-	}
-
-	db.ddbConfig = ddbConfig{pkPrefix: prefix, skSuffix: suffix}
 
 	return db
 }
@@ -276,7 +262,7 @@ func (gen *dbGen) ID() (*ID, error) {
 
 	pf := aws.StringValue(prefix.S)
 	sf := aws.StringValue(suffix.S)
-	id := MkID(curie.New(pf).Join(sf))
+	id := MkID(curie.Join(curie.New(pf), sf))
 
 	return &id, nil
 }
@@ -411,7 +397,11 @@ func (seq *dbSeq) Cursor() *curie.IRI {
 		val := seq.q.ExclusiveStartKey
 		prefix, _ := val[seq.dynamo.pkPrefix]
 		suffix, _ := val[seq.dynamo.skSuffix]
-		iri := curie.New(aws.StringValue(prefix.S)).Join(aws.StringValue(suffix.S))
+		iri := curie.Join(
+			curie.New(aws.StringValue(prefix.S)),
+			aws.StringValue(suffix.S),
+		)
+
 		return &iri
 	}
 
@@ -434,9 +424,9 @@ func (seq *dbSeq) Limit(n int64) Seq {
 func (seq *dbSeq) Continue(cursor *curie.IRI) Seq {
 	if cursor != nil {
 		key := map[string]*dynamodb.AttributeValue{}
-		key[seq.dynamo.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(cursor.Prefix())}
-		if cursor.Suffix() != "" {
-			key[seq.dynamo.skSuffix] = &dynamodb.AttributeValue{S: aws.String(cursor.Suffix())}
+		key[seq.dynamo.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(curie.Prefix(*cursor))}
+		if curie.Suffix(*cursor) != "" {
+			key[seq.dynamo.skSuffix] = &dynamodb.AttributeValue{S: aws.String(curie.Suffix(*cursor))}
 		}
 		seq.q.ExclusiveStartKey = key
 	}
@@ -463,8 +453,6 @@ func (dynamo DB) Match(key Thing) Seq {
 		IndexName:                 dynamo.index,
 	}
 
-	fmt.Println(q)
-
 	return mkDbSeq(&dynamo, q, err)
 }
 
@@ -482,9 +470,9 @@ func marshal(cfg ddbConfig, entity Thing) (map[string]*dynamodb.AttributeValue, 
 	}
 
 	iri := curie.New(aws.StringValue(gen["id"].S))
-	gen[cfg.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(iri.Prefix())}
-	if iri.Suffix() != "" {
-		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String(iri.Suffix())}
+	gen[cfg.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(curie.Prefix(iri))}
+	if curie.Suffix(iri) != "" {
+		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String(curie.Suffix(iri))}
 	}
 
 	delete(gen, "id")
@@ -511,7 +499,10 @@ func unmarshal(cfg ddbConfig, ddb map[string]*dynamodb.AttributeValue) (map[stri
 		return nil, errors.New("Invalid DDB schema")
 	}
 
-	iri := curie.New(aws.StringValue(prefix.S)).Join(aws.StringValue(suffix.S))
+	iri := curie.Join(
+		curie.New(aws.StringValue(prefix.S)),
+		aws.StringValue(suffix.S),
+	)
 	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.String())}
 
 	delete(ddb, cfg.pkPrefix)
