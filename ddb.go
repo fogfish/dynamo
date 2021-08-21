@@ -11,6 +11,7 @@ package dynamo
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -34,21 +35,37 @@ type DB struct {
 	io    *session.Session
 	db    dynamodbiface.DynamoDBAPI
 	table *string
+	index *string
 }
 
-func newDB(table string) *DB {
-	io := session.Must(session.NewSession())
-	// TODO: aws config , aws.NewConfig().WithMaxRetries(10)
-	db := dynamodb.New(io)
-	return &DB{
-		ddbConfig: ddbConfig{
-			pkPrefix: "prefix",
-			skSuffix: "suffix",
-		},
-		io:    io,
-		db:    db,
-		table: aws.String(table),
+func newDB(io *session.Session, spec *url.URL) *DB {
+	db := &DB{io: io, db: dynamodb.New(io)}
+
+	// config table name and index name
+	seq := strings.Split(spec.Path, "/")
+
+	if len(seq) > 1 {
+		db.table = aws.String(seq[1])
 	}
+
+	if len(seq) > 2 {
+		db.index = aws.String(seq[2])
+	}
+
+	// config mapping of Indentity to table attributes
+	prefix := spec.Query().Get("prefix")
+	if prefix == "" {
+		prefix = "prefix"
+	}
+
+	suffix := spec.Query().Get("suffix")
+	if suffix == "" {
+		suffix = "suffix"
+	}
+
+	db.ddbConfig = ddbConfig{pkPrefix: prefix, skSuffix: suffix}
+
+	return db
 }
 
 // Mock dynamoDB I/O channel
@@ -440,10 +457,13 @@ func (dynamo DB) Match(key Thing) Seq {
 	}
 
 	q := &dynamodb.QueryInput{
-		KeyConditionExpression:    aws.String(dynamo.pkPrefix + " = :prefix"),
+		KeyConditionExpression:    aws.String(dynamo.pkPrefix + " = :" + dynamo.pkPrefix),
 		ExpressionAttributeValues: exprOf(gen),
 		TableName:                 dynamo.table,
+		IndexName:                 dynamo.index,
 	}
+
+	fmt.Println(q)
 
 	return mkDbSeq(&dynamo, q, err)
 }

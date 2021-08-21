@@ -140,6 +140,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/fogfish/curie"
 )
 
@@ -246,20 +247,42 @@ func (e PreConditionFailed) Error() string {
 // Supported scheme:
 //   s3:///my-bucket
 //   ddb:///my-table
-func New(uri string) (KeyVal, error) {
+func New(uri string, defSession ...*session.Session) (KeyVal, error) {
+	awsSession, err := maybeNewSession(defSession)
+	if err != nil {
+		return nil, err
+	}
+
 	spec, _ := url.Parse(uri)
 	switch {
 	case spec == nil:
 		return nil, fmt.Errorf("Invalid url: %s", uri)
-	case spec.Path == "":
-		return nil, fmt.Errorf("Invalid url, path is missing: %s", uri)
+	case len(spec.Path) < 2:
+		return nil, fmt.Errorf("Invalid url, path to data storage is not defined: %s", uri)
 	case spec.Scheme == "s3":
 		return newS3(bucket(spec.Path)), nil
 	case spec.Scheme == "ddb":
-		return newDB(bucket(spec.Path)), nil
+		return newDB(awsSession, spec), nil
 	default:
 		return nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}
+}
+
+//
+func maybeNewSession(defSession []*session.Session) (*session.Session, error) {
+	if len(defSession) != 0 {
+		return defSession[0], nil
+	}
+
+	awsSession, err := session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return awsSession, nil
 }
 
 // Must is a helper function to ensure KeyVal interface is valid and there was no
