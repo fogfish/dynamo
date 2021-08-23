@@ -29,7 +29,8 @@ trait KeyVal[T] {
 
 ## Getting started
 
-The latest version of the library is available at its `main` branch. All development, including new features and bug fixes, take place on the `main` branch using forking and pull requests as described in contribution guidelines.
+The latest version of the library is available at its `main` branch. All development, including new features and bug fixes, take place on the `main` branch using forking and pull requests as described in contribution guidelines. The stable version is available via Golang modules.
+
 
 - [Getting Started](#getting-started)
   - [Data types definition](#data-types-definition)
@@ -38,7 +39,9 @@ The latest version of the library is available at its `main` branch. All develop
   - [Hierarchical structures](#hierarchical-structures)
   - [Sequences and Pagination](#sequences-and-pagination)
   - [Linked data](#linked-data)
+  - [Custom codecs for core domain types](#custom-codecs-for-core-domain-types)
   - [Optimistic Locking](#optimistic-locking)
+  - [Local and Global Secondary Indexes](#local-and-global-secondary-indexes)
   - [Configure DynamoDB](#configure-dynamodb)
   - [Other storages](#other-storages)
 
@@ -137,7 +140,6 @@ It is not convenient either to inject `dynamo.ID` or re-define a new type just t
 
 ```go
 type Person struct {
-  ID      string `dynamodbav:"-"`
   Name    string `dynamodbav:"name,omitempty"`
   Age     int    `dynamodbav:"age,omitempty"`
   Address string `dynamodbav:"address,omitempty"`
@@ -225,12 +227,37 @@ Cross-linking of structured data is an essential part of type safe domain driven
 ```go
 type Person struct {
   dynamo.ID
-  Account *dynamo.IRI `dynamodbav:"name,omitempty"`
+  Account *dynamo.IRI `dynamodbav:"account,omitempty"`
 }
 ```
 
 `dynamo.ID` and `dynamo.IRI` are sibling, equivalent data types. `ID` is only used as primary key, `IRI` is a "pointer" to linked-data.
 
+
+### Custom codecs for core domain types
+
+Development of complex Golang application might lead developers towards [Standard Package Layout](https://medium.com/@benbjohnson/standard-package-layout-7cdbc8391fc1). It becomes extremely difficult to isolate dependencies from core data types to this library and AWS SDK. The library support serialization of core type to dynamo using custom codecs 
+
+```go
+// core.go
+type Person struct {
+  ID       curie.IRI  `dynamodbav:"-"`
+  Account *curie.Safe `dynamodbav:"account,omitempty"`
+}
+
+// ddb.go
+type dbPerson Person
+
+func (x dbPerson) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	type tStruct dbPerson
+	return dynamo.Encode(av, x.ID, tStruct(x))
+}
+
+func (x *dbPerson) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	type tStruct *dbPerson
+	return dynamo.Decode(av, &x.ID, tStruct(x))
+}
+```
 
 ### Optimistic Locking
 
@@ -278,6 +305,9 @@ default:
 See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for all supported constrains.
 
 
+### Local and Global Secondary Indexes
+
+
 ### Configure DynamoDB
 
 The `dynamo` library is optimized to operate with generic Dynamo DB that declares both partition and sort keys with fixed names. Use the following schema:
@@ -291,6 +321,13 @@ const Schema = (): ddb.TableProps => ({
 })
 ```
 
+If table uses other names for `partitionKey` and `sortKey` then connect URI allows to re-declare them
+
+```go
+//
+// Create client and bind it with DynamoDB the table
+db := dynamo.Must(dynamo.New("ddb:///my-table?prefix=someHashKey&suffix=someSortKey"))
+```
 
 ### Other storages
 
