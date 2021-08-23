@@ -9,6 +9,8 @@
 package dynamo
 
 import (
+	"encoding/json"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -20,31 +22,20 @@ import (
 IRI is an alias to compact URI type.
 The alias ensures compact URI serialization into DynamoDB schema.
 */
-type IRI struct{ curie.IRI }
-
-/*
-
-Unwrap extract curie.IRI from dynamo.IRI
-*/
-func (iri *IRI) Unwrap() *curie.IRI {
-	if iri == nil {
-		return nil
-	}
-	return &iri.IRI
-}
+type IRI curie.IRI
 
 /*
 
 MarshalDynamoDBAttributeValue `IRI ⟼ "prefix:suffix"`
 */
 func (iri IRI) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	if curie.Rank(curie.IRI(iri.IRI)) == 0 {
+	if curie.Rank(curie.IRI(iri)) == 0 {
 		av.NULL = aws.Bool(true)
 		return nil
 	}
 
 	// Note: we are using string representation to allow linked data in dynamo tables
-	val, err := dynamodbattribute.Marshal(iri.String())
+	val, err := dynamodbattribute.Marshal(curie.IRI(iri).String())
 	if err != nil {
 		return err
 	}
@@ -58,7 +49,76 @@ func (iri IRI) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error 
 UnmarshalDynamoDBAttributeValue `"prefix:suffix" ⟼ IRI`
 */
 func (iri *IRI) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	*iri = IRI{curie.New(aws.StringValue(av.S))}
+	*iri = IRI(curie.New(aws.StringValue(av.S)))
+	return nil
+}
+
+/*
+MarshalJSON `IRI ⟼ "[prefix:suffix]"`
+*/
+func (iri IRI) MarshalJSON() ([]byte, error) {
+	return json.Marshal(curie.IRI(iri))
+}
+
+/*
+UnmarshalJSON `"[prefix:suffix]" ⟼ IRI`
+*/
+func (iri *IRI) UnmarshalJSON(b []byte) error {
+	var val curie.IRI
+
+	err := json.Unmarshal(b, &val)
+	if err != nil {
+		return err
+	}
+
+	*iri = IRI(val)
+	return nil
+}
+
+/*
+
+Encode is a helper function to encode core domain types into struct.
+The helper ensures compact URI serialization into DynamoDB schema.
+
+  func (x MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+    type tStruct MyType
+    return dynamo.Encode(av, x.ID, tStruct(x))
+  }
+*/
+func Encode(av *dynamodb.AttributeValue, id curie.IRI, val interface{}) error {
+	gen, err := dynamodbattribute.Marshal(val)
+	if err != nil {
+		return err
+	}
+
+	uid, err := dynamodbattribute.Marshal(IRI(id))
+	if err != nil {
+		return err
+	}
+
+	gen.M["id"] = uid
+
+	*av = *gen
+	return nil
+}
+
+/*
+
+Decode is a helper function to decode core domain types from Dynamo DB format.
+The helper ensures compact URI de-serialization from DynamoDB schema.
+
+  func (x *MyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+    type tStruct *MyType
+    return dynamo.Decode(av, &x.ID, tStruct(x))
+  }
+*/
+func Decode(av *dynamodb.AttributeValue, id *curie.IRI, val interface{}) error {
+	dynamodbattribute.Unmarshal(av, val)
+
+	var xx IRI
+	dynamodbattribute.Unmarshal(av.M["id"], &xx)
+	*id = curie.IRI(xx)
+
 	return nil
 }
 
@@ -82,7 +142,7 @@ type ID struct {
 NewID transform category of strings to dynamo.ID.
 */
 func NewID(iri string, args ...interface{}) ID {
-	return ID{IRI{curie.New(iri, args...)}}
+	return ID{IRI(curie.New(iri, args...))}
 }
 
 /*
@@ -90,7 +150,7 @@ func NewID(iri string, args ...interface{}) ID {
 MkID transform category of curie.IRI to dynamo.ID.
 */
 func MkID(iri curie.IRI) ID {
-	return ID{IRI{iri}}
+	return ID{IRI(iri)}
 }
 
 /*
@@ -99,7 +159,7 @@ Identity makes CURIE compliant to Thing interface so that embedding ID makes any
 struct to be Thing.
 */
 func (id ID) Identity() curie.IRI {
-	return id.IRI.IRI
+	return curie.IRI(id.IRI)
 }
 
 /*

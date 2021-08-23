@@ -260,10 +260,12 @@ func (gen *dbGen) ID() (*ID, error) {
 		return nil, errors.New("Invalid DDB schema")
 	}
 
-	pf := aws.StringValue(prefix.S)
-	sf := aws.StringValue(suffix.S)
-	id := MkID(curie.Join(curie.New(pf), sf))
+	iri := curie.New(aws.StringValue(prefix.S))
+	if aws.StringValue(suffix.S) != "_" {
+		iri = curie.Join(iri, aws.StringValue(suffix.S))
+	}
 
+	id := MkID(iri)
 	return &id, nil
 }
 
@@ -397,10 +399,10 @@ func (seq *dbSeq) Cursor() *curie.IRI {
 		val := seq.q.ExclusiveStartKey
 		prefix, _ := val[seq.dynamo.pkPrefix]
 		suffix, _ := val[seq.dynamo.skSuffix]
-		iri := curie.Join(
-			curie.New(aws.StringValue(prefix.S)),
-			aws.StringValue(suffix.S),
-		)
+		iri := curie.New(aws.StringValue(prefix.S))
+		if aws.StringValue(suffix.S) != "_" {
+			iri = curie.Join(iri, aws.StringValue(suffix.S))
+		}
 
 		return &iri
 	}
@@ -427,6 +429,8 @@ func (seq *dbSeq) Continue(cursor *curie.IRI) Seq {
 		key[seq.dynamo.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(curie.Prefix(*cursor))}
 		if curie.Suffix(*cursor) != "" {
 			key[seq.dynamo.skSuffix] = &dynamodb.AttributeValue{S: aws.String(curie.Suffix(*cursor))}
+		} else {
+			key[seq.dynamo.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
 		}
 		seq.q.ExclusiveStartKey = key
 	}
@@ -473,6 +477,8 @@ func marshal(cfg ddbConfig, entity Thing) (map[string]*dynamodb.AttributeValue, 
 	gen[cfg.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(curie.Prefix(iri))}
 	if curie.Suffix(iri) != "" {
 		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String(curie.Suffix(iri))}
+	} else {
+		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
 	}
 
 	delete(gen, "id")
@@ -499,10 +505,10 @@ func unmarshal(cfg ddbConfig, ddb map[string]*dynamodb.AttributeValue) (map[stri
 		return nil, errors.New("Invalid DDB schema")
 	}
 
-	iri := curie.Join(
-		curie.New(aws.StringValue(prefix.S)),
-		aws.StringValue(suffix.S),
-	)
+	iri := curie.New(aws.StringValue(prefix.S))
+	if aws.StringValue(suffix.S) != "_" {
+		iri = curie.Join(iri, aws.StringValue(suffix.S))
+	}
 	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.String())}
 
 	delete(ddb, cfg.pkPrefix)

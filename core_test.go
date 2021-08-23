@@ -18,7 +18,7 @@ type Item struct {
 	Tag string      `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
 }
 
-var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI{curie.New("foo:a/suffix")}}
+var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI(curie.New("foo:a/suffix"))}
 
 var fixtureItem Item = Item{
 	ID:  dynamo.NewID("foo:prefix/suffix"),
@@ -114,14 +114,4 @@ func TestIDs(t *testing.T) {
 	it.Ok(t).
 		If(a.Identity()).Should().Equal(expect).
 		If(b.Identity()).Should().Equal(expect)
-}
-
-func TestUnwrap(t *testing.T) {
-	c := curie.New("a:b/c")
-	a := dynamo.IRI{c}
-	var b *dynamo.IRI
-
-	it.Ok(t).
-		If(*a.Unwrap()).Should().Equal(c).
-		If(b.Unwrap()).Should().Equal(nil)
 }

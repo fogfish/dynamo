@@ -2,8 +2,8 @@ github.com/aws/aws-sdk-go v1.40.27 h1:8fWW0CpmBZ8WWduNwl4vE9t07nMYFrhAsUHjPj81qU
 github.com/aws/aws-sdk-go v1.40.27/go.mod h1:585smgzpB/KqRA+K3y/NL/oYRqQvpNJYvLm+LY1U59Q=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/fogfish/curie v1.2.0 h1:2wVfqJY18Ud6uDgUYRua2M/ld4AKI11u8eO6enJYGbs=
-github.com/fogfish/curie v1.2.0/go.mod h1:jPv7pg4hHd8Ug/USG29ZA2bAwlRfh/iinY90/30ATGg=
+github.com/fogfish/curie v1.3.0 h1:FCX0Mb+ief6t93KJrGn4utlXQCdLV9mXQpCmc5V6rmc=
+github.com/fogfish/curie v1.3.0/go.mod h1:jPv7pg4hHd8Ug/USG29ZA2bAwlRfh/iinY90/30ATGg=
 github.com/fogfish/it v0.9.1 h1:Pu+qgqBV2ilZDzZzPIbUIhMIkdpHgbGUsdEwVQvBxNQ=
 github.com/fogfish/it v0.9.1/go.mod h1:NQJG4Ygvek85y7zGj0Gny8+6ygAnHjfBORhI7TdQhp4=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
