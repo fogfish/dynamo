@@ -139,6 +139,7 @@ type ID struct {
 
 /*
 
+TODO: NewIDf
 NewID transform category of strings to dynamo.ID.
 */
 func NewID(iri string, args ...interface{}) ID {
@@ -147,6 +148,7 @@ func NewID(iri string, args ...interface{}) ID {
 
 /*
 
+TODO: NewID
 MkID transform category of curie.IRI to dynamo.ID.
 */
 func MkID(iri curie.IRI) ID {

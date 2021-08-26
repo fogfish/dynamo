@@ -262,7 +262,8 @@ func (gen *dbGen) ID() (*ID, error) {
 
 	iri := curie.New(aws.StringValue(prefix.S))
 	if aws.StringValue(suffix.S) != "_" {
-		iri = curie.Join(iri, aws.StringValue(suffix.S))
+		seq := strings.Split(aws.StringValue(suffix.S), "/")
+		iri = curie.Join(iri, seq...)
 	}
 
 	id := MkID(iri)
@@ -426,9 +427,12 @@ func (seq *dbSeq) Limit(n int64) Seq {
 func (seq *dbSeq) Continue(cursor *curie.IRI) Seq {
 	if cursor != nil {
 		key := map[string]*dynamodb.AttributeValue{}
-		key[seq.dynamo.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(curie.Prefix(*cursor))}
-		if curie.Suffix(*cursor) != "" {
-			key[seq.dynamo.skSuffix] = &dynamodb.AttributeValue{S: aws.String(curie.Suffix(*cursor))}
+		pfx := curie.Prefix(*cursor)
+		sfx := curie.Suffix(*cursor)
+
+		key[seq.dynamo.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(pfx)}
+		if sfx != "" {
+			key[seq.dynamo.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sfx)}
 		} else {
 			key[seq.dynamo.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
 		}
@@ -450,8 +454,14 @@ func (dynamo DB) Match(key Thing) Seq {
 		return mkDbSeq(nil, nil, err)
 	}
 
+	expr := dynamo.pkPrefix + " = :" + dynamo.pkPrefix
+	_, isSuffix := gen[dynamo.skSuffix]
+	if isSuffix {
+		expr = expr + " and begins_with(" + dynamo.skSuffix + ", :" + dynamo.skSuffix + ")"
+	}
+
 	q := &dynamodb.QueryInput{
-		KeyConditionExpression:    aws.String(dynamo.pkPrefix + " = :" + dynamo.pkPrefix),
+		KeyConditionExpression:    aws.String(expr),
 		ExpressionAttributeValues: exprOf(gen),
 		TableName:                 dynamo.table,
 		IndexName:                 dynamo.index,
@@ -474,9 +484,12 @@ func marshal(cfg ddbConfig, entity Thing) (map[string]*dynamodb.AttributeValue, 
 	}
 
 	iri := curie.New(aws.StringValue(gen["id"].S))
-	gen[cfg.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(curie.Prefix(iri))}
-	if curie.Suffix(iri) != "" {
-		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String(curie.Suffix(iri))}
+	pfx := curie.Prefix(iri)
+	sfx := curie.Suffix(iri)
+
+	gen[cfg.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(pfx)}
+	if sfx != "" {
+		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sfx)}
 	} else {
 		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
 	}
@@ -492,7 +505,15 @@ func pattern(cfg ddbConfig, key Thing) (map[string]*dynamodb.AttributeValue, err
 		return nil, err
 	}
 
-	gen[cfg.pkPrefix] = &dynamodb.AttributeValue{S: gen["id"].S}
+	iri := curie.New(aws.StringValue(gen["id"].S))
+	pfx := curie.Prefix(iri)
+	sfx := curie.Suffix(iri)
+
+	gen[cfg.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(pfx)}
+	if sfx != "" {
+		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sfx)}
+	}
+
 	delete(gen, "id")
 	return gen, nil
 }
