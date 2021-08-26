@@ -81,14 +81,7 @@ func lookupArticlesByAuthor(db dynamo.KeyVal, author curie.IRI) error {
 		return err
 	}
 
-	b, err := json.MarshalIndent(seq, "|", "  ")
-	if err != nil {
-		return err
-	}
-
-	log.Printf(string(b))
-
-	return err
+	return StdIO(seq)
 }
 
 //
@@ -103,14 +96,7 @@ func lookupArticlesByKeyword(db dynamo.KeyVal, keyword string) error {
 		return err
 	}
 
-	b, err := json.MarshalIndent(seq, "|", "  ")
-	if err != nil {
-		return err
-	}
-
-	log.Printf(string(b))
-
-	return nil
+	return StdIO(seq)
 }
 
 //
@@ -125,14 +111,7 @@ func lookupVonNeumannArticlesByKeyword(db dynamo.KeyVal, keyword string) error {
 		return err
 	}
 
-	b, err := json.MarshalIndent(seq, "|", "  ")
-	if err != nil {
-		return err
-	}
-
-	log.Printf(string(b))
-
-	return nil
+	return StdIO(seq)
 }
 
 //
@@ -147,14 +126,7 @@ func lookupArticlesByPublisher(db dynamo.KeyVal, publisher string) error {
 		return err
 	}
 
-	b, err := json.MarshalIndent(seq, "|", "  ")
-	if err != nil {
-		return err
-	}
-
-	log.Printf(string(b))
-
-	return err
+	return StdIO(seq)
 }
 
 //
@@ -253,5 +225,16 @@ func articlesOfLeonardKleinrock(db dynamo.KeyVal) error {
 		}
 	}
 
+	return nil
+}
+
+// StdIO outputs query result
+func StdIO(data interface{}) error {
+	b, err := json.MarshalIndent(data, "|", "  ")
+	if err != nil {
+		return err
+	}
+
+	log.Printf(string(b))
 	return nil
 }

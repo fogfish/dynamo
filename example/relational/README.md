@@ -160,7 +160,12 @@ There are only few limited ways how to query data efficiently from DynamoDB. The
 ## Secondary indexes
 
 
+## I/O 
+
+
 ## Create a table
+
+TODO: move to script
 
 ```bash
 aws dynamodb create-table \
@@ -181,6 +186,7 @@ aws dynamodb create-table \
     ReadCapacityUnits=5,WriteCapacityUnits=5
 ```
 
+##
 
 
 ## References
