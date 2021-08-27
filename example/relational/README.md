@@ -26,7 +26,7 @@ The data reading requires thoughtful work upfront. Typically, all data is de-nor
 * As a reader I want to lookup articles titles for given keyword ...
 * As a reader I want to lookup articles titles written by the author for given keyword ... 
 * As a reader I want to lookup all keywords of the article ...
-* As a reader I want to lookup all articles for given subject in chronological order ...
+* As a reader I want to lookup all articles for given category in chronological order ...
 
 The list of access pattern for real application looks complicated at times. This example, represents all I/O patterns solvable with `dynamo` library and reflect real production challenges.
 
@@ -132,13 +132,13 @@ The access patterns for an article - keyword is a classical many-to-many I/O
 - As a reader I want to lookup articles titles written by the author for given keyword ...
 - As a reader I want to lookup all keywords of the article ...
 
-Adjacency List design pattern is one way to solve many-to-many relation but it requires a global secondary index on the sort key, which might cause unnecessary overhead in single table.
+Adjacency List design pattern is one way to solve many-to-many relation but it requires a global secondary index on the sort key, which might cause unnecessary overhead in single table design.
 https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-adjacency-graphs.html#bp-adjacency-lists
 
 The global secondary index implicitly maintains two adjacency list.
 The first one is the forward article-to-keyword, the second one is
 an inverse keyword-to-article. It is possible to craft these lists
-explicitly. The composed sort key builds this lists. 
+explicitly. The composed sort key builds for this lists: 
 
 dynamo.NewID("keyword:%s#article/%s/%s",
   "theory", "neumann", "theory_of_automata")
@@ -159,34 +159,113 @@ There are only few limited ways how to query data efficiently from DynamoDB. The
 
 ## Secondary indexes
 
+Composite sort key supports a hierarchical one-to-many relations. Additional orthogonal access pattern might require secondary indexes over existing data sets. For example:
+* As a reader I want to list all articles written by the author ...
+* As a reader I want to lookup all articles for given category in chronological order ...
 
-## I/O 
+The first access pattern is addressed by composite sort key `author ⟼ article`, the second one requires another `category ⟼ year` key. One approach is an explicit projection of data but secondary indexes are easy. DynamoDB implicitly copies data from main table into the secondary index in a redesigned shape, therefore a new access dimension is unlocked. Eventual consistency is only the feature to consider. The local secondary indexes provides strong consistency but general advice to favour global indexes.
 
+The `dynamo` library supports both global and local secondary indexes with particular behavior:
+* it creates a client instance per table, therefore each index requires own instance of the client;
+* it automatically projects `dynamo.ID` (`curie.IRI`) into partition (HASH) and sort (RANGE) keys attributes. The default values of attributes is `prefix` and `suffix`. If table design uses other attribute names, which is always a cases of secondary indexes, then connection URI shall give a hint about new name;
+* application shall instantiate read-only client for secondary indexes.
 
-## Create a table
+```go
+// client to access to "main" table
+ddb := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational"))
 
-TODO: move to script
-
-```bash
-aws dynamodb create-table \
-  --table-name example-dynamo-relational \
-  --attribute-definitions \
-    AttributeName=prefix,AttributeType=S \
-    AttributeName=suffix,AttributeType=S \
-    AttributeName=publisher,AttributeType=S \
-    AttributeName=year,AttributeType=S \
-  --key-schema \
-    AttributeName=prefix,KeyType=HASH \
-    AttributeName=suffix,KeyType=RANGE \
-  --local-secondary-indexes \
-    '[{ "IndexName": "example-dynamo-relational-year", "KeySchema": [{"AttributeName": "prefix", "KeyType": "HASH"}, {"AttributeName": "year", "KeyType": "RANGE"}], "Projection": {"ProjectionType": "ALL"} }]' \
-  --global-secondary-indexes \
-    '[{ "IndexName": "example-dynamo-relational-subject-year", "KeySchema": [{"AttributeName": "subject", "KeyType": "HASH"}, {"AttributeName": "year", "KeyType": "RANGE"}], "Projection": {"ProjectionType": "ALL"}, "ProvisionedThroughput": {"ReadCapacityUnits": 5, "WriteCapacityUnits": 5} }]' \
-  --provisioned-throughput \
-    ReadCapacityUnits=5,WriteCapacityUnits=5
+// client to access global secondary index
+gsi := dynamo.Must(dynamo.ReadOnly("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))
 ```
 
-##
+```go
+/*
+
+The access patterns for an article on orthogonal direction 
+follows same one-to-many I/O
+- As a reader I want to lookup all articles for given category in chronological order ...
+
+The article shall define additional attributes, they would be projected
+by DynamoDB into partition and sort keys. Eventually building additional
+one subject to many year relations. 
+
+dynamo.NewID("%s#%s", "Computer Science", "1991")
+  ⟿ Computer Science#1991
+
+Note: the key here is missing schema definition because secondary index
+attributes are usually natural key, in the contrast with previous examples where surrogate were used.
+
+*/
+type Article struct {
+  dynamo.ID
+  Category string `dynamodbav:"category,omitempty"`
+  Year     string `dynamodbav:"year,omitempty"`
+}
+```
+
+AWS DynamoDB gives a recommendation to favor global secondary indexes rather than local secondary indexes. Each table in DynamoDB can have up to 20 global secondary indexes and 5 local secondary indexes. The local indexes must be designed at the time of the table creation.
+
+DynamoDB table schema for fictional arxiv.org is defined at [schema.sh](schema.sh) and Golang types at [types.go](types.go)
+
+
+## Writing and Reading DynamoDB  
+
+Actual reads and writes into DynamoDB tables is very straightforward with the `dynamo` library. It has been well covered by the [api documentation](https://github.com/fogfish/dynamo). Let's only highlight a simple example for each access pattern, which has been defined earlier. 
+
+**As an author I want to register a profile ...**
+
+The application instantiates `Author` type, defining composite sort key and other attributes. The instance is put to DynamoDB  
+
+```go
+author := Author{
+  ID: dynamo.NewID("author:%s", "neumann"),
+  // ...
+} 
+
+db.Put(author)
+```
+
+**As an author I want to publishes an article to system ...**
+
+Fundamentally, there are no difference what data type does application write to DynamoDB. It is all about type instantiation using right composite key
+
+```go
+article := Article{
+  ID: dynamo.NewID("article:%s#%s", "neumann", "theory_of_automata"),
+  // ...
+}
+
+db.Put(article)
+```
+
+**As a reader I want to fetch the article ...**
+
+
+
+**As a reader I want to list all articles written by the author ...**
+
+
+
+**As a reader I want to list all articles written by the author in chronological order ...**
+
+
+
+**As a reader I want to lookup articles titles for given keyword ...**
+
+
+
+**As a reader I want to lookup articles titles written by the author for given keyword ...**
+
+
+
+**As a reader I want to lookup all keywords of the article ...**
+
+
+
+**As a reader I want to lookup all articles for given category in chronological order ...**
+
+
+
 
 
 ## References

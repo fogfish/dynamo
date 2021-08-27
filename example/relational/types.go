@@ -47,9 +47,9 @@ article:john/the_system_design
 */
 type Article struct {
 	dynamo.ID
-	Title   string `dynamodbav:"title,omitempty" json:"title,omitempty"`
-	Year    string `dynamodbav:"year,omitempty" json:"year,omitempty"`
-	Subject string `dynamodbav:"subject,omitempty" json:"subject,omitempty"`
+	Title    string `dynamodbav:"title,omitempty" json:"title,omitempty"`
+	Category string `dynamodbav:"category,omitempty" json:"subject,omitempty"`
+	Year     string `dynamodbav:"year,omitempty" json:"year,omitempty"`
 }
 
 /*
@@ -59,16 +59,16 @@ NewArticle ...
 func NewArticle(author dynamo.ID, id, title string) Article {
 	iri := curie.Join(curie.NewScheme(curie.IRI(author.IRI), "article"), id)
 
-	subject := "Math"
+	category := "Math"
 	if rand.Float64() < 0.5 {
-		subject = "Computer Science"
+		category = "Computer Science"
 	}
 
 	return Article{
-		ID:      dynamo.MkID(iri),
-		Title:   title,
-		Year:    fmt.Sprintf("%d", 1930+rand.Intn(40)),
-		Subject: subject,
+		ID:       dynamo.MkID(iri),
+		Title:    title,
+		Category: category,
+		Year:     fmt.Sprintf("%d", 1930+rand.Intn(40)),
 	}
 }
 

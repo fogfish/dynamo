@@ -9,9 +9,9 @@ import (
 )
 
 func main() {
-	db := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational"))
-	dby := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational/example-dynamo-relational-year"))
-	dbp := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational/example-dynamo-relational-publisher-year?prefix=publisher&suffix=year"))
+	ddb := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational"))
+	lsi := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational/example-dynamo-relational-year"))
+	gsi := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational/example-dynamo-relational-publisher-year?prefix=publisher&suffix=year"))
 
 	// id := dynamo.MkID(curie.New("article:john/x"))
 	// keywords := NewKeyword(id, "theory")
