@@ -341,6 +341,7 @@ lsi.Match(id).FMap(seq.Join)
 
 ## Afterwords
 
+AWS DynamoDB is a managed NoSQL database that provides predictable performance. DynamoDB is quickly becoming the service of choice for traditional and serverless development. The development against DynamoDB requires consideration of access patterns. The `dynamo` library has been developed to streamline the data design process using pure Golang structures for definition of domain models. Using the library, the application can achieve the ideal data model, that would require a single request to DynamoDB.
 
 
 ## References
