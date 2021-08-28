@@ -5,7 +5,7 @@ aws dynamodb create-table \
   --attribute-definitions \
     AttributeName=prefix,AttributeType=S \
     AttributeName=suffix,AttributeType=S \
-    AttributeName=publisher,AttributeType=S \
+    AttributeName=category,AttributeType=S \
     AttributeName=year,AttributeType=S \
   --key-schema \
     AttributeName=prefix,KeyType=HASH \
