@@ -298,28 +298,48 @@ The access pattern is implemented using composite sort keys ability to encode hi
 id := dynamo.NewID("keyword:%s#article/%s", "theory", "neumann")
 
 var seq Keywords
-db.Match(id).FMap(seq.Join)
+ddb.Match(id).FMap(seq.Join)
 ```
 
 **As a reader I want to lookup all keywords of the article ...**
 
-The `article ⟼ keyword` is one-to-many relation supported by the inverse keywords list (similar to previous access patterns). The application crafts `dynamo.ID` (`curie.IRI`) to query a partition dedicated for articles metadata and filters keywords only.
+The `article ⟼ keyword` is one-to-many relation supported by the inverse keywords list. The application crafts `dynamo.ID` (`curie.IRI`) to query a partition dedicated for articles metadata and filters keywords only.
 
 ```go
 id := dynamo.NewID("article:%s/%s#keyword", "neumann", "theory_of_automata")
 
 var seq Keywords
-db.Match(id).FMap(seq.Join)
+ddb.Match(id).FMap(seq.Join)
 ```
-
-
 
 **As a reader I want to lookup all articles for given category in chronological order ...**
 
+The access pattern requires global secondary index. Otherwise, the lookup is similar other access patterns.  
+
+```go
+gsi := dynamo.Must(dynamo.ReadOnly("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))
+
+id := dynamo.NewID("%s", "Computer Science")
+
+var seq Articles
+gsi.Match(id).FMap(seq.Join)
+```
 
 **As a reader I want to list all articles written by the author in chronological order ...**
 
+The access pattern requires local secondary index. As it has been discussed earlier, the usage of local secondary indexes is required only when consistent reads required. Here access pattern shows ability of the `dynamo` library to query local secondary index
 
+```go
+// client to access global secondary index
+lsi := dynamo.Must(dynamo.ReadOnly("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year"))
+
+id := dynamo.NewID("article:%s", "neumann")
+
+var seq Articles
+lsi.Match(id).FMap(seq.Join)
+```
+
+## Afterwords
 
 
 
