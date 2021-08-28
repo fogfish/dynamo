@@ -22,11 +22,11 @@ The data reading requires thoughtful work upfront. Typically, all data is de-nor
 * As an author I want to publishes an article to system ...
 * As a reader I want to fetch the article ...
 * As a reader I want to list all articles written by the author ...
-* As a reader I want to list all articles written by the author in chronological order ...
 * As a reader I want to lookup articles titles for given keyword ...
 * As a reader I want to lookup articles titles written by the author for given keyword ... 
 * As a reader I want to lookup all keywords of the article ...
 * As a reader I want to lookup all articles for given category in chronological order ...
+* As a reader I want to list all articles written by the author in chronological order ...
 
 The list of access pattern for real application looks complicated at times. This example, represents all I/O patterns solvable with `dynamo` library and reflect real production challenges.
 
@@ -214,7 +214,7 @@ Actual reads and writes into DynamoDB tables is very straightforward with the `d
 
 **As an author I want to register a profile ...**
 
-The application instantiates `Author` type, defining composite sort key and other attributes. The instance is put to DynamoDB  
+The example application instantiates `Author` type, defining composite sort key and other attributes. The instance is `Put` to DynamoDB  
 
 ```go
 author := Author{
@@ -227,7 +227,7 @@ db.Put(author)
 
 **As an author I want to publishes an article to system ...**
 
-Fundamentally, there are no difference what data type does application write to DynamoDB. It is all about type instantiation using right composite key
+Fundamentally, there are no difference what data type does application write to DynamoDB. It is all about type instantiation structure with right composite key
 
 ```go
 article := Article{
@@ -238,31 +238,86 @@ article := Article{
 db.Put(article)
 ```
 
+The example arxiv.org application does not use a secondary indexes to support implicit search by keywords (so called adjacency list design pattern). Therefore, the application needs to publish keywords explicitly 
+
+```go
+forward := Keyword{
+  ID: dynamo.NewID("keyword:%s#article/%s/%s",
+        "theory", "neumann", "theory_of_automata"),
+  // ...  
+}
+inverse := Keyword{
+  ID: dynamo.NewID("article:%s/%s#keyword/%s",
+        "neumann", "theory_of_automata", "theory")
+  // ...
+}
+
+db.Put(forward)
+db.Put(inverse)
+```
+
 **As a reader I want to fetch the article ...**
 
+The lookup of concrete instance of item requires knowledge about the full composite sort key. The application uses `Get`, providing "empty" structure as a placeholder.
 
+```go
+article := Article{
+  ID: dynamo.NewID("article:%s#%s", "neumann", "theory_of_automata"),
+}
+
+db.Get(&article)
+```
 
 **As a reader I want to list all articles written by the author ...**
 
+This is one of the primary one-to-many access pattern supported by composite sort key. The application defines partition key (author) and queries all associated articles. The `dynamo` library implements `Match` function, which uses `dynamo.ID` (`curie.IRI`) as pattern of composite sort key. The function returns a lazy sequence of generic representations that has to be transformed into actual data types. `FMap` is an utility it takes a closure function that lifts generic to the struct. The example below uses monoid pattern to materialize sequence of generic element, please see [api documentation](https://github.com/fogfish/dynamo) for details about this pattern.
 
+```go
+id := dynamo.NewID("article:%s", "neumann")
 
-**As a reader I want to list all articles written by the author in chronological order ...**
-
-
+var seq Articles
+db.Match(id).FMap(seq.Join)
+```
 
 **As a reader I want to lookup articles titles for given keyword ...**
 
+The table contains forwards and inverse list of all keywords. The application crafts `dynamo.ID` (`curie.IRI`) to query keywords partition and return all articles.
 
+```go
+id := dynamo.NewID("keyword:%s", "theory")
+
+var seq Keywords
+db.Match(id).FMap(seq.Join)
+```
 
 **As a reader I want to lookup articles titles written by the author for given keyword ...**
 
+The access pattern is implemented using composite sort keys ability to encode hierarchical structures. It requires to scope articles by two dimensions keyword and author. Like in the previous access pattern, the keyword partition is a primary dimension to query articles. However the `begins_with` constrain of sort keys limits articles to "written by" subset because sort key is designed to maintain hierarchical relation `keyword ⟼ author ⟼ article`. The `dynamo` library automatically deducts this and constructs correct query if application uses `dynamo.ID` (`curie.IRI`) data type to supply identity to the collection.
 
+```go
+id := dynamo.NewID("keyword:%s#article/%s", "theory", "neumann")
+
+var seq Keywords
+db.Match(id).FMap(seq.Join)
+```
 
 **As a reader I want to lookup all keywords of the article ...**
+
+The `article ⟼ keyword` is one-to-many relation supported by the inverse keywords list (similar to previous access patterns). The application crafts `dynamo.ID` (`curie.IRI`) to query a partition dedicated for articles metadata and filters keywords only.
+
+```go
+id := dynamo.NewID("article:%s/%s#keyword", "neumann", "theory_of_automata")
+
+var seq Keywords
+db.Match(id).FMap(seq.Join)
+```
 
 
 
 **As a reader I want to lookup all articles for given category in chronological order ...**
+
+
+**As a reader I want to list all articles written by the author in chronological order ...**
 
 
 
