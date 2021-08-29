@@ -22,7 +22,7 @@ type person struct {
 
 func entity() person {
 	return person{
-		ID:      dynamo.NewID("dead:beef"),
+		ID:      dynamo.NewfID("dead:beef"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -30,7 +30,7 @@ func entity() person {
 }
 
 func TestDdbGet(t *testing.T) {
-	val := person{ID: dynamo.NewID("dead:beef")}
+	val := person{ID: dynamo.NewfID("dead:beef")}
 	err := apiDB().Get(&val)
 
 	it.Ok(t).
@@ -39,7 +39,7 @@ func TestDdbGet(t *testing.T) {
 }
 
 func TestDdbGetNotFound(t *testing.T) {
-	val := person{ID: dynamo.NewID("not:found")}
+	val := person{ID: dynamo.NewfID("not:found")}
 	err := apiDB().Get(&val)
 
 	it.Ok(t).
@@ -57,7 +57,7 @@ func TestDdbRemove(t *testing.T) {
 
 func TestDdbUpdate(t *testing.T) {
 	val := person{
-		ID:  dynamo.NewID("dead:beef"),
+		ID:  dynamo.NewfID("dead:beef"),
 		Age: 65,
 	}
 	err := apiDB().Update(&val)
@@ -69,7 +69,7 @@ func TestDdbUpdate(t *testing.T) {
 
 func TestDdbMatch(t *testing.T) {
 	cnt := 0
-	seq := apiDB().Match(dynamo.NewID("dead:beef"))
+	seq := apiDB().Match(dynamo.NewfID("dead:beef"))
 
 	for seq.Tail() {
 		cnt++
@@ -87,7 +87,7 @@ func TestDdbMatch(t *testing.T) {
 }
 
 func TestDdbMatchHead(t *testing.T) {
-	seq := apiDB().Match(dynamo.NewID("dead:beef"))
+	seq := apiDB().Match(dynamo.NewfID("dead:beef"))
 
 	val := person{}
 	err := seq.Head(&val)
@@ -112,7 +112,7 @@ func (seq *persons) Join(gen dynamo.Gen) error {
 
 func TestDdbMatchWithFMap(t *testing.T) {
 	pseq := persons{}
-	err := apiDB().Match(dynamo.NewID("dead:beef")).FMap(pseq.Join)
+	err := apiDB().Match(dynamo.NewfID("dead:beef")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).
@@ -122,7 +122,7 @@ func TestDdbMatchWithFMap(t *testing.T) {
 
 func TestDdbMatchIDsWithFMap(t *testing.T) {
 	seq := dynamo.IDs{}
-	err := apiDB().Match(dynamo.NewID("dead:beef")).FMap(seq.Join)
+	err := apiDB().Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
 
 	thing := entity().ID
 	it.Ok(t).

@@ -139,19 +139,17 @@ type ID struct {
 
 /*
 
-TODO: NewIDf
-NewID transform category of strings to dynamo.ID.
+NewfID transform category of strings to dynamo.ID.
 */
-func NewID(iri string, args ...interface{}) ID {
+func NewfID(iri string, args ...interface{}) ID {
 	return ID{IRI(curie.New(iri, args...))}
 }
 
 /*
 
-TODO: NewID
-MkID transform category of curie.IRI to dynamo.ID.
+NewID transform category of curie.IRI to dynamo.ID.
 */
-func MkID(iri curie.IRI) ID {
+func NewID(iri curie.IRI) ID {
 	return ID{IRI(iri)}
 }
 
@@ -190,6 +188,6 @@ func (seq *IDs) Join(gen Gen) error {
 		return err
 	}
 
-	*seq = append(*seq, MkID(*iri))
+	*seq = append(*seq, NewID(*iri))
 	return nil
 }

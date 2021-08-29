@@ -66,7 +66,7 @@ func fetchArticle(db dynamo.KeyValNoContext) error {
 	log.Printf("==> fetch article: An axiomatization of set theory\n")
 
 	article := Article{
-		ID: dynamo.NewID("article:%s#%s", "neumann", "theory_of_automata"),
+		ID: dynamo.NewfID("article:%s#%s", "neumann", "theory_of_automata"),
 	}
 
 	if err := db.Get(&article); err != nil {
@@ -83,7 +83,7 @@ As a reader I want to list all articles written by the author ...
 func lookupArticlesByAuthor(db dynamo.KeyValNoContext, author string) error {
 	log.Printf("==> lookup articles by author: %s\n", author)
 
-	return lookupArticles(db, dynamo.NewID("article:%s", author))
+	return lookupArticles(db, dynamo.NewfID("article:%s", author))
 }
 
 /*
@@ -93,7 +93,7 @@ As a reader I want to look up articles titles for given keywords ...
 func lookupArticlesByKeyword(db dynamo.KeyValNoContext, keyword string) error {
 	log.Printf("==> lookup articles by keyword: %s\n", keyword)
 
-	return lookupKeywords(db, dynamo.NewID("keyword:%s", keyword))
+	return lookupKeywords(db, dynamo.NewfID("keyword:%s", keyword))
 }
 
 /*
@@ -103,7 +103,7 @@ As a reader I want to look up articles titles written by the author for a given 
 func lookupArticlesByKeywordAuthor(db dynamo.KeyValNoContext, keyword, author string) error {
 	log.Printf("==> lookup articles by keyword %s and author: %s\n", keyword, author)
 
-	return lookupKeywords(db, dynamo.NewID("keyword:%s#article/%s", keyword, author))
+	return lookupKeywords(db, dynamo.NewfID("keyword:%s#article/%s", keyword, author))
 }
 
 /*
@@ -113,7 +113,7 @@ As a reader I want to look up all keywords of the article ...
 func fetchArticleKeywords(db dynamo.KeyValNoContext) error {
 	log.Printf("==> lookup keyword for An axiomatization of set theory\n")
 
-	return lookupKeywords(db, dynamo.NewID("article:neumann/theory_of_set#keyword"))
+	return lookupKeywords(db, dynamo.NewfID("article:neumann/theory_of_set#keyword"))
 }
 
 /*
@@ -123,7 +123,7 @@ As a reader I want to look up all articles for a given category in chronological
 func lookupArticlesByCategory(db dynamo.KeyValNoContext, category string) error {
 	log.Printf("==> lookup articles by category: %s\n", category)
 
-	return lookupArticles(db, dynamo.NewID("%s", category))
+	return lookupArticles(db, dynamo.NewfID("%s", category))
 }
 
 //

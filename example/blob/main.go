@@ -16,7 +16,7 @@ func main() {
 		dynamo.MustStream(dynamo.NewStream(os.Args[1])),
 	)
 
-	in, err := db.Read(dynamo.NewID(os.Args[2]))
+	in, err := db.Read(dynamo.NewfID(os.Args[2]))
 	if err != nil {
 		panic(err)
 	}

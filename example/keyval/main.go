@@ -97,7 +97,7 @@ func exampleUpdate(db KeyVal) {
 
 func exampleMatch(db KeyVal) {
 	seq := dbPersons{}
-	err := db.Match(dynamo.NewID("test:person")).FMap(seq.Join)
+	err := db.Match(dynamo.NewfID("test:person")).FMap(seq.Join)
 
 	if err == nil {
 		fmt.Println("=[ match ]=> ", seq)
@@ -128,7 +128,7 @@ func folk(x int) *dbPerson {
 }
 
 func id(x int) dynamo.ID {
-	return dynamo.NewID("test:person/%v", x)
+	return dynamo.NewfID("test:person/%v", x)
 }
 
 func either(e error, x interface{}) interface{} {

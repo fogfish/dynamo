@@ -32,7 +32,7 @@ NewAuthor creates instance of author
 */
 func NewAuthor(id, name string) Author {
 	return Author{
-		ID:   dynamo.NewID("author:%s", id),
+		ID:   dynamo.NewfID("author:%s", id),
 		Name: name,
 	}
 }
@@ -75,7 +75,7 @@ func NewArticle(author dynamo.ID, id, title string) Article {
 	}
 
 	return Article{
-		ID:       dynamo.MkID(iri),
+		ID:       dynamo.NewID(iri),
 		Title:    title,
 		Category: category,
 		Year:     fmt.Sprintf("%d", 1930+rand.Intn(40)),
@@ -142,8 +142,8 @@ func NewKeyword(article dynamo.ID, title string, keyword string) []Keyword {
 	articleID := curie.Join(curie.IRI(article.IRI), "keyword", keyword)
 
 	return []Keyword{
-		{ID: dynamo.MkID(keywordID), Text: title},
-		{ID: dynamo.MkID(articleID), Text: keyword},
+		{ID: dynamo.NewID(keywordID), Text: title},
+		{ID: dynamo.NewID(articleID), Text: keyword},
 	}
 }
 

@@ -18,7 +18,7 @@ import (
 )
 
 func TestS3Get(t *testing.T) {
-	val := person{ID: dynamo.NewID("dead:beef")}
+	val := person{ID: dynamo.NewfID("dead:beef")}
 	err := apiS3().Get(&val)
 
 	it.Ok(t).
@@ -27,7 +27,7 @@ func TestS3Get(t *testing.T) {
 }
 
 func TestS3GetUsingStream(t *testing.T) {
-	val := person{ID: dynamo.NewID("dead:beef")}
+	val := person{ID: dynamo.NewfID("dead:beef")}
 	err := apiS3Stream().Get(&val)
 
 	it.Ok(t).
@@ -49,7 +49,7 @@ func TestS3Remove(t *testing.T) {
 
 func TestS3Update(t *testing.T) {
 	val := person{
-		ID:  dynamo.NewID("dead:beef"),
+		ID:  dynamo.NewfID("dead:beef"),
 		Age: 64,
 	}
 	err := apiS3().Update(&val)
@@ -61,7 +61,7 @@ func TestS3Update(t *testing.T) {
 
 func TestS3UpdateUsingStream(t *testing.T) {
 	val := person{
-		ID:  dynamo.NewID("dead:beef"),
+		ID:  dynamo.NewfID("dead:beef"),
 		Age: 64,
 	}
 	err := apiS3Stream().Update(&val)
@@ -73,7 +73,7 @@ func TestS3UpdateUsingStream(t *testing.T) {
 
 func TestS3Match(t *testing.T) {
 	cnt := 0
-	seq := apiS3().Match(dynamo.NewID("dead:"))
+	seq := apiS3().Match(dynamo.NewfID("dead:"))
 
 	for seq.Tail() {
 		cnt++
@@ -91,7 +91,7 @@ func TestS3Match(t *testing.T) {
 }
 
 func TestS3MatchHead(t *testing.T) {
-	seq := apiS3().Match(dynamo.NewID("dead:"))
+	seq := apiS3().Match(dynamo.NewfID("dead:"))
 
 	val := person{}
 	err := seq.Head(&val)
@@ -103,7 +103,7 @@ func TestS3MatchHead(t *testing.T) {
 
 func TestS3MatchWithFMap(t *testing.T) {
 	pseq := persons{}
-	err := apiS3().Match(dynamo.NewID("dead:")).FMap(pseq.Join)
+	err := apiS3().Match(dynamo.NewfID("dead:")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).
@@ -113,7 +113,7 @@ func TestS3MatchWithFMap(t *testing.T) {
 
 func TestS3MatchIDsWithFMap(t *testing.T) {
 	seq := dynamo.IDs{}
-	err := apiS3().Match(dynamo.NewID("dead:")).FMap(seq.Join)
+	err := apiS3().Match(dynamo.NewfID("dead:")).FMap(seq.Join)
 
 	thing := entity().ID
 	it.Ok(t).
@@ -243,22 +243,22 @@ type seqType struct {
 
 func seqLong() seqType {
 	return seqType{
-		ID: dynamo.NewID("seq"),
+		ID: dynamo.NewfID("seq"),
 		List: []seqItem{
-			{ID: dynamo.NewID("1"), Flag: true, Label: "a"},
-			{ID: dynamo.NewID("2"), Flag: true, Label: "b"},
-			{ID: dynamo.NewID("3"), Label: "c"},
-			{ID: dynamo.NewID("4"), Label: "d"},
+			{ID: dynamo.NewfID("1"), Flag: true, Label: "a"},
+			{ID: dynamo.NewfID("2"), Flag: true, Label: "b"},
+			{ID: dynamo.NewfID("3"), Label: "c"},
+			{ID: dynamo.NewfID("4"), Label: "d"},
 		},
 	}
 }
 
 func seqShort() seqType {
 	return seqType{
-		ID: dynamo.NewID("seq"),
+		ID: dynamo.NewfID("seq"),
 		List: []seqItem{
-			{ID: dynamo.NewID("5"), Label: "e"},
-			{ID: dynamo.NewID("6"), Label: "f"},
+			{ID: dynamo.NewfID("5"), Label: "e"},
+			{ID: dynamo.NewfID("6"), Label: "f"},
 		},
 	}
 }

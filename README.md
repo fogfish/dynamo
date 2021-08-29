@@ -27,6 +27,10 @@ trait KeyVal[T] {
 }
 ```
 
+The library philosophy and use-cases are covered in depth at the post
+[How To Model Any Relational Data in DynamoDB With dynamo library](example/relational/README.md) or continue reading the Getting started section.
+
+
 ## Getting started
 
 The latest version of the library is available at its `main` branch. All development, including new features and bug fixes, take place on the `main` branch using forking and pull requests as described in contribution guidelines. The stable version is available via Golang modules.
@@ -35,15 +39,14 @@ The latest version of the library is available at its `main` branch. All develop
 - [Getting Started](#getting-started)
   - [Data types definition](#data-types-definition)
   - [DynamoDB IO](#dynamodb-io)
-  - [Type composition](#type-composition)
   - [Hierarchical structures](#hierarchical-structures)
   - [Sequences and Pagination](#sequences-and-pagination)
   - [Linked data](#linked-data)
+  - [Type composition](#type-composition)
   - [Custom codecs for core domain types](#custom-codecs-for-core-domain-types)
   - [Optimistic Locking](#optimistic-locking)
-  - [Local and Global Secondary Indexes](#local-and-global-secondary-indexes)
   - [Configure DynamoDB](#configure-dynamodb)
-  - [Other storages](#other-storages)
+  - [AWS S3 Support](#aws-s3-support)
 
 
 ### Data types definition
@@ -64,10 +67,10 @@ type Person struct {
 
 //
 // this data type is a normal Golang struct
-// just create and instance filling required fields
-// ID is own data type thus use dynamo.NewID(...)
+// just create an instance, fill required fields
+// ID is own data type thus use dynamo.NewfID(...)
 var person := Person{
-  ID:      dynamo.NewID("8980789222")
+  ID:      dynamo.NewfID("8980789222")
   Name:    "Verner Pleishner",
   Age:     64,
   Address: "Blumenstrasse 14, Berne, 3013",
@@ -79,7 +82,7 @@ This is it! Your application is ready to read/write data to/form DynamoDB tables
 
 ### DynamoDB I/O
 
-Please see [the code example](example/keyval/main.go) and try it
+Please [see and try examples](example). Its cover all basic use-cases with runnable code snippets, check the post [How To Model Any Relational Data in DynamoDB With dynamo library](example/relational/README.md) for deep-dive into library philosophy.
 
 ```bash
 go run example/keyval/main.go ddb:///my-table
@@ -106,7 +109,7 @@ if err := db.Put(person); err != nil {
 // Lookup the struct using Get. This function takes "empty" structure as
 // a placeholder and fill it with a data upon the completion. The only
 // requirement - ID has to be defined.
-person := Person{ID: dynamo.NewID("8980789222")}
+person := Person{ID: dynamo.NewfID("8980789222")}
 switch err := db.Get(&person).(type) {
 case nil:
   // success
@@ -121,7 +124,7 @@ default:
 // a partially defined structure, patches the instance at storage and 
 // returns remaining attributes.
 person := Person{
-  ID:      dynamo.NewID("8980789222"),
+  ID:      dynamo.NewfID("8980789222"),
   Address: "Viktoriastrasse 37, Berne, 3013",
 }
 if err := db.Update(&person); err != nil {
@@ -129,9 +132,92 @@ if err := db.Update(&person); err != nil {
 
 //
 // Remove the struct using Remove. Either give struct or ID to it
-if err := db.Remove(dynamo.NewID("8980789222")); err != nil {
+if err := db.Remove(dynamo.NewfID("8980789222")); err != nil {
 }
 ```
+
+### Hierarchical structures
+
+The library support definition of `A ⟼ B` relation for data. Message threads are a classical examples for such hierarchies:
+
+```
+A
+├ B
+├ C
+│ ├ D  
+│ └ E
+│   └ F
+└ G
+```
+
+The data type `dynamo.ID` is core type to organize hierarchies. This data type is a synonym to compact Internationalized Resource Identifiers (`curie.IRI`), which facilitates linked-data, hierarchical structures and cheap relations between data items. An application declares node path using composite sort key design pattern. For example, the root is `dynamo.NewfID("thread:A")`, 2nd rank node `dynamo.NewfID("thread:A#C")`, 3rd rank node `dynamo.NewfID("thread:A#C/E")` and so on `dynamo.NewID("thread:A#C/E/F")`. Each `id` declares partition and sub nodes. The library implement a `Match` function, supply the node identity and it returns sequence of child elements. 
+
+```go
+//
+// Match uses dynamo.ID to match DynamoDB entries. It returns a sequence of 
+// generic representations that has to be transformed into actual data types
+// FMap is an utility it takes a closure function that lifts generic to
+// the struct. 
+db.Match(dynamo.NewfID("thread:A")).FMap(
+  func(gen dynamo.Gen) error {
+    p := person{}
+    return gen.To(&p)
+  }
+)
+
+//
+// Type aliases is the best approach to lift generic sequence in type safe one.
+type persons []person
+
+// Join is a monoid to append generic element into sequence 
+func (seq *persons) Join(gen dynamo.Gen) error {
+  val := person{}
+  if err := gen.To(&val); err != nil {
+    return err
+  }
+  *seq = append(*seq, val)
+  return nil
+}
+
+// and final magic to discover hierarchy of elements
+seq := persons{}
+db.Match(dynamo.NewfID("thread:A#C/E")).FMap(seq.Join)
+```
+
+See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for api spec and [advanced example](example) app.
+
+
+### Sequences and Pagination
+
+Hierarchical structures is the way to organize collections, lists, sets, etc. The `Match` returns a lazy [Sequence](https://pkg.go.dev/github.com/fogfish/dynamo?readme=expanded#Seq) that represents your entire collection. Sometimes, your need to split the collection into sequence of pages.
+
+```go
+// 1. Set the limit on the stream 
+seq := db.Match(dynamo.NewfID("thread:A#C")).Limit(25)
+// 2. Consume the stream
+seq.FMap(persons.Join)
+// 3. Read cursor value
+cursor := seq.Cursor()
+
+
+// 4. Continue I/O with a new stream, supply the cursor
+seq := db.Match(dynamo.NewfID("thread:A#C")).Limit(25).Continue(cursor)
+```
+
+
+### Linked data
+
+Cross-linking of structured data is an essential part of type safe domain driven design. The library helps developers to model relations between data instances using familiar data type:
+
+```go
+type Person struct {
+  dynamo.ID
+  Account *dynamo.IRI `dynamodbav:"account,omitempty"`
+}
+```
+
+`dynamo.ID` and `dynamo.IRI` are sibling, equivalent data types. `ID` is only used as primary identity, `IRI` is a "pointer" to linked-data.
+
 
 ### Type composition
 
@@ -151,89 +237,6 @@ type dbPerson struct{
 }
 ```
 
-### Hierarchical structures
-
-The library support definition of `A ⟼ B` relation for data. Message threads are a classical examples for such hierarchies:
-
-```
-A
-├ B
-├ C
-│ ├ D  
-│ └ E
-│   └ F
-└ G
-```
-
-The data type `dynamo.ID` is core type to organize hierarchies. An application declares node path by colon separated strings. For example, the root is `dynamo.NewID("A")`, 2nd rank node `dynamo.NewID("A:C")` and so on `dynamo.NewID("A:C:E:F")`. Each `id` declares either node or its sub children. The library implement a `Match` function, supply the node identity and it returns sequence of child elements. 
-
-```go
-//
-// Match uses dynamo.ID to match DynamoDB entries. It returns a sequence of 
-// generic representations that has to be transformed into actual data types
-// FMap is an utility it takes a closure function that lifts generic to
-// the struct. 
-db.Match(dynamo.NewID("A:C")).FMap(
-  func(gen dynamo.Gen) (dynamo.Thing, error) {
-    p := person{}
-    return gen.To(&p)
-  }
-)
-
-//
-// Type aliases is the best approach to lift generic sequence in type safe one.
-type persons []person
-
-// Join is a monoid to append generic element into sequence 
-func (seq *persons) Join(gen dynamo.Gen) (dynamo.Thing, error) {
-  val := person{}
-  if fail := gen.To(&val); fail != nil {
-    return nil, fail
-  }
-  *seq = append(*seq, val)
-  return &val, nil
-}
-
-// and final magic to discover hierarchy of elements
-seq := persons{}
-db.Match(dynamo.NewID("A:C")).FMap(seq.Join)
-```
-
-See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for api spec and [advanced example](example) app.
-
-
-### Sequences and Pagination
-
-Hierarchical structures is the way to organize collections, lists, sets, etc. The `Match` returns a lazy [Sequence](https://pkg.go.dev/github.com/fogfish/dynamo?readme=expanded#Seq) that represents your entire collection. Sometimes, your need to split the collection into sequence of pages.
-
-```go
-// 1. Set the limit on the stream 
-seq := db.Match(dynamo.NewID("A:C")).Limit(25)
-// 2. Consume the stream
-seq.FMap(persons.Join)
-// 3. Read cursor value
-cursor := seq.Cursor()
-
-
-// 4. Continue I/O with a new stream, supply the cursor
-seq := db.Match(dynamo.NewID("A:C")).Limit(25).Continue(cursor)
-```
-
-
-### Linked data
-
-Cross-linking of structured data is an essential part of type safe domain driven design. The library helps developers to model relations between data instances using familiar data type:
-
-```go
-type Person struct {
-  dynamo.ID
-  Account *dynamo.IRI `dynamodbav:"account,omitempty"`
-}
-```
-
-`dynamo.ID` and `dynamo.IRI` are sibling, equivalent data types. `ID` is only used as primary key, `IRI` is a "pointer" to linked-data.
-
-
 ### Custom codecs for core domain types
 
 Development of complex Golang application might lead developers towards [Standard Package Layout](https://medium.com/@benbjohnson/standard-package-layout-7cdbc8391fc1). It becomes extremely difficult to isolate dependencies from core data types to this library and AWS SDK. The library support serialization of core type to dynamo using custom codecs 
@@ -245,7 +248,7 @@ type Person struct {
   Account *curie.Safe `dynamodbav:"account,omitempty"`
 }
 
-// ddb.go
+// aws/ddb/ddb.go
 type dbPerson Person
 
 func (x dbPerson) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
@@ -305,9 +308,6 @@ default:
 See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for all supported constrains.
 
 
-### Local and Global Secondary Indexes
-
-
 ### Configure DynamoDB
 
 The `dynamo` library is optimized to operate with generic Dynamo DB that declares both partition and sort keys with fixed names. Use the following schema:
@@ -329,7 +329,10 @@ If table uses other names for `partitionKey` and `sortKey` then connect URI allo
 db := dynamo.Must(dynamo.New("ddb:///my-table?prefix=someHashKey&suffix=someSortKey"))
 ```
 
-### Other storages
+The following [post](example/relational/README.md) discusses in depth and shows example DynamoDB table configuration and covers aspect of secondary indexes. 
+
+
+### AWS S3 Support
 
 The library advances its simple I/O interface to AWS S3 bucket, allowing to persist data types to multiple storage simultaneously.
 
@@ -345,7 +348,7 @@ s3 := dynamo.Must(dynamo.New("s3:///my-bucket"))
 
 There are few fundamental differences about AWS S3 bucket
 * use `s3` schema of connection URI;
-* primary key `dynamo.ID` is serialized to S3 bucket path. (e.g. `dynamo.NewID("A:C:E:F") ⟼ A/C/E/F`);
+* primary key `dynamo.ID` is serialized to S3 bucket path. (e.g. `dynamo.NewfID("thread:A#C/E/F") ⟼ thread/A/C/E/F`);
 * storage persists struct to JSON, use `json` field tags to specify serialization rules;
 * optimistic locking is not supported yet, any conditional expression is silently ignored;
 * `Update` is not thread safe.

@@ -21,14 +21,14 @@ type Item struct {
 var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI(curie.New("foo:a/suffix"))}
 
 var fixtureItem Item = Item{
-	ID:  dynamo.NewID("foo:prefix/suffix"),
-	Ref: dynamo.NewID("foo:a/suffix").Unwrap(),
+	ID:  dynamo.NewfID("foo:prefix/suffix"),
+	Ref: dynamo.NewfID("foo:a/suffix").Unwrap(),
 	Tag: "tag",
 }
 var fixtureJson string = "{\"@id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
 
 var fixtureEmptyItem Item = Item{
-	ID: dynamo.NewID("foo:prefix/suffix"),
+	ID: dynamo.NewfID("foo:prefix/suffix"),
 }
 var fixtureEmptyJson string = "{\"@id\":\"[foo:prefix/suffix]\"}"
 
@@ -108,8 +108,8 @@ func TestStream(t *testing.T) {
 
 func TestIDs(t *testing.T) {
 	expect := curie.New("a:b/c")
-	a := dynamo.NewID("a:b/c")
-	b := dynamo.MkID(curie.New("a:b/c"))
+	a := dynamo.NewfID("a:b/c")
+	b := dynamo.NewID(curie.New("a:b/c"))
 
 	it.Ok(t).
 		If(a.Identity()).Should().Equal(expect).
