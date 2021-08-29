@@ -154,7 +154,7 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 func apiDBWithConstrain() dynamo.KeyValNoContext {
 	client := dynamo.Must(dynamo.New("ddb:///test"))
 	switch v := client.(type) {
-	case Mock:
+	case Mocker:
 		v.Mock(&mockDDBWithConstrain{})
 	default:
 		panic("Invalid config")
