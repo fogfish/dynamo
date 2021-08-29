@@ -6,71 +6,95 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
 )
 
 func TestS3Get(t *testing.T) {
-	val := person{ID: dynamo.NewfID("dead:beef")}
-	err := apiS3().Get(&val)
+	t.Run("Using Key/Val", func(t *testing.T) {
+		val := person{ID: dynamo.NewfID("dead:beef")}
+		api, _ := mockGetObject(entity())
 
-	it.Ok(t).
-		If(err).Should().Equal(nil).
-		If(val).Should().Equal(entity())
-}
+		err := api.Get(&val)
+		it.Ok(t).
+			If(err).Should().Equal(nil).
+			If(val).Should().Equal(entity())
+	})
 
-func TestS3GetUsingStream(t *testing.T) {
-	val := person{ID: dynamo.NewfID("dead:beef")}
-	err := apiS3Stream().Get(&val)
+	t.Run("Using Stream", func(t *testing.T) {
+		val := person{ID: dynamo.NewfID("dead:beef")}
+		_, api := mockGetObject(entity())
 
-	it.Ok(t).
-		If(err).Should().Equal(nil).
-		If(val).Should().Equal(entity())
+		err := api.Get(&val)
+		it.Ok(t).
+			If(err).Should().Equal(nil).
+			If(val).Should().Equal(entity())
+	})
+
+	t.Run("I/O Error", func(t *testing.T) {
+		val := person{ID: dynamo.NewfID("some:key")}
+		api, _ := mockGetObject(entity())
+
+		err := api.Get(&val)
+		it.Ok(t).
+			If(err).ShouldNot().Equal(nil)
+	})
 }
 
 func TestS3Put(t *testing.T) {
-	it.Ok(t).
-		If(apiS3().Put(entity())).Should().Equal(nil).
-		If(apiS3Stream().Put(entity())).Should().Equal(nil)
+	t.Run("Using Key/Val", func(t *testing.T) {
+		api, sio := mockPutObject("dead/beef", entity())
+
+		it.Ok(t).
+			If(api.Put(entity())).Should().Equal(nil).
+			If(sio.Put(entity())).Should().Equal(nil)
+	})
 }
 
 func TestS3Remove(t *testing.T) {
-	it.Ok(t).
-		If(apiS3().Remove(entity())).Should().Equal(nil).
-		If(apiS3Stream().Remove(entity())).Should().Equal(nil)
+	t.Run("Using Key/Val", func(t *testing.T) {
+		api, sio := mockDeleteObject("dead/beef")
+
+		it.Ok(t).
+			If(api.Remove(entity())).Should().Equal(nil).
+			If(sio.Remove(entity())).Should().Equal(nil)
+	})
 }
 
 func TestS3Update(t *testing.T) {
-	val := person{
-		ID:  dynamo.NewfID("dead:beef"),
-		Age: 64,
-	}
-	err := apiS3().Update(&val)
+	t.Run("Using Key/Val", func(t *testing.T) {
+		val := person{
+			ID:  dynamo.NewfID("dead:beef"),
+			Age: 64,
+		}
+		api, _ := mockGetPutObject("dead/beef", entity())
 
-	it.Ok(t).
-		If(err).Should().Equal(nil).
-		If(val).Should().Equal(entity())
+		err := api.Update(&val)
+		it.Ok(t).
+			If(err).Should().Equal(nil).
+			If(val).Should().Equal(entity())
+	})
+
+	t.Run("Using Stream", func(t *testing.T) {
+		val := person{
+			ID:  dynamo.NewfID("dead:beef"),
+			Age: 64,
+		}
+		_, sio := mockGetPutObject("dead/beef", entity())
+
+		err := sio.Update(&val)
+		it.Ok(t).
+			If(err).Should().Equal(nil).
+			If(val).Should().Equal(entity())
+	})
 }
 
-func TestS3UpdateUsingStream(t *testing.T) {
-	val := person{
-		ID:  dynamo.NewfID("dead:beef"),
-		Age: 64,
-	}
-	err := apiS3Stream().Update(&val)
-
-	it.Ok(t).
-		If(err).Should().Equal(nil).
-		If(val).Should().Equal(entity())
-}
-
+/*
 func TestS3Match(t *testing.T) {
 	cnt := 0
 	seq := apiS3().Match(dynamo.NewfID("dead:"))
@@ -136,6 +160,7 @@ func TestBlobSendContent(t *testing.T) {
 		If(*req.ContentType).Equal("text/plain").
 		IfNotNil(req.Expires)
 }
+*/
 
 //-----------------------------------------------------------------------------
 //
@@ -143,15 +168,112 @@ func TestBlobSendContent(t *testing.T) {
 //
 //-----------------------------------------------------------------------------
 
+//
+//
+type s3GetObject struct {
+	s3iface.S3API
+	returnVal interface{}
+}
+
+func mockGetObject(returnVal interface{}) (dynamo.KeyValNoContext, dynamo.StreamNoContext) {
+	return mockS3(&s3GetObject{returnVal: returnVal})
+}
+
+func (mock *s3GetObject) GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
+	if aws.StringValue(input.Key) != "dead/beef" {
+		return nil, errors.New("Unexpected request.")
+	}
+
+	val, _ := json.Marshal(mock.returnVal)
+	return &s3.GetObjectOutput{
+		Body: aws.ReadSeekCloser(bytes.NewReader(val)),
+	}, nil
+}
+
+//
+//
+type s3PutObject struct {
+	s3iface.S3API
+	expectKey string
+	expectVal interface{}
+}
+
+func mockPutObject(expectKey string, expectVal interface{}) (dynamo.KeyValNoContext, dynamo.StreamNoContext) {
+	return mockS3(&s3PutObject{expectKey: expectKey, expectVal: expectVal})
+}
+
+func (mock *s3PutObject) PutObjectWithContext(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
+	if aws.StringValue(input.Key) != mock.expectKey {
+		return nil, errors.New("Unexpected request.")
+	}
+
+	val := person{}
+	err := json.NewDecoder(input.Body).Decode(&val)
+
+	if err != nil && !reflect.DeepEqual(val, mock.expectVal) {
+		return nil, errors.New("Unexpected request.")
+	}
+
+	return &s3.PutObjectOutput{}, nil
+}
+
+//
+//
+type s3DeleteObject struct {
+	s3iface.S3API
+	expectKey string
+}
+
+func mockDeleteObject(expectKey string) (dynamo.KeyValNoContext, dynamo.StreamNoContext) {
+	return mockS3(&s3DeleteObject{expectKey: expectKey})
+}
+
+func (mock *s3DeleteObject) DeleteObjectWithContext(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
+	if aws.StringValue(input.Key) != mock.expectKey {
+		return nil, errors.New("Unexpected entity. ")
+	}
+
+	return &s3.DeleteObjectOutput{}, nil
+}
+
+//
+//
+type s3GetPutObject struct {
+	s3iface.S3API
+	get *s3GetObject
+	put *s3PutObject
+}
+
+func mockGetPutObject(expectKey string, expectVal interface{}) (dynamo.KeyValNoContext, dynamo.StreamNoContext) {
+	return mockS3(&s3GetPutObject{
+		put: &s3PutObject{expectKey: expectKey, expectVal: expectVal},
+		get: &s3GetObject{returnVal: expectVal},
+	})
+}
+
+func (mock *s3GetPutObject) GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
+	return mock.get.GetObjectWithContext(ctx, input, opts...)
+}
+
+func (mock *s3GetPutObject) PutObjectWithContext(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
+	return mock.put.PutObjectWithContext(ctx, input, opts...)
+}
+
+//
+//
 type MockS3 interface {
 	Mock(s3iface.S3API)
 }
 
-func apiS3() dynamo.KeyValNoContext {
+func mockS3(mock s3iface.S3API) (dynamo.KeyValNoContext, dynamo.StreamNoContext) {
+	return mockS3KeyVal(mock), mockS3Stream(mock)
+}
+
+func mockS3KeyVal(mock s3iface.S3API) dynamo.KeyValNoContext {
 	client := dynamo.Must(dynamo.New("s3:///test"))
 	switch v := client.(type) {
 	case MockS3:
-		v.Mock(&mockS3{})
+		v.Mock(mock)
 	default:
 		panic("Invalid config")
 	}
@@ -159,55 +281,26 @@ func apiS3() dynamo.KeyValNoContext {
 	return dynamo.NewKeyValContextDefault(client)
 }
 
-func apiS3Stream() dynamo.StreamNoContext {
+func mockS3Stream(mock s3iface.S3API) dynamo.StreamNoContext {
 	client := dynamo.MustStream(dynamo.NewStream("s3:///test"))
 	switch v := client.(type) {
 	case MockS3:
-		v.Mock(&mockS3{})
+		v.Mock(mock)
 	default:
-		panic("Invalid config")
+		panic(mock)
 	}
 
 	return dynamo.NewStreamContextDefault(client)
 }
 
+/*
 type mockS3 struct {
 	s3iface.S3API
 }
 
-func (mockS3) GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
-	if aws.StringValue(input.Key) != "dead/beef" {
-		return nil, errors.New("Unexpected request.")
-	}
+func (mockS3)
 
-	val, _ := json.Marshal(entity())
-	return &s3.GetObjectOutput{
-		Body: aws.ReadSeekCloser(bytes.NewReader(val)),
-	}, nil
-}
 
-func (mockS3) PutObjectWithContext(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
-	if aws.StringValue(input.Key) != "dead/beef" {
-		return nil, errors.New("Unexpected request.")
-	}
-
-	val := person{}
-	err := json.NewDecoder(input.Body).Decode(&val)
-
-	if err != nil && !reflect.DeepEqual(val, entity()) {
-		return nil, errors.New("Unexpected request.")
-	}
-
-	return &s3.PutObjectOutput{}, nil
-}
-
-func (mockS3) DeleteObjectWithContext(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
-	if aws.StringValue(input.Key) != "dead/beef" {
-		return nil, errors.New("Unexpected entity. ")
-	}
-
-	return &s3.DeleteObjectOutput{}, nil
-}
 
 func (mockS3) ListObjectsV2WithContext(aws.Context, *s3.ListObjectsV2Input, ...request.Option) (*s3.ListObjectsV2Output, error) {
 	return &s3.ListObjectsV2Output{
@@ -218,6 +311,7 @@ func (mockS3) ListObjectsV2WithContext(aws.Context, *s3.ListObjectsV2Input, ...r
 		},
 	}, nil
 }
+*/
 
 //-----------------------------------------------------------------------------
 //
