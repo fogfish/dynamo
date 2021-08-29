@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/fogfish/dynamo"
@@ -150,17 +151,17 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 		If(failure).Should().Be().Like(dynamo.PreConditionFailed{})
 }
 
-func apiDBWithConstrain() *dynamo.DB {
+func apiDBWithConstrain() dynamo.KeyVal {
 	client := &dynamo.DB{}
 	client.Mock(&mockDDBWithConstrain{})
-	return client
+	return &dynamo.DBNoContext{client}
 }
 
 type mockDDBWithConstrain struct {
 	dynamodbiface.DynamoDBAPI
 }
 
-func (mockDDBWithConstrain) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
+func (mockDDBWithConstrain) PutItemWithContext(ctx aws.Context, input *dynamodb.PutItemInput, opts ...request.Option) (*dynamodb.PutItemOutput, error) {
 	if *(input.ExpressionAttributeValues[":__name__"].S) != "xxx" {
 		return nil, &dynamodb.ConditionalCheckFailedException{}
 	}
@@ -168,7 +169,7 @@ func (mockDDBWithConstrain) PutItem(input *dynamodb.PutItemInput) (*dynamodb.Put
 	return &dynamodb.PutItemOutput{}, nil
 }
 
-func (mockDDBWithConstrain) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteItemOutput, error) {
+func (mockDDBWithConstrain) DeleteItemWithContext(ctx aws.Context, input *dynamodb.DeleteItemInput, opts ...request.Option) (*dynamodb.DeleteItemOutput, error) {
 	if *(input.ExpressionAttributeValues[":__name__"].S) != "xxx" {
 		return nil, &dynamodb.ConditionalCheckFailedException{}
 	}
@@ -176,7 +177,7 @@ func (mockDDBWithConstrain) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamo
 	return &dynamodb.DeleteItemOutput{}, nil
 }
 
-func (mockDDBWithConstrain) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
+func (mockDDBWithConstrain) UpdateItemWithContext(ctx aws.Context, input *dynamodb.UpdateItemInput, opts ...request.Option) (*dynamodb.UpdateItemOutput, error) {
 	if *(input.ExpressionAttributeValues[":__name__"].S) != "xxx" {
 		return nil, &dynamodb.ConditionalCheckFailedException{}
 	}

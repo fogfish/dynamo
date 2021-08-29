@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/fogfish/dynamo"
@@ -127,17 +128,17 @@ func TestDdbMatchIDsWithFMap(t *testing.T) {
 //
 //-----------------------------------------------------------------------------
 
-func apiDB() *dynamo.DB {
+func apiDB() dynamo.KeyVal {
 	client := &dynamo.DB{}
 	client.Mock(&mockDDB{})
-	return client
+	return &dynamo.DBNoContext{client}
 }
 
 type mockDDB struct {
 	dynamodbiface.DynamoDBAPI
 }
 
-func (mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+func (mockDDB) GetItemWithContext(ctx aws.Context, input *dynamodb.GetItemInput, opts ...request.Option) (*dynamodb.GetItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
 		"prefix": {S: aws.String("dead:beef")},
 		"suffix": {S: aws.String("_")},
@@ -157,7 +158,7 @@ func (mockDDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, e
 	}, nil
 }
 
-func (mockDDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
+func (mockDDB) PutItemWithContext(ctx aws.Context, input *dynamodb.PutItemInput, opts ...request.Option) (*dynamodb.PutItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
 		"prefix":  {S: aws.String("dead:beef")},
 		"suffix":  {S: aws.String("_")},
@@ -172,7 +173,7 @@ func (mockDDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, e
 	return &dynamodb.PutItemOutput{}, nil
 }
 
-func (mockDDB) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteItemOutput, error) {
+func (mockDDB) DeleteItemWithContext(ctx aws.Context, input *dynamodb.DeleteItemInput, opts ...request.Option) (*dynamodb.DeleteItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
 		"prefix": {S: aws.String("dead:beef")},
 		"suffix": {S: aws.String("_")},
@@ -184,7 +185,7 @@ func (mockDDB) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteItem
 	return &dynamodb.DeleteItemOutput{}, nil
 }
 
-func (mockDDB) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
+func (mockDDB) UpdateItemWithContext(ctx aws.Context, input *dynamodb.UpdateItemInput, opts ...request.Option) (*dynamodb.UpdateItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
 		"prefix": {S: aws.String("dead:beef")},
 		"suffix": {S: aws.String("_")},
@@ -211,7 +212,7 @@ func (mockDDB) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItem
 	}, nil
 }
 
-func (mockDDB) Query(input *dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
+func (mockDDB) QueryWithContext(ctx aws.Context, input *dynamodb.QueryInput, opts ...request.Option) (*dynamodb.QueryOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
 		":prefix": {S: aws.String("dead:beef")},
 	}

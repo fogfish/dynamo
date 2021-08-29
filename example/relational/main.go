@@ -121,21 +121,6 @@ func lookupArticlesByCategory(db dynamo.KeyVal, category string) error {
 }
 
 //
-// func lookupArticlesByPublisher(db dynamo.KeyVal, publisher string) error {
-// 	log.Printf("==> lookup publisher: %v", publisher)
-
-// 	pattern := dynamo.MkID(curie.New(publisher))
-
-// 	var seq Articles
-// 	_, err := db.Match(pattern).FMap(seq.Join)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return StdIO(seq)
-// }
-
-//
 func articlesOfJohnVonNeumann(db dynamo.KeyVal) error {
 	author, err := registerAuthor(db, "neumann", "John von Neumann")
 	if err != nil {

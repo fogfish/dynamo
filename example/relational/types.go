@@ -161,5 +161,4 @@ func (seq *Keywords) Join(gen dynamo.Gen) (dynamo.Thing, error) {
 	}
 	*seq = append(*seq, val)
 	return &val, nil
-
 }

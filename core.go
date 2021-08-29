@@ -133,6 +133,7 @@
 package dynamo
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -151,11 +152,26 @@ type KeyVal interface {
 }
 
 //
+// KeyValContextual is a generic key-value trait to access domain objects.
+type KeyValContextual interface {
+	KeyValReaderContextual
+	KeyValWriterContextual
+}
+
+//
 // KeyValWriter defines a generic key-value I/O
 type KeyValWriter interface {
 	Put(Thing, ...Constrain) error
 	Remove(Thing, ...Constrain) error
 	Update(Thing, ...Constrain) error
+}
+
+//
+// KeyValWriterContextual defines a generic key-value I/O
+type KeyValWriterContextual interface {
+	Put(context.Context, Thing, ...Constrain) error
+	Remove(context.Context, Thing, ...Constrain) error
+	Update(context.Context, Thing, ...Constrain) error
 }
 
 //
@@ -165,14 +181,31 @@ type KeyValReader interface {
 	KeyValPattern
 }
 
+//
+// KeyValReaderContextual a generic key-value trait to read domain objects
+type KeyValReaderContextual interface {
+	KeyValLookupContextual
+	KeyValPatternContextual
+}
+
 // KeyValLookup defines read by key notation
 type KeyValLookup interface {
 	Get(Thing) error
 }
 
+// KeyValLookupContextual defines read by key notation
+type KeyValLookupContextual interface {
+	Get(context.Context, Thing) error
+}
+
 // KeyValPattern defines simple pattern matching lookup I/O
 type KeyValPattern interface {
 	Match(Thing) Seq
+}
+
+// KeyValPatternContextual defines simple pattern matching lookup I/O
+type KeyValPatternContextual interface {
+	Match(context.Context, Thing) Seq
 }
 
 //
@@ -226,9 +259,37 @@ type SeqConfig interface {
 // Blob is a generic byte stream trait to access large binary data
 type Blob interface {
 	KeyVal
+	BlobReader
+	BlobWriter
+}
+
+// BlobContextual is a generic byte stream trait to access large binary data
+type BlobContextual interface {
+	KeyValContextual
+	BlobReaderContextual
+	BlobWriterContextual
+}
+
+// BlobReader is a generic reader of byte streams
+type BlobReader interface {
 	URL(Thing, time.Duration) (string, error)
 	Recv(Thing) (io.ReadCloser, error)
+}
+
+// BlobReaderContextual is a generic reader of byte streams
+type BlobReaderContextual interface {
+	URL(context.Context, Thing, time.Duration) (string, error)
+	Recv(context.Context, Thing) (io.ReadCloser, error)
+}
+
+// BlobWriter is a generic writer of byte streams
+type BlobWriter interface {
 	Send(Thing, io.Reader, ...Content) error
+}
+
+// BlobWriterContextual is a generic writer of byte streams
+type BlobWriterContextual interface {
+	Send(context.Context, Thing, io.Reader, ...Content) error
 }
 
 //
@@ -274,6 +335,20 @@ func New(uri string, defSession ...*session.Session) (KeyVal, error) {
 	}
 
 	return creator(awsSession, spec), nil
+}
+
+/*
+
+NewContextual establishes connection with AWS Storage service,
+use URI to specify service and name of the bucket.
+
+Supported scheme:
+  s3:///my-bucket
+  ddb:///my-table/my-index?prefix=hashkey&suffix=sortkey
+
+*/
+func NewContextual(uri string, defSession ...*session.Session) (KeyValContextual, error) {
+	return nil, nil
 }
 
 // Must is a helper function to ensure KeyVal interface is valid and there was no
@@ -363,7 +438,7 @@ func factory(uri string, defSession ...*session.Session) (creator, *dbURL, error
 	case spec.Scheme == "s3":
 		return newS3, (*dbURL)(spec), nil
 	case spec.Scheme == "ddb":
-		return newDB, (*dbURL)(spec), nil
+		return newNoContextDB, (*dbURL)(spec), nil
 	default:
 		return nil, nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}

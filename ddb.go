@@ -9,6 +9,7 @@
 package dynamo
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -37,7 +38,7 @@ type DB struct {
 	index *string
 }
 
-func newDB(io *session.Session, spec *dbURL) KeyVal {
+func newDB(io *session.Session, spec *dbURL) KeyValContextual {
 	db := &DB{io: io, db: dynamodb.New(io)}
 
 	// config table name and index name
@@ -70,7 +71,7 @@ func (dynamo *DB) Mock(db dynamodbiface.DynamoDBAPI) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo DB) Get(entity Thing) (err error) {
+func (dynamo DB) Get(ctx context.Context, entity Thing) (err error) {
 	gen, err := marshal(dynamo.ddbConfig, entity)
 	if err != nil {
 		return
@@ -80,7 +81,7 @@ func (dynamo DB) Get(entity Thing) (err error) {
 		Key:       keyOnly(dynamo.ddbConfig, gen),
 		TableName: dynamo.table,
 	}
-	val, err := dynamo.db.GetItem(req)
+	val, err := dynamo.db.GetItemWithContext(ctx, req)
 	if err != nil {
 		return
 	}
@@ -100,7 +101,7 @@ func (dynamo DB) Get(entity Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo DB) Put(entity Thing, config ...Constrain) (err error) {
+func (dynamo DB) Put(ctx context.Context, entity Thing, config ...Constrain) (err error) {
 	gen, err := marshal(dynamo.ddbConfig, entity)
 	if err != nil {
 		return
@@ -114,7 +115,7 @@ func (dynamo DB) Put(entity Thing, config ...Constrain) (err error) {
 	req.ExpressionAttributeValues = values
 	req.ExpressionAttributeNames = names
 
-	_, err = dynamo.db.PutItem(req)
+	_, err = dynamo.db.PutItemWithContext(ctx, req)
 	if err != nil {
 		switch v := err.(type) {
 		case awserr.Error:
@@ -131,7 +132,7 @@ func (dynamo DB) Put(entity Thing, config ...Constrain) (err error) {
 }
 
 // Remove discards the entity from the table
-func (dynamo DB) Remove(entity Thing, config ...Constrain) (err error) {
+func (dynamo DB) Remove(ctx context.Context, entity Thing, config ...Constrain) (err error) {
 	gen, err := marshal(dynamo.ddbConfig, entity)
 	if err != nil {
 		return
@@ -145,7 +146,7 @@ func (dynamo DB) Remove(entity Thing, config ...Constrain) (err error) {
 	req.ExpressionAttributeValues = values
 	req.ExpressionAttributeNames = names
 
-	_, err = dynamo.db.DeleteItem(req)
+	_, err = dynamo.db.DeleteItemWithContext(ctx, req)
 	if err != nil {
 		switch v := err.(type) {
 		case awserr.Error:
@@ -188,7 +189,7 @@ func maybeConditionExpression(
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo DB) Update(entity Thing, config ...Constrain) (err error) {
+func (dynamo DB) Update(ctx context.Context, entity Thing, config ...Constrain) (err error) {
 	gen, err := marshal(dynamo.ddbConfig, entity)
 	if err != nil {
 		return
@@ -223,7 +224,7 @@ func (dynamo DB) Update(entity Thing, config ...Constrain) (err error) {
 		)
 	}
 
-	val, err := dynamo.db.UpdateItem(req)
+	val, err := dynamo.db.UpdateItemWithContext(ctx, req)
 	if err != nil {
 		switch v := err.(type) {
 		case awserr.Error:
@@ -308,6 +309,7 @@ func (slice *dbSlice) Tail() bool {
 
 // dbSeq is an iterator over matched results
 type dbSeq struct {
+	ctx    context.Context
 	dynamo *DB
 	q      *dynamodb.QueryInput
 	slice  *dbSlice
@@ -315,8 +317,9 @@ type dbSeq struct {
 	err    error
 }
 
-func mkDbSeq(dynamo *DB, q *dynamodb.QueryInput, err error) *dbSeq {
+func mkDbSeq(ctx context.Context, dynamo *DB, q *dynamodb.QueryInput, err error) *dbSeq {
 	return &dbSeq{
+		ctx:    ctx,
 		dynamo: dynamo,
 		q:      q,
 		slice:  nil,
@@ -338,7 +341,7 @@ func (seq *dbSeq) seed() error {
 		return fmt.Errorf("End of Stream")
 	}
 
-	val, err := seq.dynamo.db.Query(seq.q)
+	val, err := seq.dynamo.db.QueryWithContext(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
 		return err
@@ -448,10 +451,10 @@ func (seq *dbSeq) Reverse() Seq {
 }
 
 // Match applies a pattern matching to elements in the table
-func (dynamo DB) Match(key Thing) Seq {
+func (dynamo DB) Match(ctx context.Context, key Thing) Seq {
 	gen, err := pattern(dynamo.ddbConfig, key)
 	if err != nil {
-		return mkDbSeq(nil, nil, err)
+		return mkDbSeq(nil, nil, nil, err)
 	}
 
 	expr := dynamo.pkPrefix + " = :" + dynamo.pkPrefix
@@ -467,7 +470,7 @@ func (dynamo DB) Match(key Thing) Seq {
 		IndexName:                 dynamo.index,
 	}
 
-	return mkDbSeq(&dynamo, q, err)
+	return mkDbSeq(ctx, &dynamo, q, err)
 }
 
 //-----------------------------------------------------------------------------
