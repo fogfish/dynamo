@@ -55,6 +55,15 @@ func TestDdbGet(t *testing.T) {
 			If(err).ShouldNot().Equal(nil).
 			If(err).Should().Be().Like(dynamo.NotFound{})
 	})
+
+	t.Run("I/O Error", func(t *testing.T) {
+		val := person{ID: dynamo.NewfID("some:key")}
+		ddb := mockGetItem(nil)
+
+		err := ddb.Get(&val)
+		it.Ok(t).
+			If(err).ShouldNot().Equal(nil)
+	})
 }
 
 func TestDdbPut(t *testing.T) {
@@ -102,42 +111,72 @@ func TestDdbUpdate(t *testing.T) {
 }
 
 /*
-	expect := map[string]*dynamodb.AttributeValue{
-		":prefix": {S: aws.String("dead:beef")},
-	}
+func TestDdbMatch(t *testing.T) {
+}
 */
 
-/*
 func TestDdbMatch(t *testing.T) {
-	cnt := 0
-	seq := apiDB().Match(dynamo.NewfID("dead:beef"))
+	t.Run("Empty", func(t *testing.T) {
+		ddb := mockQuery(
+			map[string]*dynamodb.AttributeValue{
+				":prefix": {S: aws.String("dead:beef")},
+			},
+			0,
+		)
 
-	for seq.Tail() {
-		cnt++
+		seq := ddb.Match(dynamo.NewfID("dead:beef"))
+
+		it.Ok(t).
+			IfFalse(seq.Tail()).
+			If(seq.Error()).Should().Equal(nil)
+	})
+
+	t.Run("One", func(t *testing.T) {
+		ddb := mockQuery(
+			map[string]*dynamodb.AttributeValue{
+				":prefix": {S: aws.String("dead:beef")},
+			},
+			1,
+		)
+
+		seq := ddb.Match(dynamo.NewfID("dead:beef"))
+
 		val := person{}
 		err := seq.Head(&val)
 
 		it.Ok(t).
+			IfFalse(seq.Tail()).
+			If(seq.Error()).Should().Equal(nil).
 			If(err).Should().Equal(nil).
 			If(val).Should().Equal(entity())
-	}
+	})
 
-	it.Ok(t).
-		If(seq.Error()).Should().Equal(nil).
-		If(cnt).Should().Equal(2)
+	t.Run("Many", func(t *testing.T) {
+		ddb := mockQuery(
+			map[string]*dynamodb.AttributeValue{
+				":prefix": {S: aws.String("dead:beef")},
+			},
+			5,
+		)
+
+		cnt := 0
+		seq := ddb.Match(dynamo.NewfID("dead:beef"))
+
+		for seq.Tail() {
+			cnt++
+			val := person{}
+			err := seq.Head(&val)
+
+			it.Ok(t).
+				If(err).Should().Equal(nil).
+				If(val).Should().Equal(entity())
+		}
+
+		it.Ok(t).
+			If(seq.Error()).Should().Equal(nil).
+			If(cnt).Should().Equal(5)
+	})
 }
-
-func TestDdbMatchHead(t *testing.T) {
-	seq := apiDB().Match(dynamo.NewfID("dead:beef"))
-
-	val := person{}
-	err := seq.Head(&val)
-
-	it.Ok(t).
-		If(err).Should().Equal(nil).
-		If(val).Should().Equal(entity())
-}
-*/
 
 //
 // Use type aliases and methods to implement FMap
@@ -354,14 +393,14 @@ func (mock *ddbQuery) QueryWithContext(ctx aws.Context, input *dynamodb.QueryInp
 
 //
 //
-type Mocker interface {
+type MockDynamoDB interface {
 	Mock(db dynamodbiface.DynamoDBAPI)
 }
 
 func mockDynamoDB(mock dynamodbiface.DynamoDBAPI) dynamo.KeyValNoContext {
 	client := dynamo.Must(dynamo.New("ddb:///test"))
 	switch v := client.(type) {
-	case Mocker:
+	case MockDynamoDB:
 		v.Mock(mock)
 	default:
 		panic("Invalid config")
