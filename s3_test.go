@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -118,9 +119,19 @@ func TestBlobSendContent(t *testing.T) {
 //
 //-----------------------------------------------------------------------------
 
-func apiS3() *dynamo.S3 {
-	client := &dynamo.S3{}
-	client.Mock(&mockS3{})
+type MockS3 interface {
+	Mock(s3iface.S3API)
+}
+
+func apiS3() dynamo.KeyVal {
+	client := dynamo.Must(dynamo.New("s3:///test"))
+	switch v := client.(type) {
+	case MockS3:
+		v.Mock(&mockS3{})
+	default:
+		panic("Invalid config")
+	}
+
 	return client
 }
 
@@ -128,7 +139,7 @@ type mockS3 struct {
 	s3iface.S3API
 }
 
-func (mockS3) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
+func (mockS3) GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
 	if aws.StringValue(input.Key) != "dead/beef" {
 		return nil, errors.New("Unexpected request.")
 	}
@@ -139,7 +150,7 @@ func (mockS3) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
 	}, nil
 }
 
-func (mockS3) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
+func (mockS3) PutObjectWithContext(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
 	if aws.StringValue(input.Key) != "dead/beef" {
 		return nil, errors.New("Unexpected request.")
 	}
@@ -154,7 +165,7 @@ func (mockS3) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
 	return &s3.PutObjectOutput{}, nil
 }
 
-func (mockS3) DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput, error) {
+func (mockS3) DeleteObjectWithContext(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
 	if aws.StringValue(input.Key) != "dead/beef" {
 		return nil, errors.New("Unexpected entity. ")
 	}
@@ -162,7 +173,7 @@ func (mockS3) DeleteObject(input *s3.DeleteObjectInput) (*s3.DeleteObjectOutput,
 	return &s3.DeleteObjectOutput{}, nil
 }
 
-func (mockS3) ListObjectsV2(*s3.ListObjectsV2Input) (*s3.ListObjectsV2Output, error) {
+func (mockS3) ListObjectsV2WithContext(aws.Context, *s3.ListObjectsV2Input, ...request.Option) (*s3.ListObjectsV2Output, error) {
 	return &s3.ListObjectsV2Output{
 		KeyCount: aws.Int64(2),
 		Contents: []*s3.Object{
@@ -225,15 +236,21 @@ func TestSeqS3Update(t *testing.T) {
 		If(val).Should().Equal(seqShort())
 }
 
-func apiSeqS3() *dynamo.S3 {
-	client := &dynamo.S3{}
-	client.Mock(&mockSeqS3{})
+func apiSeqS3() dynamo.KeyVal {
+	client := dynamo.Must(dynamo.New("s3:///test"))
+	switch v := client.(type) {
+	case MockS3:
+		v.Mock(&mockSeqS3{})
+	default:
+		panic("Invalid config")
+	}
+
 	return client
 }
 
 type mockSeqS3 struct{ s3iface.S3API }
 
-func (mockSeqS3) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
+func (mockSeqS3) GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
 	if aws.StringValue(input.Key) != "seq" {
 		return nil, errors.New("Unexpected request.")
 	}
@@ -244,7 +261,7 @@ func (mockSeqS3) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutput, error
 	}, nil
 }
 
-func (mockSeqS3) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
+func (mockSeqS3) PutObjectWithContext(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
 	if aws.StringValue(input.Key) != "seq" {
 		return nil, errors.New("Unexpected request.")
 	}

@@ -151,10 +151,26 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 		If(failure).Should().Be().Like(dynamo.PreConditionFailed{})
 }
 
+// func apiDBWithConstrain() dynamo.KeyVal {
+// 	client := &dynamo.DB{}
+// 	client.Mock(&mockDDBWithConstrain{})
+// 	return &dynamo.DBNoContext{client}
+// }
+
 func apiDBWithConstrain() dynamo.KeyVal {
-	client := &dynamo.DB{}
-	client.Mock(&mockDDBWithConstrain{})
-	return &dynamo.DBNoContext{client}
+	client := dynamo.Must(dynamo.New("ddb:///test"))
+	switch v := client.(type) {
+	case Mock:
+		v.Mock(&mockDDBWithConstrain{})
+	default:
+		panic("Invalid config")
+	}
+
+	return client
+
+	// client := &dynamo.DB{}
+	// client.Mock(&mockDDB{})
+	// return &dynamo.DBNoContext{client}
 }
 
 type mockDDBWithConstrain struct {

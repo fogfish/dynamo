@@ -128,10 +128,20 @@ func TestDdbMatchIDsWithFMap(t *testing.T) {
 //
 //-----------------------------------------------------------------------------
 
+type Mock interface {
+	Mock(db dynamodbiface.DynamoDBAPI)
+}
+
 func apiDB() dynamo.KeyVal {
-	client := &dynamo.DB{}
-	client.Mock(&mockDDB{})
-	return &dynamo.DBNoContext{client}
+	client := dynamo.Must(dynamo.New("ddb:///test"))
+	switch v := client.(type) {
+	case Mock:
+		v.Mock(&mockDDB{})
+	default:
+		panic("Invalid config")
+	}
+
+	return client
 }
 
 type mockDDB struct {

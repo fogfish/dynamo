@@ -324,17 +324,19 @@ Supported scheme:
 
 */
 func New(uri string, defSession ...*session.Session) (KeyVal, error) {
-	awsSession, err := maybeNewSession(defSession)
+	kv, err := NewContextual(uri, defSession...)
 	if err != nil {
 		return nil, err
 	}
 
-	creator, spec, err := factory(uri, defSession...)
-	if err != nil {
-		return nil, err
+	switch {
+	case strings.HasPrefix(uri, "ddb:"):
+		return newDynamoContexless(kv), nil
+	case strings.HasPrefix(uri, "s3:"):
+		return newS3Contexless(kv), nil
+	default:
+		return nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}
-
-	return creator(awsSession, spec), nil
 }
 
 /*
@@ -348,7 +350,17 @@ Supported scheme:
 
 */
 func NewContextual(uri string, defSession ...*session.Session) (KeyValContextual, error) {
-	return nil, nil
+	awsSession, err := maybeNewSession(defSession)
+	if err != nil {
+		return nil, err
+	}
+
+	creator, spec, err := factory(uri, defSession...)
+	if err != nil {
+		return nil, err
+	}
+
+	return creator(awsSession, spec), nil
 }
 
 // Must is a helper function to ensure KeyVal interface is valid and there was no
@@ -373,6 +385,14 @@ func ReadOnly(uri string, defSession ...*session.Session) (KeyValReader, error) 
 	return New(uri, defSession...)
 }
 
+/*
+
+ReadOnlyContextual establishes read-only connection with AWS Storage service.
+*/
+func ReadOnlyContextual(uri string, defSession ...*session.Session) (KeyValReaderContextual, error) {
+	return NewContextual(uri, defSession...)
+}
+
 // MustReadOnly is a helper function to ensure KeyValReader interface is valid and there was no
 // error when calling a New function.
 //
@@ -387,11 +407,36 @@ func MustReadOnly(kv KeyValReader, err error) KeyValReader {
 	return kv
 }
 
-// Stream establishes bytes stream connection with AWS Storage service,
-// use URI to specify service and name of the bucket.
-// Supported scheme:
-//   s3:///my-bucket
+/*
+
+Stream establishes bytes stream connection with AWS Storage service,
+use URI to specify service and name of the bucket.
+Supported scheme:
+  s3:///my-bucket
+*/
 func Stream(uri string, defSession ...*session.Session) (Blob, error) {
+	// blob, err := StreamContextual(uri, defSession...)
+	// if err != nil {
+	// 	return nil, nil
+	// }
+
+	// switch {
+	// case strings.HasPrefix(uri, "s3:"):
+	// 	return newS3Contexless(blob), nil
+	// default:
+	// 	return nil, fmt.Errorf("Unsupported schema: %s", uri)
+	// }
+	return nil, nil
+}
+
+/*
+
+StreamContextual establishes bytes stream connection with AWS Storage service,
+use URI to specify service and name of the bucket.
+Supported scheme:
+  s3:///my-bucket
+*/
+func StreamContextual(uri string, defSession ...*session.Session) (BlobContextual, error) {
 	awsSession, err := maybeNewSession(defSession)
 	if err != nil {
 		return nil, err
@@ -403,7 +448,7 @@ func Stream(uri string, defSession ...*session.Session) (Blob, error) {
 	}
 
 	keyval := creator(awsSession, spec)
-	stream, ok := keyval.(Blob)
+	stream, ok := keyval.(BlobContextual)
 	if !ok {
 		return nil, fmt.Errorf("Streaming is not supported by %s", uri)
 	}
@@ -426,8 +471,9 @@ func MustStream(kv Blob, err error) Blob {
 }
 
 //
-type creator func(io *session.Session, spec *dbURL) KeyVal
+type creator func(io *session.Session, spec *dbURL) KeyValContextual
 
+//
 func factory(uri string, defSession ...*session.Session) (creator, *dbURL, error) {
 	spec, _ := url.Parse(uri)
 	switch {
@@ -438,7 +484,7 @@ func factory(uri string, defSession ...*session.Session) (creator, *dbURL, error
 	case spec.Scheme == "s3":
 		return newS3, (*dbURL)(spec), nil
 	case spec.Scheme == "ddb":
-		return newNoContextDB, (*dbURL)(spec), nil
+		return newDynamo, (*dbURL)(spec), nil
 	default:
 		return nil, nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}

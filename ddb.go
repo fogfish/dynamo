@@ -29,8 +29,8 @@ type ddbConfig struct {
 	skSuffix string
 }
 
-// DB is a service connection handle
-type DB struct {
+// ddb is a DynamoDB client
+type ddb struct {
 	ddbConfig
 	io    *session.Session
 	db    dynamodbiface.DynamoDBAPI
@@ -38,8 +38,8 @@ type DB struct {
 	index *string
 }
 
-func newDB(io *session.Session, spec *dbURL) KeyValContextual {
-	db := &DB{io: io, db: dynamodb.New(io)}
+func newDynamo(io *session.Session, spec *dbURL) KeyValContextual {
+	db := &ddb{io: io, db: dynamodb.New(io)}
 
 	// config table name and index name
 	seq := spec.segments(2)
@@ -56,7 +56,7 @@ func newDB(io *session.Session, spec *dbURL) KeyValContextual {
 }
 
 // Mock dynamoDB I/O channel
-func (dynamo *DB) Mock(db dynamodbiface.DynamoDBAPI) {
+func (dynamo *ddb) Mock(db dynamodbiface.DynamoDBAPI) {
 	dynamo.db = db
 	dynamo.ddbConfig = ddbConfig{
 		pkPrefix: "prefix",
@@ -71,7 +71,7 @@ func (dynamo *DB) Mock(db dynamodbiface.DynamoDBAPI) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo DB) Get(ctx context.Context, entity Thing) (err error) {
+func (dynamo *ddb) Get(ctx context.Context, entity Thing) (err error) {
 	gen, err := marshal(dynamo.ddbConfig, entity)
 	if err != nil {
 		return
@@ -101,7 +101,7 @@ func (dynamo DB) Get(ctx context.Context, entity Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo DB) Put(ctx context.Context, entity Thing, config ...Constrain) (err error) {
+func (dynamo *ddb) Put(ctx context.Context, entity Thing, config ...Constrain) (err error) {
 	gen, err := marshal(dynamo.ddbConfig, entity)
 	if err != nil {
 		return
@@ -132,7 +132,7 @@ func (dynamo DB) Put(ctx context.Context, entity Thing, config ...Constrain) (er
 }
 
 // Remove discards the entity from the table
-func (dynamo DB) Remove(ctx context.Context, entity Thing, config ...Constrain) (err error) {
+func (dynamo *ddb) Remove(ctx context.Context, entity Thing, config ...Constrain) (err error) {
 	gen, err := marshal(dynamo.ddbConfig, entity)
 	if err != nil {
 		return
@@ -189,7 +189,7 @@ func maybeConditionExpression(
 }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo DB) Update(ctx context.Context, entity Thing, config ...Constrain) (err error) {
+func (dynamo *ddb) Update(ctx context.Context, entity Thing, config ...Constrain) (err error) {
 	gen, err := marshal(dynamo.ddbConfig, entity)
 	if err != nil {
 		return
@@ -247,16 +247,39 @@ func (dynamo DB) Update(ctx context.Context, entity Thing, config ...Constrain) 
 //
 //-----------------------------------------------------------------------------
 
+// Match applies a pattern matching to elements in the table
+func (dynamo *ddb) Match(ctx context.Context, key Thing) Seq {
+	gen, err := pattern(dynamo.ddbConfig, key)
+	if err != nil {
+		return mkDbSeq(nil, nil, nil, err)
+	}
+
+	expr := dynamo.pkPrefix + " = :" + dynamo.pkPrefix
+	_, isSuffix := gen[dynamo.skSuffix]
+	if isSuffix {
+		expr = expr + " and begins_with(" + dynamo.skSuffix + ", :" + dynamo.skSuffix + ")"
+	}
+
+	q := &dynamodb.QueryInput{
+		KeyConditionExpression:    aws.String(expr),
+		ExpressionAttributeValues: exprOf(gen),
+		TableName:                 dynamo.table,
+		IndexName:                 dynamo.index,
+	}
+
+	return mkDbSeq(ctx, dynamo, q, err)
+}
+
 // dbGen is type alias for generic representation
 type dbGen struct {
-	dynamo *DB
-	val    map[string]*dynamodb.AttributeValue
+	ddb *ddb
+	val map[string]*dynamodb.AttributeValue
 }
 
 // ID lifts generic representation to its Identity
 func (gen *dbGen) ID() (*ID, error) {
-	prefix, isPrefix := gen.val[gen.dynamo.pkPrefix]
-	suffix, isSuffix := gen.val[gen.dynamo.skSuffix]
+	prefix, isPrefix := gen.val[gen.ddb.pkPrefix]
+	suffix, isSuffix := gen.val[gen.ddb.skSuffix]
 	if !isPrefix || !isSuffix {
 		return nil, errors.New("Invalid DDB schema")
 	}
@@ -273,7 +296,7 @@ func (gen *dbGen) ID() (*ID, error) {
 
 // To lifts generic representation to Thing
 func (gen *dbGen) To(thing Thing) error {
-	item, err := unmarshal(gen.dynamo.ddbConfig, gen.val)
+	item, err := unmarshal(gen.ddb.ddbConfig, gen.val)
 	if err != nil {
 		return err
 	}
@@ -282,22 +305,22 @@ func (gen *dbGen) To(thing Thing) error {
 
 // dbSlice active page
 type dbSlice struct {
-	dynamo *DB
-	head   int
-	heap   []map[string]*dynamodb.AttributeValue
+	ddb  *ddb
+	head int
+	heap []map[string]*dynamodb.AttributeValue
 }
 
-func mkDbSlice(dynamo *DB, heap []map[string]*dynamodb.AttributeValue) *dbSlice {
+func mkDbSlice(ddb *ddb, heap []map[string]*dynamodb.AttributeValue) *dbSlice {
 	return &dbSlice{
-		dynamo: dynamo,
-		head:   0,
-		heap:   heap,
+		ddb:  ddb,
+		head: 0,
+		heap: heap,
 	}
 }
 
 func (slice *dbSlice) Head() *dbGen {
 	if slice.head < len(slice.heap) {
-		return &dbGen{dynamo: slice.dynamo, val: slice.heap[slice.head]}
+		return &dbGen{ddb: slice.ddb, val: slice.heap[slice.head]}
 	}
 	return nil
 }
@@ -310,17 +333,17 @@ func (slice *dbSlice) Tail() bool {
 // dbSeq is an iterator over matched results
 type dbSeq struct {
 	ctx    context.Context
-	dynamo *DB
+	ddb    *ddb
 	q      *dynamodb.QueryInput
 	slice  *dbSlice
 	stream bool
 	err    error
 }
 
-func mkDbSeq(ctx context.Context, dynamo *DB, q *dynamodb.QueryInput, err error) *dbSeq {
+func mkDbSeq(ctx context.Context, ddb *ddb, q *dynamodb.QueryInput, err error) *dbSeq {
 	return &dbSeq{
 		ctx:    ctx,
-		dynamo: dynamo,
+		ddb:    ddb,
 		q:      q,
 		slice:  nil,
 		stream: true,
@@ -341,7 +364,7 @@ func (seq *dbSeq) seed() error {
 		return fmt.Errorf("End of Stream")
 	}
 
-	val, err := seq.dynamo.db.QueryWithContext(seq.ctx, seq.q)
+	val, err := seq.ddb.db.QueryWithContext(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
 		return err
@@ -351,7 +374,7 @@ func (seq *dbSeq) seed() error {
 		return fmt.Errorf("End of Stream")
 	}
 
-	seq.slice = mkDbSlice(seq.dynamo, val.Items)
+	seq.slice = mkDbSlice(seq.ddb, val.Items)
 	seq.q.ExclusiveStartKey = val.LastEvaluatedKey
 
 	return nil
@@ -401,8 +424,8 @@ func (seq *dbSeq) Tail() bool {
 func (seq *dbSeq) Cursor() *curie.IRI {
 	if seq.q.ExclusiveStartKey != nil {
 		val := seq.q.ExclusiveStartKey
-		prefix, _ := val[seq.dynamo.pkPrefix]
-		suffix, _ := val[seq.dynamo.skSuffix]
+		prefix, _ := val[seq.ddb.pkPrefix]
+		suffix, _ := val[seq.ddb.skSuffix]
 		iri := curie.New(aws.StringValue(prefix.S))
 		if aws.StringValue(suffix.S) != "_" {
 			iri = curie.Join(iri, aws.StringValue(suffix.S))
@@ -433,11 +456,11 @@ func (seq *dbSeq) Continue(cursor *curie.IRI) Seq {
 		pfx := curie.Prefix(*cursor)
 		sfx := curie.Suffix(*cursor)
 
-		key[seq.dynamo.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(pfx)}
+		key[seq.ddb.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(pfx)}
 		if sfx != "" {
-			key[seq.dynamo.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sfx)}
+			key[seq.ddb.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sfx)}
 		} else {
-			key[seq.dynamo.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
+			key[seq.ddb.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
 		}
 		seq.q.ExclusiveStartKey = key
 	}
@@ -450,27 +473,45 @@ func (seq *dbSeq) Reverse() Seq {
 	return seq
 }
 
-// Match applies a pattern matching to elements in the table
-func (dynamo DB) Match(ctx context.Context, key Thing) Seq {
-	gen, err := pattern(dynamo.ddbConfig, key)
-	if err != nil {
-		return mkDbSeq(nil, nil, nil, err)
-	}
+//-----------------------------------------------------------------------------
+//
+// Context-less wrapper
+//
+//-----------------------------------------------------------------------------
 
-	expr := dynamo.pkPrefix + " = :" + dynamo.pkPrefix
-	_, isSuffix := gen[dynamo.skSuffix]
-	if isSuffix {
-		expr = expr + " and begins_with(" + dynamo.skSuffix + ", :" + dynamo.skSuffix + ")"
-	}
+type ddbContextless struct{ KeyValContextual }
 
-	q := &dynamodb.QueryInput{
-		KeyConditionExpression:    aws.String(expr),
-		ExpressionAttributeValues: exprOf(gen),
-		TableName:                 dynamo.table,
-		IndexName:                 dynamo.index,
-	}
+func newDynamoContexless(ddb KeyValContextual) KeyVal {
+	return &ddbContextless{ddb}
+}
 
-	return mkDbSeq(ctx, &dynamo, q, err)
+func (db *ddbContextless) Mock(dynamo dynamodbiface.DynamoDBAPI) {
+	switch v := db.KeyValContextual.(type) {
+	case *ddb:
+		v.Mock(dynamo)
+	default:
+		panic(fmt.Errorf("Invalid type"))
+	}
+}
+
+func (db *ddbContextless) Get(entity Thing) (err error) {
+	return db.KeyValContextual.Get(context.Background(), entity)
+}
+
+func (db *ddbContextless) Put(entity Thing, config ...Constrain) (err error) {
+	return db.KeyValContextual.Put(context.Background(), entity, config...)
+}
+
+func (db *ddbContextless) Remove(entity Thing, config ...Constrain) (err error) {
+	return db.KeyValContextual.Remove(context.Background(), entity, config...)
+}
+
+func (db *ddbContextless) Update(entity Thing, config ...Constrain) (err error) {
+	return db.KeyValContextual.Update(context.Background(), entity, config...)
+}
+
+func (db *ddbContextless) Match(key Thing) Seq {
+	return db.KeyValContextual.Match(context.Background(), key)
 }
 
 //-----------------------------------------------------------------------------
