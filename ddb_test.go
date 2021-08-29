@@ -38,6 +38,15 @@ func TestDdbGet(t *testing.T) {
 		If(val).Should().Equal(entity())
 }
 
+func TestDdbGetNotFound(t *testing.T) {
+	val := person{ID: dynamo.NewID("not:found")}
+	err := apiDB().Get(&val)
+
+	it.Ok(t).
+		If(err).ShouldNot().Equal(nil).
+		If(err).Should().Be().Like(dynamo.NotFound{})
+}
+
 func TestDdbPut(t *testing.T) {
 	it.Ok(t).If(apiDB().Put(entity())).Should().Equal(nil)
 }
@@ -148,6 +157,14 @@ type mockDDB struct {
 }
 
 func (mockDDB) GetItemWithContext(ctx aws.Context, input *dynamodb.GetItemInput, opts ...request.Option) (*dynamodb.GetItemOutput, error) {
+	notfound := map[string]*dynamodb.AttributeValue{
+		"prefix": {S: aws.String("not:found")},
+		"suffix": {S: aws.String("_")},
+	}
+	if reflect.DeepEqual(notfound, input.Key) {
+		return &dynamodb.GetItemOutput{}, nil
+	}
+
 	expect := map[string]*dynamodb.AttributeValue{
 		"prefix": {S: aws.String("dead:beef")},
 		"suffix": {S: aws.String("_")},

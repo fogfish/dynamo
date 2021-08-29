@@ -475,21 +475,6 @@ func (seq *dbSeq) Reverse() Seq {
 
 //-----------------------------------------------------------------------------
 //
-// Context-less wrapper
-//
-//-----------------------------------------------------------------------------
-
-// func (db *ddbContextless) Mock(dynamo dynamodbiface.DynamoDBAPI) {
-// 	switch v := db.KeyValContextual.(type) {
-// 	case *ddb:
-// 		v.Mock(dynamo)
-// 	default:
-// 		panic(fmt.Errorf("Invalid type"))
-// 	}
-// }
-
-//-----------------------------------------------------------------------------
-//
 // internal helpers
 //
 //-----------------------------------------------------------------------------

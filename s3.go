@@ -436,18 +436,3 @@ func (UseHTTP) Expires(val time.Time) Content {
 		x.Expires = &val
 	}
 }
-
-//-----------------------------------------------------------------------------
-//
-// Context-less wrapper
-//
-//-----------------------------------------------------------------------------
-
-// func (db *ds3Contextless) Mock(dynamo s3iface.S3API) {
-// 	switch v := db.KeyValContextual.(type) {
-// 	case *ds3:
-// 		v.Mock(dynamo)
-// 	default:
-// 		panic(fmt.Errorf("Invalid type"))
-// 	}
-// }
