@@ -100,9 +100,9 @@ func TestReadOnly(t *testing.T) {
 
 func TestStream(t *testing.T) {
 	it.Ok(t).
-		If(dynamo.MustStream(dynamo.Stream("s3:///a"))).ShouldNot().Equal(nil).
+		If(dynamo.MustStream(dynamo.NewStream("s3:///a"))).ShouldNot().Equal(nil).
 		If(func() {
-			dynamo.MustStream(dynamo.Stream("ddb:///a"))
+			dynamo.MustStream(dynamo.NewStream("ddb:///a"))
 		}).Should().Fail()
 }
 

@@ -12,7 +12,7 @@ The library implements a simple key-value abstraction to store algebraic data ty
 
 ## Inspiration
 
-The library encourages developers to use Golang struct to define domain models, write correct, maintainable code. The library uses generic programming style to implement actual storage I/O, while expose external domain object as `interface{}` with implicit conversion back and forth
+The library encourages developers to use Golang struct to define domain models, write correct, maintainable code. Using the library, the application can achieve the ideal data model that would require a single request to DynamoDB and model one-to-one, one-to-many and even many-to-many relations. The library uses generic programming style to implement actual storage I/O, while expose external domain object as `interface{}` with implicit conversion back and forth
 between a concrete struct(s). The library uses [AWS Golang SDK](https://aws.amazon.com/sdk-for-go/) under the hood
 
 Essentially, the library implement a following generic key-value trait to access domain objects. 

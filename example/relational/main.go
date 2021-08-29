@@ -11,9 +11,15 @@ func main() {
 	//
 	// create DynamoDB clients for the main table (ddb), local secondary index (lsi),
 	// global secondary index (gsi)
-	ddb := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational"))
-	lsi := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year"))
-	gsi := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))
+	ddb := dynamo.NewKeyValContextDefault(
+		dynamo.Must(dynamo.New("ddb:///example-dynamo-relational")),
+	)
+	lsi := dynamo.NewKeyValContextDefault(
+		dynamo.Must(dynamo.New("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year")),
+	)
+	gsi := dynamo.NewKeyValContextDefault(
+		dynamo.Must(dynamo.New("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year")),
+	)
 
 	//
 	// As an author I want to register a profile ...
@@ -56,7 +62,7 @@ func main() {
 
 As a reader I want to fetch the article ...
 */
-func fetchArticle(db dynamo.KeyVal) error {
+func fetchArticle(db dynamo.KeyValNoContext) error {
 	log.Printf("==> fetch article: An axiomatization of set theory\n")
 
 	article := Article{
@@ -74,7 +80,7 @@ func fetchArticle(db dynamo.KeyVal) error {
 
 As a reader I want to list all articles written by the author ...
 */
-func lookupArticlesByAuthor(db dynamo.KeyVal, author string) error {
+func lookupArticlesByAuthor(db dynamo.KeyValNoContext, author string) error {
 	log.Printf("==> lookup articles by author: %s\n", author)
 
 	return lookupArticles(db, dynamo.NewID("article:%s", author))
@@ -84,7 +90,7 @@ func lookupArticlesByAuthor(db dynamo.KeyVal, author string) error {
 
 As a reader I want to look up articles titles for given keywords ...
 */
-func lookupArticlesByKeyword(db dynamo.KeyVal, keyword string) error {
+func lookupArticlesByKeyword(db dynamo.KeyValNoContext, keyword string) error {
 	log.Printf("==> lookup articles by keyword: %s\n", keyword)
 
 	return lookupKeywords(db, dynamo.NewID("keyword:%s", keyword))
@@ -94,7 +100,7 @@ func lookupArticlesByKeyword(db dynamo.KeyVal, keyword string) error {
 
 As a reader I want to look up articles titles written by the author for a given keyword
 */
-func lookupArticlesByKeywordAuthor(db dynamo.KeyVal, keyword, author string) error {
+func lookupArticlesByKeywordAuthor(db dynamo.KeyValNoContext, keyword, author string) error {
 	log.Printf("==> lookup articles by keyword %s and author: %s\n", keyword, author)
 
 	return lookupKeywords(db, dynamo.NewID("keyword:%s#article/%s", keyword, author))
@@ -104,7 +110,7 @@ func lookupArticlesByKeywordAuthor(db dynamo.KeyVal, keyword, author string) err
 
 As a reader I want to look up all keywords of the article ...
 */
-func fetchArticleKeywords(db dynamo.KeyVal) error {
+func fetchArticleKeywords(db dynamo.KeyValNoContext) error {
 	log.Printf("==> lookup keyword for An axiomatization of set theory\n")
 
 	return lookupKeywords(db, dynamo.NewID("article:neumann/theory_of_set#keyword"))
@@ -114,14 +120,14 @@ func fetchArticleKeywords(db dynamo.KeyVal) error {
 
 As a reader I want to look up all articles for a given category in chronological order ...
 */
-func lookupArticlesByCategory(db dynamo.KeyVal, category string) error {
+func lookupArticlesByCategory(db dynamo.KeyValNoContext, category string) error {
 	log.Printf("==> lookup articles by category: %s\n", category)
 
 	return lookupArticles(db, dynamo.NewID("%s", category))
 }
 
 //
-func articlesOfJohnVonNeumann(db dynamo.KeyVal) error {
+func articlesOfJohnVonNeumann(db dynamo.KeyValNoContext) error {
 	author, err := registerAuthor(db, "neumann", "John von Neumann")
 	if err != nil {
 		return err
@@ -149,7 +155,7 @@ func articlesOfJohnVonNeumann(db dynamo.KeyVal) error {
 }
 
 //
-func articlesOfLeonardKleinrock(db dynamo.KeyVal) error {
+func articlesOfLeonardKleinrock(db dynamo.KeyValNoContext) error {
 	author, err := registerAuthor(db, "kleinrock", "Leonard Kleinrock")
 	if err != nil {
 		return err
@@ -180,7 +186,7 @@ func articlesOfLeonardKleinrock(db dynamo.KeyVal) error {
 
 As an author I want to register a profile ...
 */
-func registerAuthor(db dynamo.KeyVal, id, name string) (*Author, error) {
+func registerAuthor(db dynamo.KeyValNoContext, id, name string) (*Author, error) {
 	log.Printf("==> register: %s", name)
 
 	author := NewAuthor(id, name)
@@ -195,7 +201,7 @@ func registerAuthor(db dynamo.KeyVal, id, name string) (*Author, error) {
 
 As an author I want to publish an article to the system ...
 */
-func publishArticle(db dynamo.KeyVal, author *Author, id, title string, keywords []string) error {
+func publishArticle(db dynamo.KeyValNoContext, author *Author, id, title string, keywords []string) error {
 	log.Printf("==> publish: %s", title)
 
 	article := NewArticle(author.ID, id, title)
@@ -216,9 +222,9 @@ func publishArticle(db dynamo.KeyVal, author *Author, id, title string, keywords
 }
 
 //
-func lookupArticles(db dynamo.KeyVal, pattern dynamo.ID) error {
+func lookupArticles(db dynamo.KeyValNoContext, pattern dynamo.ID) error {
 	var seq Articles
-	_, err := db.Match(pattern).FMap(seq.Join)
+	err := db.Match(pattern).FMap(seq.Join)
 	if err != nil {
 		return err
 	}
@@ -227,9 +233,9 @@ func lookupArticles(db dynamo.KeyVal, pattern dynamo.ID) error {
 }
 
 //
-func lookupKeywords(db dynamo.KeyVal, pattern dynamo.ID) error {
+func lookupKeywords(db dynamo.KeyValNoContext, pattern dynamo.ID) error {
 	var seq Keywords
-	_, err := db.Match(pattern).FMap(seq.Join)
+	err := db.Match(pattern).FMap(seq.Join)
 	if err != nil {
 		return err
 	}

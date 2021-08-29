@@ -29,7 +29,7 @@ type ds3 struct {
 	bucket *string
 }
 
-func newS3(io *session.Session, spec *dbURL) KeyValContextual {
+func newS3(io *session.Session, spec *dbURL) KeyVal {
 	db := &ds3{io: io, db: s3.New(io)}
 
 	// config bucket name
@@ -61,7 +61,7 @@ func (dynamo *ds3) Get(ctx context.Context, entity Thing) (err error) {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == s3.ErrCodeNoSuchKey {
-				return NotFound{curie.Path(entity.Identity())}
+				return NotFound{entity.Identity()}
 			}
 			return err
 		default:
@@ -155,18 +155,18 @@ type s3Gen struct {
 }
 
 // ID lifts generic representation to its Identity
-func (gen s3Gen) ID() (*ID, error) {
+func (gen s3Gen) ID() (*curie.IRI, error) {
 	if gen.key == nil {
 		return nil, errors.New("End Of Stream")
 	}
 
-	var id ID
+	var id curie.IRI
 	seq := strings.SplitN(*gen.key, "/", 2)
 	switch {
 	case len(seq) == 2:
-		id = MkID(curie.New(strings.Join(seq, ":")))
+		id = curie.New(strings.Join(seq, ":"))
 	default:
-		id = MkID(curie.New(*gen.key))
+		id = curie.New(*gen.key)
 	}
 
 	return &id, nil
@@ -246,16 +246,14 @@ func (seq *s3Seq) seed() error {
 }
 
 // FMap transforms sequence
-func (seq *s3Seq) FMap(f FMap) ([]Thing, error) {
-	things := []Thing{}
+func (seq *s3Seq) FMap(f func(Gen) error) error {
 	for seq.Tail() {
-		thing, err := f(s3Gen{ctx: seq.ctx, s3: seq.s3, key: seq.items[seq.at]})
+		err := f(s3Gen{ctx: seq.ctx, s3: seq.s3, key: seq.items[seq.at]})
 		if err != nil {
-			return nil, err
+			return err
 		}
-		things = append(things, thing)
 	}
-	return things, nil
+	return nil
 }
 
 // Head selects the first element of matched collection.
@@ -327,8 +325,8 @@ func (seq *s3Seq) Reverse() Seq {
 //
 //-----------------------------------------------------------------------------
 
-// URL returns absolute URL downloadable using HTTPS protocol
-func (dynamo *ds3) URL(ctx context.Context, entity Thing, expire time.Duration) (string, error) {
+// SourceURL returns absolute URL downloadable using HTTPS protocol
+func (dynamo *ds3) SourceURL(ctx context.Context, entity Thing, expire time.Duration) (string, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(curie.Path(entity.Identity())),
@@ -340,8 +338,8 @@ func (dynamo *ds3) URL(ctx context.Context, entity Thing, expire time.Duration) 
 }
 
 // Recv establishes ingress bytes stream to S3 object
-func (dynamo *ds3) Recv(ctx context.Context, entity Thing) (io.ReadCloser, error) {
-	url, err := dynamo.URL(ctx, entity, 20*time.Minute)
+func (dynamo *ds3) Read(ctx context.Context, entity Thing) (io.ReadCloser, error) {
+	url, err := dynamo.SourceURL(ctx, entity, 20*time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -371,20 +369,24 @@ func (dynamo *ds3) Recv(ctx context.Context, entity Thing) (io.ReadCloser, error
 	return in.Body, nil
 }
 
-// Send establishes egress bytes stream to S3 object
-func (dynamo *ds3) Send(ctx context.Context, entity Thing, stream io.Reader, opts ...Content) error {
+// Write establishes egress bytes stream to S3 object
+func (dynamo *ds3) Write(ctx context.Context, entity ThingStream, opts ...Content) error {
 	up := s3manager.NewUploader(dynamo.io)
+	body, err := entity.Reader()
+	if err != nil {
+		return err
+	}
 
 	req := &s3manager.UploadInput{
 		Bucket: dynamo.bucket,
 		Key:    aws.String(curie.Path(entity.Identity())),
-		Body:   stream,
+		Body:   body,
 	}
 
 	for _, f := range opts {
 		f(req)
 	}
-	_, err := up.UploadWithContext(ctx, req)
+	_, err = up.UploadWithContext(ctx, req)
 
 	return err
 }
@@ -441,49 +443,11 @@ func (UseHTTP) Expires(val time.Time) Content {
 //
 //-----------------------------------------------------------------------------
 
-type ds3Contextless struct{ KeyValContextual }
-
-func newS3Contexless(blob KeyValContextual) KeyVal {
-	return &ds3Contextless{blob}
-}
-
-func (db *ds3Contextless) Mock(dynamo s3iface.S3API) {
-	switch v := db.KeyValContextual.(type) {
-	case *ds3:
-		v.Mock(dynamo)
-	default:
-		panic(fmt.Errorf("Invalid type"))
-	}
-}
-
-func (db *ds3Contextless) Get(entity Thing) (err error) {
-	return db.KeyValContextual.Get(context.Background(), entity)
-}
-
-func (db *ds3Contextless) Put(entity Thing, config ...Constrain) (err error) {
-	return db.KeyValContextual.Put(context.Background(), entity, config...)
-}
-
-func (db *ds3Contextless) Remove(entity Thing, config ...Constrain) (err error) {
-	return db.KeyValContextual.Remove(context.Background(), entity, config...)
-}
-
-func (db *ds3Contextless) Update(entity Thing, config ...Constrain) (err error) {
-	return db.KeyValContextual.Update(context.Background(), entity, config...)
-}
-
-func (db *ds3Contextless) Match(key Thing) Seq {
-	return db.KeyValContextual.Match(context.Background(), key)
-}
-
-// func (db *ds3Contextless) URL(key Thing, t time.Duration) (string, error) {
-// 	return db.KeyValContextual.URL(context.Background(), key, t)
-// }
-
-// func (db *ds3Contextless) Recv(key Thing) (io.ReadCloser, error) {
-// 	return db.KeyValContextual.Recv(context.Background(), key)
-// }
-
-// func (db *ds3Contextless) Send(key Thing, io io.Reader, opst ...Content) error {
-// 	return db.KeyValContextual.Send(context.Background(), key, io, opst...)
+// func (db *ds3Contextless) Mock(dynamo s3iface.S3API) {
+// 	switch v := db.KeyValContextual.(type) {
+// 	case *ds3:
+// 		v.Mock(dynamo)
+// 	default:
+// 		panic(fmt.Errorf("Invalid type"))
+// 	}
 // }

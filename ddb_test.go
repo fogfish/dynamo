@@ -92,29 +92,28 @@ func TestDdbMatchHead(t *testing.T) {
 // Use type aliases and methods to implement FMap
 type persons []person
 
-func (seq *persons) Join(gen dynamo.Gen) (dynamo.Thing, error) {
+func (seq *persons) Join(gen dynamo.Gen) error {
 	val := person{}
 	if fail := gen.To(&val); fail != nil {
-		return nil, fail
+		return fail
 	}
 	*seq = append(*seq, val)
-	return &val, nil
+	return nil
 }
 
 func TestDdbMatchWithFMap(t *testing.T) {
 	pseq := persons{}
-	tseq, err := apiDB().Match(dynamo.NewID("dead:beef")).FMap(pseq.Join)
+	err := apiDB().Match(dynamo.NewID("dead:beef")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(tseq).Should().Equal([]dynamo.Thing{&thing, &thing}).
 		If(pseq).Should().Equal(persons{thing, thing})
 }
 
 func TestDdbMatchIDsWithFMap(t *testing.T) {
 	seq := dynamo.IDs{}
-	_, err := apiDB().Match(dynamo.NewID("dead:beef")).FMap(seq.Join)
+	err := apiDB().Match(dynamo.NewID("dead:beef")).FMap(seq.Join)
 
 	thing := entity().ID
 	it.Ok(t).
@@ -132,7 +131,7 @@ type Mock interface {
 	Mock(db dynamodbiface.DynamoDBAPI)
 }
 
-func apiDB() dynamo.KeyVal {
+func apiDB() dynamo.KeyValNoContext {
 	client := dynamo.Must(dynamo.New("ddb:///test"))
 	switch v := client.(type) {
 	case Mock:
@@ -141,7 +140,7 @@ func apiDB() dynamo.KeyVal {
 		panic("Invalid config")
 	}
 
-	return client
+	return dynamo.NewKeyValContextDefault(client)
 }
 
 type mockDDB struct {

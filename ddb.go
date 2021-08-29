@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// Implementation of interfaces to DynamoDB
+//
+
 package dynamo
 
 import (
@@ -38,7 +42,7 @@ type ddb struct {
 	index *string
 }
 
-func newDynamo(io *session.Session, spec *dbURL) KeyValContextual {
+func newDynamo(io *session.Session, spec *dbURL) KeyVal {
 	db := &ddb{io: io, db: dynamodb.New(io)}
 
 	// config table name and index name
@@ -87,7 +91,7 @@ func (dynamo *ddb) Get(ctx context.Context, entity Thing) (err error) {
 	}
 
 	if val.Item == nil {
-		err = NotFound{entity.Identity().String()}
+		err = NotFound{entity.Identity()}
 		return
 	}
 
@@ -120,7 +124,7 @@ func (dynamo *ddb) Put(ctx context.Context, entity Thing, config ...Constrain) (
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{entity.Identity().String()}
+				return PreConditionFailed{entity.Identity()}
 			}
 			return
 		default:
@@ -151,7 +155,7 @@ func (dynamo *ddb) Remove(ctx context.Context, entity Thing, config ...Constrain
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{entity.Identity().String()}
+				return PreConditionFailed{entity.Identity()}
 			}
 			return
 		default:
@@ -229,7 +233,7 @@ func (dynamo *ddb) Update(ctx context.Context, entity Thing, config ...Constrain
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{entity.Identity().String()}
+				return PreConditionFailed{entity.Identity()}
 			}
 			return
 		default:
@@ -277,7 +281,7 @@ type dbGen struct {
 }
 
 // ID lifts generic representation to its Identity
-func (gen *dbGen) ID() (*ID, error) {
+func (gen *dbGen) ID() (*curie.IRI, error) {
 	prefix, isPrefix := gen.val[gen.ddb.pkPrefix]
 	suffix, isSuffix := gen.val[gen.ddb.skSuffix]
 	if !isPrefix || !isSuffix {
@@ -290,8 +294,7 @@ func (gen *dbGen) ID() (*ID, error) {
 		iri = curie.Join(iri, seq...)
 	}
 
-	id := MkID(iri)
-	return &id, nil
+	return &iri, nil
 }
 
 // To lifts generic representation to Thing
@@ -381,16 +384,13 @@ func (seq *dbSeq) seed() error {
 }
 
 // FMap transforms sequence
-func (seq *dbSeq) FMap(f FMap) ([]Thing, error) {
-	things := []Thing{}
+func (seq *dbSeq) FMap(f func(Gen) error) error {
 	for seq.Tail() {
-		thing, err := f(seq.slice.Head())
-		if err != nil {
-			return nil, err
+		if err := f(seq.slice.Head()); err != nil {
+			return err
 		}
-		things = append(things, thing)
 	}
-	return things, nil
+	return nil
 }
 
 // Head selects the first element of matched collection.
@@ -479,40 +479,14 @@ func (seq *dbSeq) Reverse() Seq {
 //
 //-----------------------------------------------------------------------------
 
-type ddbContextless struct{ KeyValContextual }
-
-func newDynamoContexless(ddb KeyValContextual) KeyVal {
-	return &ddbContextless{ddb}
-}
-
-func (db *ddbContextless) Mock(dynamo dynamodbiface.DynamoDBAPI) {
-	switch v := db.KeyValContextual.(type) {
-	case *ddb:
-		v.Mock(dynamo)
-	default:
-		panic(fmt.Errorf("Invalid type"))
-	}
-}
-
-func (db *ddbContextless) Get(entity Thing) (err error) {
-	return db.KeyValContextual.Get(context.Background(), entity)
-}
-
-func (db *ddbContextless) Put(entity Thing, config ...Constrain) (err error) {
-	return db.KeyValContextual.Put(context.Background(), entity, config...)
-}
-
-func (db *ddbContextless) Remove(entity Thing, config ...Constrain) (err error) {
-	return db.KeyValContextual.Remove(context.Background(), entity, config...)
-}
-
-func (db *ddbContextless) Update(entity Thing, config ...Constrain) (err error) {
-	return db.KeyValContextual.Update(context.Background(), entity, config...)
-}
-
-func (db *ddbContextless) Match(key Thing) Seq {
-	return db.KeyValContextual.Match(context.Background(), key)
-}
+// func (db *ddbContextless) Mock(dynamo dynamodbiface.DynamoDBAPI) {
+// 	switch v := db.KeyValContextual.(type) {
+// 	case *ddb:
+// 		v.Mock(dynamo)
+// 	default:
+// 		panic(fmt.Errorf("Invalid type"))
+// 	}
+// }
 
 //-----------------------------------------------------------------------------
 //

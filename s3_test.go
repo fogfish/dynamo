@@ -78,18 +78,17 @@ func TestS3MatchHead(t *testing.T) {
 
 func TestS3MatchWithFMap(t *testing.T) {
 	pseq := persons{}
-	tseq, err := apiS3().Match(dynamo.NewID("dead:")).FMap(pseq.Join)
+	err := apiS3().Match(dynamo.NewID("dead:")).FMap(pseq.Join)
 
 	thing := entity()
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(tseq).Should().Equal([]dynamo.Thing{&thing, &thing}).
 		If(pseq).Should().Equal(persons{thing, thing})
 }
 
 func TestS3MatchIDsWithFMap(t *testing.T) {
 	seq := dynamo.IDs{}
-	_, err := apiS3().Match(dynamo.NewID("dead:")).FMap(seq.Join)
+	err := apiS3().Match(dynamo.NewID("dead:")).FMap(seq.Join)
 
 	thing := entity().ID
 	it.Ok(t).
@@ -123,7 +122,7 @@ type MockS3 interface {
 	Mock(s3iface.S3API)
 }
 
-func apiS3() dynamo.KeyVal {
+func apiS3() dynamo.KeyValNoContext {
 	client := dynamo.Must(dynamo.New("s3:///test"))
 	switch v := client.(type) {
 	case MockS3:
@@ -132,7 +131,7 @@ func apiS3() dynamo.KeyVal {
 		panic("Invalid config")
 	}
 
-	return client
+	return dynamo.NewKeyValContextDefault(client)
 }
 
 type mockS3 struct {
@@ -236,7 +235,7 @@ func TestSeqS3Update(t *testing.T) {
 		If(val).Should().Equal(seqShort())
 }
 
-func apiSeqS3() dynamo.KeyVal {
+func apiSeqS3() dynamo.KeyValNoContext {
 	client := dynamo.Must(dynamo.New("s3:///test"))
 	switch v := client.(type) {
 	case MockS3:
@@ -245,7 +244,7 @@ func apiSeqS3() dynamo.KeyVal {
 		panic("Invalid config")
 	}
 
-	return client
+	return dynamo.NewKeyValContextDefault(client)
 }
 
 type mockSeqS3 struct{ s3iface.S3API }

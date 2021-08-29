@@ -32,22 +32,22 @@ type dbPerson struct {
 //
 type dbPersons []dbPerson
 
-func (seq *dbPersons) Join(gen dynamo.Gen) (dynamo.Thing, error) {
+func (seq *dbPersons) Join(gen dynamo.Gen) error {
 	val := dbPerson{}
 	if fail := gen.To(&val); fail != nil {
-		return nil, fail
+		return fail
 	}
 	*seq = append(*seq, val)
-	return &val, nil
+	return nil
 }
+
+// KeyVal is type synonym
+type KeyVal dynamo.KeyValNoContext
 
 //
 //
 func main() {
-	db, err := dynamo.New(os.Args[1])
-	if err != nil {
-		panic(err)
-	}
+	db := dynamo.NewKeyValContextDefault(dynamo.Must(dynamo.New(os.Args[1])))
 
 	examplePut(db)
 	exampleGet(db)
@@ -58,7 +58,7 @@ func main() {
 
 const n = 5
 
-func examplePut(db dynamo.KeyVal) {
+func examplePut(db KeyVal) {
 	for i := 0; i < n; i++ {
 		val := folk(i)
 		err := db.Put(val)
@@ -67,7 +67,7 @@ func examplePut(db dynamo.KeyVal) {
 	}
 }
 
-func exampleGet(db dynamo.KeyVal) {
+func exampleGet(db KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &dbPerson{ID: id(i)}
 		switch err := db.Get(val).(type) {
@@ -81,7 +81,7 @@ func exampleGet(db dynamo.KeyVal) {
 	}
 }
 
-func exampleUpdate(db dynamo.KeyVal) {
+func exampleUpdate(db KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &dbPerson{
 			ID: id(i),
@@ -95,9 +95,9 @@ func exampleUpdate(db dynamo.KeyVal) {
 	}
 }
 
-func exampleMatch(db dynamo.KeyVal) {
+func exampleMatch(db KeyVal) {
 	seq := dbPersons{}
-	_, err := db.Match(dynamo.NewID("test:person")).FMap(seq.Join)
+	err := db.Match(dynamo.NewID("test:person")).FMap(seq.Join)
 
 	if err == nil {
 		fmt.Println("=[ match ]=> ", seq)
@@ -106,7 +106,7 @@ func exampleMatch(db dynamo.KeyVal) {
 	}
 }
 
-func exampleRemove(db dynamo.KeyVal) {
+func exampleRemove(db KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &dbPerson{ID: id(i)}
 		err := db.Remove(val)

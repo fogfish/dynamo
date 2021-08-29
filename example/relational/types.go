@@ -92,13 +92,13 @@ items into the sequence of articles. The pattern uses concept of monoid.
 type Articles []Article
 
 // Join generic element into sequence
-func (seq *Articles) Join(gen dynamo.Gen) (dynamo.Thing, error) {
+func (seq *Articles) Join(gen dynamo.Gen) error {
 	val := Article{}
 	if fail := gen.To(&val); fail != nil {
-		return nil, fail
+		return fail
 	}
 	*seq = append(*seq, val)
-	return &val, nil
+	return nil
 }
 
 /*
@@ -154,11 +154,11 @@ Keywords is a sequence of Keywords
 type Keywords []Keyword
 
 // Join generic element into sequence
-func (seq *Keywords) Join(gen dynamo.Gen) (dynamo.Thing, error) {
+func (seq *Keywords) Join(gen dynamo.Gen) error {
 	val := Keyword{}
 	if fail := gen.To(&val); fail != nil {
-		return nil, fail
+		return fail
 	}
 	*seq = append(*seq, val)
-	return &val, nil
+	return nil
 }
