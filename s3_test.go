@@ -26,12 +26,25 @@ func TestS3Get(t *testing.T) {
 		If(val).Should().Equal(entity())
 }
 
+func TestS3GetUsingStream(t *testing.T) {
+	val := person{ID: dynamo.NewID("dead:beef")}
+	err := apiS3Stream().Get(&val)
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(val).Should().Equal(entity())
+}
+
 func TestS3Put(t *testing.T) {
-	it.Ok(t).If(apiS3().Put(entity())).Should().Equal(nil)
+	it.Ok(t).
+		If(apiS3().Put(entity())).Should().Equal(nil).
+		If(apiS3Stream().Put(entity())).Should().Equal(nil)
 }
 
 func TestS3Remove(t *testing.T) {
-	it.Ok(t).If(apiS3().Remove(entity())).Should().Equal(nil)
+	it.Ok(t).
+		If(apiS3().Remove(entity())).Should().Equal(nil).
+		If(apiS3Stream().Remove(entity())).Should().Equal(nil)
 }
 
 func TestS3Update(t *testing.T) {
@@ -40,6 +53,18 @@ func TestS3Update(t *testing.T) {
 		Age: 64,
 	}
 	err := apiS3().Update(&val)
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(val).Should().Equal(entity())
+}
+
+func TestS3UpdateUsingStream(t *testing.T) {
+	val := person{
+		ID:  dynamo.NewID("dead:beef"),
+		Age: 64,
+	}
+	err := apiS3Stream().Update(&val)
 
 	it.Ok(t).
 		If(err).Should().Equal(nil).
@@ -132,6 +157,18 @@ func apiS3() dynamo.KeyValNoContext {
 	}
 
 	return dynamo.NewKeyValContextDefault(client)
+}
+
+func apiS3Stream() dynamo.StreamNoContext {
+	client := dynamo.MustStream(dynamo.NewStream("s3:///test"))
+	switch v := client.(type) {
+	case MockS3:
+		v.Mock(&mockS3{})
+	default:
+		panic("Invalid config")
+	}
+
+	return dynamo.NewStreamContextDefault(client)
 }
 
 type mockS3 struct {
