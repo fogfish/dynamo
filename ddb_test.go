@@ -108,11 +108,6 @@ func TestDdbUpdate(t *testing.T) {
 		If(val).Should().Equal(entity())
 }
 
-/*
-func TestDdbMatch(t *testing.T) {
-}
-*/
-
 func TestDdbMatchNone(t *testing.T) {
 	ddb := mockQuery(
 		map[string]*dynamodb.AttributeValue{
