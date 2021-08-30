@@ -29,41 +29,39 @@ func entity() person {
 	}
 }
 
-func TestDdbGet(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		val := person{ID: dynamo.NewfID("dead:beef")}
-		ddb := mockGetItem(map[string]*dynamodb.AttributeValue{
-			"prefix":  {S: aws.String("dead:beef")},
-			"suffix":  {S: aws.String("_")},
-			"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
-			"name":    {S: aws.String("Verner Pleishner")},
-			"age":     {N: aws.String("64")},
-		})
-
-		err := ddb.Get(&val)
-		it.Ok(t).
-			If(err).Should().Equal(nil).
-			If(val).Should().Equal(entity())
+func TestDdbGetSuccess(t *testing.T) {
+	val := person{ID: dynamo.NewfID("dead:beef")}
+	ddb := mockGetItem(map[string]*dynamodb.AttributeValue{
+		"prefix":  {S: aws.String("dead:beef")},
+		"suffix":  {S: aws.String("_")},
+		"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
+		"name":    {S: aws.String("Verner Pleishner")},
+		"age":     {N: aws.String("64")},
 	})
 
-	t.Run("Not Found", func(t *testing.T) {
-		val := person{ID: dynamo.NewfID("dead:beef")}
-		ddb := mockGetItem(nil)
+	err := ddb.Get(&val)
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(val).Should().Equal(entity())
+}
 
-		err := ddb.Get(&val)
-		it.Ok(t).
-			If(err).ShouldNot().Equal(nil).
-			If(err).Should().Be().Like(dynamo.NotFound{})
-	})
+func TestDdbGetNotFound(t *testing.T) {
+	val := person{ID: dynamo.NewfID("dead:beef")}
+	ddb := mockGetItem(nil)
 
-	t.Run("I/O Error", func(t *testing.T) {
-		val := person{ID: dynamo.NewfID("some:key")}
-		ddb := mockGetItem(nil)
+	err := ddb.Get(&val)
+	it.Ok(t).
+		If(err).ShouldNot().Equal(nil).
+		If(err).Should().Be().Like(dynamo.NotFound{})
+}
 
-		err := ddb.Get(&val)
-		it.Ok(t).
-			If(err).ShouldNot().Equal(nil)
-	})
+func TestDdbGetErrorIO(t *testing.T) {
+	val := person{ID: dynamo.NewfID("some:key")}
+	ddb := mockGetItem(nil)
+
+	err := ddb.Get(&val)
+	it.Ok(t).
+		If(err).ShouldNot().Equal(nil)
 }
 
 func TestDdbPut(t *testing.T) {
@@ -115,67 +113,65 @@ func TestDdbMatch(t *testing.T) {
 }
 */
 
-func TestDdbMatch(t *testing.T) {
-	t.Run("Empty", func(t *testing.T) {
-		ddb := mockQuery(
-			map[string]*dynamodb.AttributeValue{
-				":prefix": {S: aws.String("dead:beef")},
-			},
-			0,
-		)
+func TestDdbMatchNone(t *testing.T) {
+	ddb := mockQuery(
+		map[string]*dynamodb.AttributeValue{
+			":prefix": {S: aws.String("dead:beef")},
+		},
+		0,
+	)
 
-		seq := ddb.Match(dynamo.NewfID("dead:beef"))
+	seq := ddb.Match(dynamo.NewfID("dead:beef"))
 
-		it.Ok(t).
-			IfFalse(seq.Tail()).
-			If(seq.Error()).Should().Equal(nil)
-	})
+	it.Ok(t).
+		IfFalse(seq.Tail()).
+		If(seq.Error()).Should().Equal(nil)
+}
 
-	t.Run("One", func(t *testing.T) {
-		ddb := mockQuery(
-			map[string]*dynamodb.AttributeValue{
-				":prefix": {S: aws.String("dead:beef")},
-			},
-			1,
-		)
+func TestDdbMatchOne(t *testing.T) {
+	ddb := mockQuery(
+		map[string]*dynamodb.AttributeValue{
+			":prefix": {S: aws.String("dead:beef")},
+		},
+		1,
+	)
 
-		seq := ddb.Match(dynamo.NewfID("dead:beef"))
+	seq := ddb.Match(dynamo.NewfID("dead:beef"))
 
+	val := person{}
+	err := seq.Head(&val)
+
+	it.Ok(t).
+		IfFalse(seq.Tail()).
+		If(seq.Error()).Should().Equal(nil).
+		If(err).Should().Equal(nil).
+		If(val).Should().Equal(entity())
+}
+
+func TestDdbMatchMany(t *testing.T) {
+	ddb := mockQuery(
+		map[string]*dynamodb.AttributeValue{
+			":prefix": {S: aws.String("dead:beef")},
+		},
+		5,
+	)
+
+	cnt := 0
+	seq := ddb.Match(dynamo.NewfID("dead:beef"))
+
+	for seq.Tail() {
+		cnt++
 		val := person{}
 		err := seq.Head(&val)
 
 		it.Ok(t).
-			IfFalse(seq.Tail()).
-			If(seq.Error()).Should().Equal(nil).
 			If(err).Should().Equal(nil).
 			If(val).Should().Equal(entity())
-	})
+	}
 
-	t.Run("Many", func(t *testing.T) {
-		ddb := mockQuery(
-			map[string]*dynamodb.AttributeValue{
-				":prefix": {S: aws.String("dead:beef")},
-			},
-			5,
-		)
-
-		cnt := 0
-		seq := ddb.Match(dynamo.NewfID("dead:beef"))
-
-		for seq.Tail() {
-			cnt++
-			val := person{}
-			err := seq.Head(&val)
-
-			it.Ok(t).
-				If(err).Should().Equal(nil).
-				If(val).Should().Equal(entity())
-		}
-
-		it.Ok(t).
-			If(seq.Error()).Should().Equal(nil).
-			If(cnt).Should().Equal(5)
-	})
+	it.Ok(t).
+		If(seq.Error()).Should().Equal(nil).
+		If(cnt).Should().Equal(5)
 }
 
 //
@@ -191,70 +187,70 @@ func (seq *persons) Join(gen dynamo.Gen) error {
 	return nil
 }
 
-func TestDdbMatchFMap(t *testing.T) {
-	t.Run("Only Prefix", func(t *testing.T) {
-		seq := persons{}
-		ddb := mockQuery(
-			map[string]*dynamodb.AttributeValue{
-				":prefix": {S: aws.String("dead:beef")},
-			},
-			2,
-		)
-		thing := entity()
+func TestDdbFMapNone(t *testing.T) {
+	seq := persons{}
+	ddb := mockQuery(
+		map[string]*dynamodb.AttributeValue{
+			":prefix": {S: aws.String("dead:beef")},
+		},
+		0,
+	)
 
-		err := ddb.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
-		it.Ok(t).
-			If(err).Should().Equal(nil).
-			If(seq).Should().Equal(persons{thing, thing})
-	})
+	err := ddb.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(seq).Should().Equal(persons{})
 
-	t.Run("Empty", func(t *testing.T) {
-		seq := persons{}
-		ddb := mockQuery(
-			map[string]*dynamodb.AttributeValue{
-				":prefix": {S: aws.String("dead:beef")},
-			},
-			0,
-		)
+}
 
-		err := ddb.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
-		it.Ok(t).
-			If(err).Should().Equal(nil).
-			If(seq).Should().Equal(persons{})
-	})
+func TestDdbFMapPrefixOnly(t *testing.T) {
+	seq := persons{}
+	ddb := mockQuery(
+		map[string]*dynamodb.AttributeValue{
+			":prefix": {S: aws.String("dead:beef")},
+		},
+		2,
+	)
+	thing := entity()
 
-	t.Run("With Suffix", func(t *testing.T) {
-		seq := persons{}
-		ddb := mockQuery(
-			map[string]*dynamodb.AttributeValue{
-				":prefix": {S: aws.String("dead:beef")},
-				":suffix": {S: aws.String("a/b/c")},
-			},
-			2,
-		)
-		thing := entity()
+	err := ddb.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(seq).Should().Equal(persons{thing, thing})
+}
 
-		err := ddb.Match(dynamo.NewfID("dead:beef#a/b/c")).FMap(seq.Join)
-		it.Ok(t).
-			If(err).Should().Equal(nil).
-			If(seq).Should().Equal(persons{thing, thing})
-	})
+func TestDdbFMapPrefixAndSuffix(t *testing.T) {
 
-	t.Run("Match IDs", func(t *testing.T) {
-		seq := dynamo.IDs{}
-		ddb := mockQuery(
-			map[string]*dynamodb.AttributeValue{
-				":prefix": {S: aws.String("dead:beef")},
-			},
-			2,
-		)
-		thing := entity().ID
+	seq := persons{}
+	ddb := mockQuery(
+		map[string]*dynamodb.AttributeValue{
+			":prefix": {S: aws.String("dead:beef")},
+			":suffix": {S: aws.String("a/b/c")},
+		},
+		2,
+	)
+	thing := entity()
 
-		err := ddb.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
-		it.Ok(t).
-			If(err).Should().Equal(nil).
-			If(seq).Should().Equal(dynamo.IDs{thing, thing})
-	})
+	err := ddb.Match(dynamo.NewfID("dead:beef#a/b/c")).FMap(seq.Join)
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(seq).Should().Equal(persons{thing, thing})
+}
+
+func TestDdbFMapIDs(t *testing.T) {
+	seq := dynamo.IDs{}
+	ddb := mockQuery(
+		map[string]*dynamodb.AttributeValue{
+			":prefix": {S: aws.String("dead:beef")},
+		},
+		2,
+	)
+	thing := entity().ID
+
+	err := ddb.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(seq).Should().Equal(dynamo.IDs{thing, thing})
 }
 
 //-----------------------------------------------------------------------------
