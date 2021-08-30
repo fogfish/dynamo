@@ -12,12 +12,11 @@ import (
 )
 
 func main() {
-	db, err := dynamo.Stream(os.Args[1])
-	if err != nil {
-		panic(err)
-	}
+	db := dynamo.NewStreamContextDefault(
+		dynamo.MustStream(dynamo.NewStream(os.Args[1])),
+	)
 
-	in, err := db.Recv(dynamo.NewID(os.Args[2]))
+	in, err := db.Read(dynamo.NewfID(os.Args[2]))
 	if err != nil {
 		panic(err)
 	}

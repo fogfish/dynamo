@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/fogfish/dynamo"
@@ -115,9 +116,10 @@ func TestIs(t *testing.T) {
 
 func TestDdbPutWithConstrain(t *testing.T) {
 	ceq := dynamo.Kind(person{}).Field("Name")
+	ddb := mockConstrains()
 
-	success := apiDBWithConstrain().Put(entity(), ceq.Eq("xxx"))
-	failure := apiDBWithConstrain().Put(entity(), ceq.Eq("yyy"))
+	success := ddb.Put(entity(), ceq.Eq("xxx"))
+	failure := ddb.Put(entity(), ceq.Eq("yyy"))
 
 	it.Ok(t).
 		If(success).Should().Equal(nil).
@@ -126,9 +128,10 @@ func TestDdbPutWithConstrain(t *testing.T) {
 
 func TestDdbRemoveWithConstrain(t *testing.T) {
 	ceq := dynamo.Kind(person{}).Field("Name")
+	ddb := mockConstrains()
 
-	success := apiDBWithConstrain().Remove(entity(), ceq.Eq("xxx"))
-	failure := apiDBWithConstrain().Remove(entity(), ceq.Eq("yyy"))
+	success := ddb.Remove(entity(), ceq.Eq("xxx"))
+	failure := ddb.Remove(entity(), ceq.Eq("yyy"))
 
 	it.Ok(t).
 		If(success).Should().Equal(nil).
@@ -138,29 +141,30 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 func TestDdbUpdateWithConstrain(t *testing.T) {
 	ceq := dynamo.Kind(person{}).Field("Name")
 	val := person{
-		ID:  dynamo.NewID("dead:beef"),
+		ID:  dynamo.NewfID("dead:beef"),
 		Age: 65,
 	}
+	ddb := mockConstrains()
 
-	success := apiDBWithConstrain().Update(&val, ceq.Eq("xxx"))
-	failure := apiDBWithConstrain().Update(&val, ceq.Eq("yyy"))
+	success := ddb.Update(&val, ceq.Eq("xxx"))
+	failure := ddb.Update(&val, ceq.Eq("yyy"))
 
 	it.Ok(t).
 		If(success).Should().Equal(nil).
 		If(failure).Should().Be().Like(dynamo.PreConditionFailed{})
 }
 
-func apiDBWithConstrain() *dynamo.DB {
-	client := &dynamo.DB{}
-	client.Mock(&mockDDBWithConstrain{})
-	return client
-}
-
-type mockDDBWithConstrain struct {
+//
+//
+type ddbConstrains struct {
 	dynamodbiface.DynamoDBAPI
 }
 
-func (mockDDBWithConstrain) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
+func mockConstrains() dynamo.KeyValNoContext {
+	return mockDynamoDB(&ddbConstrains{})
+}
+
+func (ddbConstrains) PutItemWithContext(ctx aws.Context, input *dynamodb.PutItemInput, opts ...request.Option) (*dynamodb.PutItemOutput, error) {
 	if *(input.ExpressionAttributeValues[":__name__"].S) != "xxx" {
 		return nil, &dynamodb.ConditionalCheckFailedException{}
 	}
@@ -168,7 +172,7 @@ func (mockDDBWithConstrain) PutItem(input *dynamodb.PutItemInput) (*dynamodb.Put
 	return &dynamodb.PutItemOutput{}, nil
 }
 
-func (mockDDBWithConstrain) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteItemOutput, error) {
+func (ddbConstrains) DeleteItemWithContext(ctx aws.Context, input *dynamodb.DeleteItemInput, opts ...request.Option) (*dynamodb.DeleteItemOutput, error) {
 	if *(input.ExpressionAttributeValues[":__name__"].S) != "xxx" {
 		return nil, &dynamodb.ConditionalCheckFailedException{}
 	}
@@ -176,7 +180,7 @@ func (mockDDBWithConstrain) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamo
 	return &dynamodb.DeleteItemOutput{}, nil
 }
 
-func (mockDDBWithConstrain) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
+func (ddbConstrains) UpdateItemWithContext(ctx aws.Context, input *dynamodb.UpdateItemInput, opts ...request.Option) (*dynamodb.UpdateItemOutput, error) {
 	if *(input.ExpressionAttributeValues[":__name__"].S) != "xxx" {
 		return nil, &dynamodb.ConditionalCheckFailedException{}
 	}

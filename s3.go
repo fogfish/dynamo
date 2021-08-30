@@ -2,6 +2,7 @@ package dynamo
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,21 +22,25 @@ import (
 	"github.com/fogfish/curie"
 )
 
-// S3 is a service connection handle
-type S3 struct {
+// ds3 is a S3 client
+type ds3 struct {
 	io     *session.Session
 	db     s3iface.S3API
 	bucket *string
 }
 
-func newS3(bucket string) *S3 {
-	io := session.Must(session.NewSession())
-	db := s3.New(io)
-	return &S3{io, db, aws.String(bucket)}
+func newS3(io *session.Session, spec *dbURL) KeyVal {
+	db := &ds3{io: io, db: s3.New(io)}
+
+	// config bucket name
+	seq := spec.segments(2)
+	db.bucket = seq[0]
+
+	return db
 }
 
 // Mock S3 I/O channel
-func (dynamo *S3) Mock(db s3iface.S3API) {
+func (dynamo *ds3) Mock(db s3iface.S3API) {
 	dynamo.db = db
 }
 
@@ -46,17 +51,17 @@ func (dynamo *S3) Mock(db s3iface.S3API) {
 //-----------------------------------------------------------------------------
 
 // Get fetches the entity identified by the key.
-func (dynamo S3) Get(entity Thing) (err error) {
+func (dynamo *ds3) Get(ctx context.Context, entity Thing) (err error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
+		Key:    aws.String(curie.Path(entity.Identity())),
 	}
-	val, err := dynamo.db.GetObject(req)
+	val, err := dynamo.db.GetObjectWithContext(ctx, req)
 	if err != nil {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == s3.ErrCodeNoSuchKey {
-				return NotFound{entity.Identity().Path()}
+				return NotFound{entity.Identity()}
 			}
 			return err
 		default:
@@ -69,7 +74,7 @@ func (dynamo S3) Get(entity Thing) (err error) {
 }
 
 // Put writes entity
-func (dynamo S3) Put(entity Thing, _ ...Constrain) (err error) {
+func (dynamo *ds3) Put(ctx context.Context, entity Thing, _ ...Constrain) (err error) {
 	gen, err := json.Marshal(entity)
 	if err != nil {
 		return
@@ -77,24 +82,23 @@ func (dynamo S3) Put(entity Thing, _ ...Constrain) (err error) {
 
 	req := &s3.PutObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
+		Key:    aws.String(curie.Path(entity.Identity())),
 		Body:   aws.ReadSeekCloser(bytes.NewReader(gen)),
 	}
 
-	_, err = dynamo.db.PutObject(req)
+	_, err = dynamo.db.PutObjectWithContext(ctx, req)
 	return
 }
 
 // Remove discards the entity from the bucket
-func (dynamo S3) Remove(entity Thing, _ ...Constrain) (err error) {
+func (dynamo *ds3) Remove(ctx context.Context, entity Thing, _ ...Constrain) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
+		Key:    aws.String(curie.Path(entity.Identity())),
 	}
 
-	_, err = dynamo.db.DeleteObject(req)
+	_, err = dynamo.db.DeleteObjectWithContext(ctx, req)
 	return
-
 }
 
 type tGen map[string]interface{}
@@ -102,9 +106,9 @@ type tGen map[string]interface{}
 func (z tGen) Identity() curie.IRI { return z["id"].(curie.IRI) }
 
 // Update applies a partial patch to entity and returns new values
-func (dynamo S3) Update(entity Thing, _ ...Constrain) (err error) {
+func (dynamo *ds3) Update(ctx context.Context, entity Thing, _ ...Constrain) (err error) {
 	gen := tGen{"id": entity.Identity()}
-	dynamo.Get(&gen)
+	dynamo.Get(ctx, &gen)
 
 	var par tGen
 	parbin, _ := json.Marshal(entity)
@@ -122,7 +126,7 @@ func (dynamo S3) Update(entity Thing, _ ...Constrain) (err error) {
 		return
 	}
 
-	err = dynamo.Put(entity)
+	err = dynamo.Put(ctx, entity)
 	return
 }
 
@@ -132,25 +136,37 @@ func (dynamo S3) Update(entity Thing, _ ...Constrain) (err error) {
 //
 //-----------------------------------------------------------------------------
 
+// Match applies a pattern matching to elements in the bucket
+func (dynamo *ds3) Match(ctx context.Context, key Thing) Seq {
+	req := &s3.ListObjectsV2Input{
+		Bucket:  dynamo.bucket,
+		MaxKeys: aws.Int64(1000),
+		Prefix:  aws.String(curie.Path(key.Identity())),
+	}
+
+	return mkS3Seq(ctx, dynamo, req, nil)
+}
+
 // s3Gen is type alias for generic representation
 type s3Gen struct {
-	s3  *S3
+	ctx context.Context
+	s3  *ds3
 	key *string
 }
 
 // ID lifts generic representation to its Identity
-func (gen s3Gen) ID() (*ID, error) {
+func (gen s3Gen) ID() (*curie.IRI, error) {
 	if gen.key == nil {
 		return nil, errors.New("End Of Stream")
 	}
 
-	var id ID
+	var id curie.IRI
 	seq := strings.SplitN(*gen.key, "/", 2)
 	switch {
 	case len(seq) == 2:
-		id = MkID(curie.New(strings.Join(seq, ":")))
+		id = curie.New(strings.Join(seq, ":"))
 	default:
-		id = MkID(curie.New(*gen.key))
+		id = curie.New(*gen.key)
 	}
 
 	return &id, nil
@@ -162,7 +178,7 @@ func (gen s3Gen) To(thing Thing) error {
 		Bucket: gen.s3.bucket,
 		Key:    gen.key,
 	}
-	val, err := gen.s3.db.GetObject(req)
+	val, err := gen.s3.db.GetObjectWithContext(gen.ctx, req)
 	if err != nil {
 		return err
 	}
@@ -172,7 +188,8 @@ func (gen s3Gen) To(thing Thing) error {
 
 // s3Seq is an iterator over matched results
 type s3Seq struct {
-	s3     *S3
+	ctx    context.Context
+	s3     *ds3
 	q      *s3.ListObjectsV2Input
 	at     int
 	items  []*string
@@ -180,8 +197,9 @@ type s3Seq struct {
 	err    error
 }
 
-func mkS3Seq(s3 *S3, q *s3.ListObjectsV2Input, err error) *s3Seq {
+func mkS3Seq(ctx context.Context, s3 *ds3, q *s3.ListObjectsV2Input, err error) *s3Seq {
 	return &s3Seq{
+		ctx:    ctx,
 		s3:     s3,
 		q:      q,
 		at:     0,
@@ -204,7 +222,7 @@ func (seq *s3Seq) seed() error {
 		return fmt.Errorf("End of Stream")
 	}
 
-	val, err := seq.s3.db.ListObjectsV2(seq.q)
+	val, err := seq.s3.db.ListObjectsV2WithContext(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
 		return err
@@ -228,16 +246,14 @@ func (seq *s3Seq) seed() error {
 }
 
 // FMap transforms sequence
-func (seq *s3Seq) FMap(f FMap) ([]Thing, error) {
-	things := []Thing{}
+func (seq *s3Seq) FMap(f func(Gen) error) error {
 	for seq.Tail() {
-		thing, err := f(s3Gen{s3: seq.s3, key: seq.items[seq.at]})
+		err := f(s3Gen{ctx: seq.ctx, s3: seq.s3, key: seq.items[seq.at]})
 		if err != nil {
-			return nil, err
+			return err
 		}
-		things = append(things, thing)
 	}
-	return things, nil
+	return nil
 }
 
 // Head selects the first element of matched collection.
@@ -248,7 +264,7 @@ func (seq *s3Seq) Head(thing Thing) error {
 		}
 	}
 
-	return s3Gen{s3: seq.s3, key: seq.items[seq.at]}.To(thing)
+	return s3Gen{ctx: seq.ctx, s3: seq.s3, key: seq.items[seq.at]}.To(thing)
 }
 
 // Tail selects the all elements except the first one
@@ -293,7 +309,7 @@ func (seq *s3Seq) Limit(n int64) Seq {
 // Continue limited sequence from the cursor
 func (seq *s3Seq) Continue(cursor *curie.IRI) Seq {
 	if cursor != nil {
-		seq.q.StartAfter = aws.String(cursor.Path())
+		seq.q.StartAfter = aws.String(curie.Path(*cursor))
 	}
 	return seq
 }
@@ -303,37 +319,27 @@ func (seq *s3Seq) Reverse() Seq {
 	return seq
 }
 
-// Match applies a pattern matching to elements in the bucket
-func (dynamo S3) Match(key Thing) Seq {
-	req := &s3.ListObjectsV2Input{
-		Bucket:  dynamo.bucket,
-		MaxKeys: aws.Int64(1000),
-		Prefix:  aws.String(key.Identity().Path()),
-	}
-
-	return mkS3Seq(&dynamo, req, nil)
-}
-
 //-----------------------------------------------------------------------------
 //
 // Streaming
 //
 //-----------------------------------------------------------------------------
 
-// URL returns absolute URL downloadable using HTTPS protocol
-func (dynamo S3) URL(entity Thing, expire time.Duration) (string, error) {
+// SourceURL returns absolute URL downloadable using HTTPS protocol
+func (dynamo *ds3) SourceURL(ctx context.Context, entity Thing, expire time.Duration) (string, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
+		Key:    aws.String(curie.Path(entity.Identity())),
 	}
 
 	item, _ := dynamo.db.GetObjectRequest(req)
+	item.SetContext(ctx)
 	return item.Presign(expire)
 }
 
 // Recv establishes ingress bytes stream to S3 object
-func (dynamo S3) Recv(entity Thing) (io.ReadCloser, error) {
-	url, err := dynamo.URL(entity, 20*time.Minute)
+func (dynamo *ds3) Read(ctx context.Context, entity Thing) (io.ReadCloser, error) {
+	url, err := dynamo.SourceURL(ctx, entity, 20*time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -363,20 +369,24 @@ func (dynamo S3) Recv(entity Thing) (io.ReadCloser, error) {
 	return in.Body, nil
 }
 
-// Send establishes egress bytes stream to S3 object
-func (dynamo S3) Send(entity Thing, stream io.Reader, opts ...Content) error {
+// Write establishes egress bytes stream to S3 object
+func (dynamo *ds3) Write(ctx context.Context, entity ThingStream, opts ...Content) error {
 	up := s3manager.NewUploader(dynamo.io)
+	body, err := entity.Reader()
+	if err != nil {
+		return err
+	}
 
 	req := &s3manager.UploadInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(entity.Identity().Path()),
-		Body:   stream,
+		Key:    aws.String(curie.Path(entity.Identity())),
+		Body:   body,
 	}
 
 	for _, f := range opts {
 		f(req)
 	}
-	_, err := up.Upload(req)
+	_, err = up.UploadWithContext(ctx, req)
 
 	return err
 }

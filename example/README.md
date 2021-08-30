@@ -16,3 +16,11 @@ go run main.go ddb:///my-table
 cd blob
 go run main.go s3:///my-bucket path/to/my/file.tgz
 ```
+
+## Relational model
+
+```bash
+cd relational
+sh schema.sh
+go run main.go types.go
+```
