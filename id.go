@@ -96,6 +96,9 @@ func Encode(av *dynamodb.AttributeValue, id curie.IRI, val interface{}) error {
 		return err
 	}
 
+	if gen.M == nil {
+		gen.M = make(map[string]*dynamodb.AttributeValue)
+	}
 	gen.M["id"] = uid
 
 	*av = *gen
