@@ -42,3 +42,17 @@ func TestEncodeDecode(t *testing.T) {
 		IfTrue(curie.Eq(core.ID, some.ID)).
 		IfTrue(*core.Link == *some.Link)
 }
+
+func TestEncodeDecodeKeyOnly(t *testing.T) {
+	core := MyType{ID: curie.New("test:a/b")}
+
+	av, err := dynamodbattribute.Marshal(core)
+	it.Ok(t).IfNil(err)
+
+	var some MyType
+	err = dynamodbattribute.Unmarshal(av, &some)
+	it.Ok(t).IfNil(err)
+
+	it.Ok(t).
+		IfTrue(curie.Eq(core.ID, some.ID))
+}
