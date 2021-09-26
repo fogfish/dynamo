@@ -241,7 +241,12 @@ func (dynamo *ddb) Update(ctx context.Context, entity Thing, config ...Constrain
 		}
 	}
 
-	dynamodbattribute.UnmarshalMap(val.Attributes, &entity)
+	item, err := unmarshal(dynamo.ddbConfig, val.Attributes)
+	if err != nil {
+		return
+	}
+
+	dynamodbattribute.UnmarshalMap(item, &entity)
 	return
 }
 
