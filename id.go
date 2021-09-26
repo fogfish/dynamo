@@ -118,9 +118,12 @@ The helper ensures compact URI de-serialization from DynamoDB schema.
 func Decode(av *dynamodb.AttributeValue, id *curie.IRI, val interface{}) error {
 	dynamodbattribute.Unmarshal(av, val)
 
-	var iri IRI
-	dynamodbattribute.Unmarshal(av.M["id"], &iri)
-	*id = curie.IRI(iri)
+	raw, exists := av.M["id"]
+	if exists {
+		var iri IRI
+		dynamodbattribute.Unmarshal(raw, &iri)
+		*id = curie.IRI(iri)
+	}
 
 	return nil
 }
