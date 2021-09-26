@@ -95,13 +95,7 @@ func (dynamo *ddb) Get(ctx context.Context, entity Thing) (err error) {
 		return
 	}
 
-	item, err := unmarshal(dynamo.ddbConfig, val.Item)
-	if err != nil {
-		return
-	}
-
-	err = dynamodbattribute.UnmarshalMap(item, &entity)
-	return
+	return dynamo.unmarshalThing(val.Item, entity)
 }
 
 // Put writes entity
@@ -241,13 +235,16 @@ func (dynamo *ddb) Update(ctx context.Context, entity Thing, config ...Constrain
 		}
 	}
 
-	item, err := unmarshal(dynamo.ddbConfig, val.Attributes)
+	return dynamo.unmarshalThing(val.Attributes, entity)
+}
+
+func (dynamo *ddb) unmarshalThing(gen map[string]*dynamodb.AttributeValue, entity Thing) error {
+	item, err := unmarshal(dynamo.ddbConfig, gen)
 	if err != nil {
-		return
+		return err
 	}
 
-	dynamodbattribute.UnmarshalMap(item, &entity)
-	return
+	return dynamodbattribute.UnmarshalMap(item, &entity)
 }
 
 //-----------------------------------------------------------------------------
