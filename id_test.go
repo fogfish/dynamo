@@ -11,23 +11,25 @@ import (
 )
 
 type MyType struct {
-	ID   curie.IRI     `dynamodbav:"-"`
+	HKey curie.IRI     `dynamodbav:"-"`
+	SKey curie.IRI     `dynamodbav:"-"`
 	Link *curie.String `dynamodbav:"link,omitempty"`
 }
 
 func (x MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct MyType
-	return dynamo.Encode(av, x.ID, tStruct(x))
+	return dynamo.Encode(av, &x.HKey, &x.SKey, tStruct(x))
 }
 
 func (x *MyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *MyType
-	return dynamo.Decode(av, &x.ID, tStruct(x))
+	return dynamo.Decode(av, &x.HKey, &x.SKey, tStruct(x))
 }
 
 func TestEncodeDecode(t *testing.T) {
 	core := MyType{
-		ID:   curie.New("test:a/b"),
+		HKey: curie.New("test:a/b"),
+		SKey: curie.New("c/d"),
 		Link: curie.Safe(curie.New("test:a/b/c")),
 	}
 
@@ -39,12 +41,16 @@ func TestEncodeDecode(t *testing.T) {
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
-		IfTrue(curie.Eq(core.ID, some.ID)).
+		IfTrue(curie.Eq(core.HKey, some.HKey)).
+		IfTrue(curie.Eq(core.SKey, some.SKey)).
 		IfTrue(*core.Link == *some.Link)
 }
 
 func TestEncodeDecodeKeyOnly(t *testing.T) {
-	core := MyType{ID: curie.New("test:a/b")}
+	core := MyType{
+		HKey: curie.New("test:a/b"),
+		SKey: curie.New("c/d"),
+	}
 
 	av, err := dynamodbattribute.Marshal(core)
 	it.Ok(t).IfNil(err)
@@ -54,5 +60,23 @@ func TestEncodeDecodeKeyOnly(t *testing.T) {
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
-		IfTrue(curie.Eq(core.ID, some.ID))
+		IfTrue(curie.Eq(core.HKey, some.HKey)).
+		IfTrue(curie.Eq(core.SKey, some.SKey))
+}
+
+func TestEncodeDecodeKeyOnlyHash(t *testing.T) {
+	core := MyType{
+		HKey: curie.New("test:a/b"),
+	}
+
+	av, err := dynamodbattribute.Marshal(core)
+	it.Ok(t).IfNil(err)
+
+	var some MyType
+	err = dynamodbattribute.Unmarshal(av, &some)
+	it.Ok(t).IfNil(err)
+
+	it.Ok(t).
+		IfTrue(curie.Eq(core.HKey, some.HKey)).
+		IfTrue(curie.Eq(core.SKey, some.SKey))
 }

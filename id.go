@@ -26,6 +26,14 @@ type IRI curie.IRI
 
 /*
 
+NewIRI transform category of strings to dynamo.ID.
+*/
+func NewIRI(iri string, args ...interface{}) IRI {
+	return IRI(curie.New(iri, args...))
+}
+
+/*
+
 MarshalDynamoDBAttributeValue `IRI ⟼ "prefix:suffix"`
 */
 func (iri IRI) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
@@ -156,16 +164,9 @@ manageable by dynamo interfaces
     dynamo.ID
   }
 */
-// type ID struct {
-// 	IRI IRI `dynamodbav:"id" json:"@id"`
-// }
-
-/*
-
-NewfID transform category of strings to dynamo.ID.
-*/
-func NewIRI(iri string, args ...interface{}) IRI {
-	return IRI(curie.New(iri, args...))
+type ID struct {
+	Prefix IRI `dynamodbav:"prefix" json:"-"`
+	Suffix IRI `dynamodbav:"suffix" json:"-"`
 }
 
 /*
@@ -178,12 +179,21 @@ NewID transform category of curie.IRI to dynamo.ID.
 
 /*
 
-Identity makes CURIE compliant to Thing interface so that embedding ID makes any
-struct to be Thing.
+HashKey makes type compliant to Thing interface
+so that embedding ID makes any struct to be Thing.
 */
-// func (id ID) Identity() curie.IRI {
-// 	return curie.IRI(id.IRI)
-// }
+func (id ID) HashKey() *curie.IRI {
+	return (*curie.IRI)(&id.Prefix)
+}
+
+/*
+
+SortKey makes type compliant to Thing interface
+so that embedding ID makes any struct to be Thing.
+*/
+func (id ID) SortKey() *curie.IRI {
+	return (*curie.IRI)(&id.Suffix)
+}
 
 /*
 

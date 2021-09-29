@@ -22,7 +22,10 @@ type person struct {
 
 func entity() person {
 	return person{
-		ID:      dynamo.NewfID("dead:beef"),
+		ID: dynamo.ID{
+			Prefix: dynamo.NewIRI("dead:beef"),
+			Suffix: dynamo.NewIRI("1"),
+		},
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -30,10 +33,15 @@ func entity() person {
 }
 
 func TestDdbGetSuccess(t *testing.T) {
-	val := person{ID: dynamo.NewfID("dead:beef")}
+	val := person{
+		ID: dynamo.ID{
+			Prefix: dynamo.NewIRI("dead:beef"),
+			Suffix: dynamo.NewIRI("1"),
+		},
+	}
 	ddb := mockGetItem(map[string]*dynamodb.AttributeValue{
 		"prefix":  {S: aws.String("dead:beef")},
-		"suffix":  {S: aws.String("_")},
+		"suffix":  {S: aws.String("1")},
 		"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 		"name":    {S: aws.String("Verner Pleishner")},
 		"age":     {N: aws.String("64")},
