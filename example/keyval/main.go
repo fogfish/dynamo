@@ -12,28 +12,45 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 )
 
 //
 // Person type demonstrates composition of core type with db one
 type Person struct {
-	ID      string `dynamodbav:"-" json:"id,omitempty"`
-	Name    string `dynamodbav:"name,omitempty" json:"name,omitempty"`
-	Age     int    `dynamodbav:"age,omitempty" json:"age,omitempty"`
-	Address string `dynamodbav:"address,omitempty" json:"address,omitempty"`
-}
-
-type dbPerson struct {
-	dynamo.ID
-	Person
+	HKey    curie.IRI `dynamodbav:"-"`
+	SKey    curie.IRI `dynamodbav:"-"`
+	Name    string    `dynamodbav:"name,omitempty"`
+	Age     int       `dynamodbav:"age,omitempty"`
+	Address string    `dynamodbav:"address,omitempty"`
 }
 
 //
-type dbPersons []dbPerson
+func (p Person) HashKey() *curie.IRI { return &p.HKey }
 
-func (seq *dbPersons) Join(gen dynamo.Gen) error {
-	val := dbPerson{}
+//
+func (p Person) SortKey() *curie.IRI { return &p.SKey }
+
+//
+func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	type tStruct Person
+	return dynamo.Encode(av, &p.HKey, &p.SKey, tStruct(p))
+}
+
+//
+func (p *Person) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	type tStruct *Person
+	return dynamo.Decode(av, &p.HKey, &p.SKey, tStruct(p))
+}
+
+//
+type Persons []Person
+
+// Join ...
+func (seq *Persons) Join(gen dynamo.Gen) error {
+	val := Person{}
 	if fail := gen.To(&val); fail != nil {
 		return fail
 	}
@@ -60,7 +77,13 @@ const n = 5
 
 func examplePut(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val := folk(i)
+		val := &Person{
+			HKey:    curie.New("test:"),
+			SKey:    curie.New("person:%d", i),
+			Name:    "Verner Pleishner",
+			Age:     64,
+			Address: "Blumenstrasse 14, Berne, 3013",
+		}
 		err := db.Put(val)
 
 		fmt.Println("=[ put ]=> ", either(err, val))
@@ -69,66 +92,55 @@ func examplePut(db KeyVal) {
 
 func exampleGet(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &dbPerson{ID: id(i)}
+		val := &Person{
+			HKey: curie.New("test:"),
+			SKey: curie.New("person:%d", i),
+		}
 		switch err := db.Get(val).(type) {
 		case nil:
-			fmt.Println("=[ get ]=> ", val)
+			fmt.Printf("=[ get ]=> %+v\n", val)
 		case dynamo.NotFound:
-			fmt.Println("=[ get ]=> Not found: ", val.ID)
+			fmt.Printf("=[ get ]=> Not found: (%v, %v)\n", val.HKey, val.SKey)
 		default:
-			fmt.Println("=[ get ]=> Fail: ", err)
+			fmt.Printf("=[ get ]=> Fail: %v\n", err)
 		}
 	}
 }
 
 func exampleUpdate(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &dbPerson{
-			ID: id(i),
-			Person: Person{
-				Address: "Viktoriastrasse 37, Berne, 3013",
-			},
+		val := &Person{
+			HKey:    curie.New("test:"),
+			SKey:    curie.New("person:%d", i),
+			Address: "Viktoriastrasse 37, Berne, 3013",
 		}
 		err := db.Update(val)
 
-		fmt.Println("=[ update ]=> ", either(err, val))
+		fmt.Printf("=[ update ]=> %+v\n", either(err, val))
 	}
 }
 
 func exampleMatch(db KeyVal) {
-	seq := dbPersons{}
-	err := db.Match(dynamo.NewfID("test:person")).FMap(seq.Join)
+	seq := Persons{}
+	err := db.Match(Person{HKey: curie.New("test:")}).FMap(seq.Join)
 
 	if err == nil {
-		fmt.Println("=[ match ]=> ", seq)
+		fmt.Printf("=[ match ]=> %+v\n", seq)
 	} else {
-		fmt.Println("=[ match ]=> ", err)
+		fmt.Printf("=[ match ]=> %v\n", err)
 	}
 }
 
 func exampleRemove(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &dbPerson{ID: id(i)}
+		val := &Person{
+			HKey: curie.New("test:"),
+			SKey: curie.New("person:%d", i),
+		}
 		err := db.Remove(val)
 
 		fmt.Println("=[ remove ]=> ", either(err, val))
 	}
-}
-
-func folk(x int) *dbPerson {
-	return &dbPerson{
-		ID: id(x),
-		Person: Person{
-			ID:      fmt.Sprintf("person%d", x),
-			Name:    "Verner Pleishner",
-			Age:     64,
-			Address: "Blumenstrasse 14, Berne, 3013",
-		},
-	}
-}
-
-func id(x int) dynamo.ID {
-	return dynamo.NewfID("test:person/%v", x)
 }
 
 func either(e error, x interface{}) interface{} {

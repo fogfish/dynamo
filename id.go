@@ -82,16 +82,11 @@ The helper ensures compact URI serialization into DynamoDB schema.
 
   func (x MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
     type tStruct MyType
-    return dynamo.Encode(av, x.ID, tStruct(x))
+    return dynamo.Encode(av, &x.HashKey, &x.SortKey, tStruct(x))
   }
 */
-func Encode(av *dynamodb.AttributeValue, id curie.IRI, val interface{}) error {
+func Encode(av *dynamodb.AttributeValue, hashkey *curie.IRI, sortkey *curie.IRI, val interface{}) error {
 	gen, err := dynamodbattribute.Marshal(val)
-	if err != nil {
-		return err
-	}
-
-	uid, err := dynamodbattribute.Marshal(IRI(id))
 	if err != nil {
 		return err
 	}
@@ -99,7 +94,22 @@ func Encode(av *dynamodb.AttributeValue, id curie.IRI, val interface{}) error {
 	if gen.M == nil {
 		gen.M = make(map[string]*dynamodb.AttributeValue)
 	}
-	gen.M["id"] = uid
+
+	if hashkey != nil && curie.Rank(*hashkey) != 0 {
+		hkey, err := dynamodbattribute.Marshal(IRI(*hashkey))
+		if err != nil {
+			return err
+		}
+		gen.M["__prefix"] = hkey
+	}
+
+	if sortkey != nil && curie.Rank(*sortkey) != 0 {
+		skey, err := dynamodbattribute.Marshal(IRI(*sortkey))
+		if err != nil {
+			return err
+		}
+		gen.M["__suffix"] = skey
+	}
 
 	*av = *gen
 	return nil
@@ -112,17 +122,24 @@ The helper ensures compact URI de-serialization from DynamoDB schema.
 
   func (x *MyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
     type tStruct *MyType
-    return dynamo.Decode(av, &x.ID, tStruct(x))
+    return dynamo.Decode(av, &x.HashKey, &x.SortKey, tStruct(x))
   }
 */
-func Decode(av *dynamodb.AttributeValue, id *curie.IRI, val interface{}) error {
+func Decode(av *dynamodb.AttributeValue, hashkey *curie.IRI, sortkey *curie.IRI, val interface{}) error {
 	dynamodbattribute.Unmarshal(av, val)
 
-	raw, exists := av.M["id"]
+	hkey, exists := av.M["__prefix"]
 	if exists {
 		var iri IRI
-		dynamodbattribute.Unmarshal(raw, &iri)
-		*id = curie.IRI(iri)
+		dynamodbattribute.Unmarshal(hkey, &iri)
+		*hashkey = curie.IRI(iri)
+	}
+
+	skey, exists := av.M["__suffix"]
+	if exists {
+		var iri IRI
+		dynamodbattribute.Unmarshal(skey, &iri)
+		*sortkey = curie.IRI(iri)
 	}
 
 	return nil
@@ -139,48 +156,48 @@ manageable by dynamo interfaces
     dynamo.ID
   }
 */
-type ID struct {
-	IRI IRI `dynamodbav:"id" json:"@id"`
-}
+// type ID struct {
+// 	IRI IRI `dynamodbav:"id" json:"@id"`
+// }
 
 /*
 
 NewfID transform category of strings to dynamo.ID.
 */
-func NewfID(iri string, args ...interface{}) ID {
-	return ID{IRI(curie.New(iri, args...))}
+func NewIRI(iri string, args ...interface{}) IRI {
+	return IRI(curie.New(iri, args...))
 }
 
 /*
 
 NewID transform category of curie.IRI to dynamo.ID.
 */
-func NewID(iri curie.IRI) ID {
-	return ID{IRI(iri)}
-}
+// func NewID(iri curie.IRI) IRI {
+// 	return ID{IRI(iri)}
+// }
 
 /*
 
 Identity makes CURIE compliant to Thing interface so that embedding ID makes any
 struct to be Thing.
 */
-func (id ID) Identity() curie.IRI {
-	return curie.IRI(id.IRI)
-}
+// func (id ID) Identity() curie.IRI {
+// 	return curie.IRI(id.IRI)
+// }
 
 /*
 
 Ref return reference to dynamo.IRI
 */
-func (id ID) Unwrap() *IRI {
-	return &id.IRI
-}
+// func (id ID) Unwrap() *IRI {
+// 	return &id.IRI
+// }
 
 /*
 
 IDs sequence of Identities
 */
-type IDs []ID
+// type IDs []ID
 
 /*
 
@@ -188,12 +205,12 @@ Join lifts sequence of matched objects to seq of IDs
 	seq := dynamo.IDs{}
 	dynamo.Match(...).FMap(seq.Join)
 */
-func (seq *IDs) Join(gen Gen) error {
-	iri, err := gen.ID()
-	if err != nil {
-		return err
-	}
+// func (seq *IDs) Join(gen Gen) error {
+// 	iri, err := gen.ID()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	*seq = append(*seq, NewID(*iri))
-	return nil
-}
+// 	*seq = append(*seq, NewID(*iri))
+// 	return nil
+// }

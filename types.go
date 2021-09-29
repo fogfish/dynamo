@@ -35,8 +35,8 @@ abstract writable/readable items into storage services.
 The interfaces declares anything that have a unique identifier.
 */
 type Thing interface {
-	// any kind of identifier for any kind of Thing
-	Identity() curie.IRI
+	HashKey() *curie.IRI
+	SortKey() *curie.IRI
 }
 
 /*
@@ -306,11 +306,11 @@ type StreamNoContext interface {
 NotFound is an error to handle unknown elements
 */
 type NotFound struct {
-	Key curie.IRI
+	HashKey, SortKey *curie.IRI
 }
 
 func (e NotFound) Error() string {
-	return fmt.Sprintf("Not Found %v", e.Key)
+	return fmt.Sprintf("Not Found (%v, %v)", e.HashKey, e.SortKey)
 }
 
 /*
@@ -319,9 +319,9 @@ PreConditionFailed is an error to handler aborted I/O on
 requests with conditional expressions
 */
 type PreConditionFailed struct {
-	Key curie.IRI
+	HashKey, SortKey *curie.IRI
 }
 
 func (e PreConditionFailed) Error() string {
-	return fmt.Sprintf("Pre Condition Failed %v", e.Key)
+	return fmt.Sprintf("Pre Condition Failed (%v, %v)", e.HashKey, e.SortKey)
 }

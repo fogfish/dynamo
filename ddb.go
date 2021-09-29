@@ -91,11 +91,12 @@ func (dynamo *ddb) Get(ctx context.Context, entity Thing) (err error) {
 	}
 
 	if val.Item == nil {
-		err = NotFound{entity.Identity()}
+		err = NotFound{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
 		return
 	}
 
-	return dynamo.unmarshalThing(val.Item, entity)
+	err = dynamo.unmarshalThing(val.Item, entity)
+	return
 }
 
 // Put writes entity
@@ -118,7 +119,7 @@ func (dynamo *ddb) Put(ctx context.Context, entity Thing, config ...Constrain) (
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{entity.Identity()}
+				return PreConditionFailed{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
 			}
 			return
 		default:
@@ -149,7 +150,7 @@ func (dynamo *ddb) Remove(ctx context.Context, entity Thing, config ...Constrain
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{entity.Identity()}
+				return PreConditionFailed{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
 			}
 			return
 		default:
@@ -227,7 +228,7 @@ func (dynamo *ddb) Update(ctx context.Context, entity Thing, config ...Constrain
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{entity.Identity()}
+				return PreConditionFailed{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
 			}
 			return
 		default:
@@ -235,7 +236,8 @@ func (dynamo *ddb) Update(ctx context.Context, entity Thing, config ...Constrain
 		}
 	}
 
-	return dynamo.unmarshalThing(val.Attributes, entity)
+	err = dynamo.unmarshalThing(val.Attributes, entity)
+	return
 }
 
 func (dynamo *ddb) unmarshalThing(gen map[string]*dynamodb.AttributeValue, entity Thing) error {
@@ -255,7 +257,7 @@ func (dynamo *ddb) unmarshalThing(gen map[string]*dynamodb.AttributeValue, entit
 
 // Match applies a pattern matching to elements in the table
 func (dynamo *ddb) Match(ctx context.Context, key Thing) Seq {
-	gen, err := pattern(dynamo.ddbConfig, key)
+	gen, err := marshal(dynamo.ddbConfig, key)
 	if err != nil {
 		return mkDbSeq(nil, nil, nil, err)
 	}
@@ -284,6 +286,7 @@ type dbGen struct {
 
 // ID lifts generic representation to its Identity
 func (gen *dbGen) ID() (*curie.IRI, error) {
+	// TODO: fix
 	prefix, isPrefix := gen.val[gen.ddb.pkPrefix]
 	suffix, isSuffix := gen.val[gen.ddb.skSuffix]
 	if !isPrefix || !isSuffix {
@@ -301,11 +304,12 @@ func (gen *dbGen) ID() (*curie.IRI, error) {
 
 // To lifts generic representation to Thing
 func (gen *dbGen) To(thing Thing) error {
-	item, err := unmarshal(gen.ddb.ddbConfig, gen.val)
-	if err != nil {
-		return err
-	}
-	return dynamodbattribute.UnmarshalMap(item, thing)
+	return gen.ddb.unmarshalThing(gen.val, thing)
+	// item, err := unmarshal(gen.ddb.ddbConfig, gen.val)
+	// if err != nil {
+	// 	return err
+	// }
+	// return dynamodbattribute.UnmarshalMap(item, thing)
 }
 
 // dbSlice active page
@@ -488,38 +492,16 @@ func marshal(cfg ddbConfig, entity Thing) (map[string]*dynamodb.AttributeValue, 
 		return nil, err
 	}
 
-	iri := curie.New(aws.StringValue(gen["id"].S))
-	pfx := curie.Prefix(iri)
-	sfx := curie.Suffix(iri)
-
-	gen[cfg.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(pfx)}
-	if sfx != "" {
-		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sfx)}
-	} else {
-		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
+	if val, exists := gen["__prefix"]; exists {
+		gen[cfg.pkPrefix] = val
+		delete(gen, "__prefix")
 	}
 
-	delete(gen, "id")
-	return gen, nil
-}
-
-//
-func pattern(cfg ddbConfig, key Thing) (map[string]*dynamodb.AttributeValue, error) {
-	gen, err := dynamodbattribute.MarshalMap(key)
-	if err != nil {
-		return nil, err
+	if val, exists := gen["__suffix"]; exists {
+		gen[cfg.skSuffix] = val
+		delete(gen, "__suffix")
 	}
 
-	iri := curie.New(aws.StringValue(gen["id"].S))
-	pfx := curie.Prefix(iri)
-	sfx := curie.Suffix(iri)
-
-	gen[cfg.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(pfx)}
-	if sfx != "" {
-		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sfx)}
-	}
-
-	delete(gen, "id")
 	return gen, nil
 }
 
@@ -531,14 +513,8 @@ func unmarshal(cfg ddbConfig, ddb map[string]*dynamodb.AttributeValue) (map[stri
 		return nil, errors.New("Invalid DDB schema")
 	}
 
-	iri := curie.New(aws.StringValue(prefix.S))
-	if aws.StringValue(suffix.S) != "_" {
-		iri = curie.Join(iri, aws.StringValue(suffix.S))
-	}
-	ddb["id"] = &dynamodb.AttributeValue{S: aws.String(iri.String())}
-
-	delete(ddb, cfg.pkPrefix)
-	delete(ddb, cfg.skSuffix)
+	ddb["__prefix"] = prefix
+	ddb["__suffix"] = suffix
 	return ddb, nil
 }
 

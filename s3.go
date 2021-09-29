@@ -9,7 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"reflect"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -50,18 +50,32 @@ func (dynamo *ds3) Mock(db s3iface.S3API) {
 //
 //-----------------------------------------------------------------------------
 
+func (dynamo *ds3) pathOf(entity Thing) string {
+	hkey := entity.HashKey()
+	if hkey == nil {
+		return ""
+	}
+
+	skey := entity.SortKey()
+	if skey == nil {
+		return curie.Path(*hkey)
+	}
+
+	return filepath.Join(curie.Path(*hkey), curie.Path(*skey))
+}
+
 // Get fetches the entity identified by the key.
 func (dynamo *ds3) Get(ctx context.Context, entity Thing) (err error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 	}
 	val, err := dynamo.db.GetObjectWithContext(ctx, req)
 	if err != nil {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == s3.ErrCodeNoSuchKey {
-				return NotFound{entity.Identity()}
+				return NotFound{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
 			}
 			return err
 		default:
@@ -82,7 +96,7 @@ func (dynamo *ds3) Put(ctx context.Context, entity Thing, _ ...Constrain) (err e
 
 	req := &s3.PutObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 		Body:   aws.ReadSeekCloser(bytes.NewReader(gen)),
 	}
 
@@ -94,7 +108,7 @@ func (dynamo *ds3) Put(ctx context.Context, entity Thing, _ ...Constrain) (err e
 func (dynamo *ds3) Remove(ctx context.Context, entity Thing, _ ...Constrain) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 	}
 
 	_, err = dynamo.db.DeleteObjectWithContext(ctx, req)
@@ -107,26 +121,27 @@ func (z tGen) Identity() curie.IRI { return z["id"].(curie.IRI) }
 
 // Update applies a partial patch to entity and returns new values
 func (dynamo *ds3) Update(ctx context.Context, entity Thing, _ ...Constrain) (err error) {
-	gen := tGen{"id": entity.Identity()}
-	dynamo.Get(ctx, &gen)
+	// TODO
+	// gen := tGen{"id": entity.Identity()}
+	// dynamo.Get(ctx, &gen)
 
-	var par tGen
-	parbin, _ := json.Marshal(entity)
-	json.Unmarshal(parbin, &par)
+	// var par tGen
+	// parbin, _ := json.Marshal(entity)
+	// json.Unmarshal(parbin, &par)
 
-	for keyA, valA := range par {
-		if !reflect.ValueOf(valA).IsZero() {
-			gen[keyA] = valA
-		}
-	}
-	genbin, _ := json.Marshal(gen)
+	// for keyA, valA := range par {
+	// 	if !reflect.ValueOf(valA).IsZero() {
+	// 		gen[keyA] = valA
+	// 	}
+	// }
+	// genbin, _ := json.Marshal(gen)
 
-	err = json.Unmarshal(genbin, &entity)
-	if err != nil {
-		return
-	}
+	// err = json.Unmarshal(genbin, &entity)
+	// if err != nil {
+	// 	return
+	// }
 
-	err = dynamo.Put(ctx, entity)
+	// err = dynamo.Put(ctx, entity)
 	return
 }
 
@@ -141,7 +156,7 @@ func (dynamo *ds3) Match(ctx context.Context, key Thing) Seq {
 	req := &s3.ListObjectsV2Input{
 		Bucket:  dynamo.bucket,
 		MaxKeys: aws.Int64(1000),
-		Prefix:  aws.String(curie.Path(key.Identity())),
+		Prefix:  aws.String(dynamo.pathOf(key)),
 	}
 
 	return mkS3Seq(ctx, dynamo, req, nil)
@@ -156,6 +171,7 @@ type s3Gen struct {
 
 // ID lifts generic representation to its Identity
 func (gen s3Gen) ID() (*curie.IRI, error) {
+	// TODO:
 	if gen.key == nil {
 		return nil, errors.New("End Of Stream")
 	}
@@ -329,7 +345,7 @@ func (seq *s3Seq) Reverse() Seq {
 func (dynamo *ds3) SourceURL(ctx context.Context, entity Thing, expire time.Duration) (string, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 	}
 
 	item, _ := dynamo.db.GetObjectRequest(req)
@@ -379,7 +395,7 @@ func (dynamo *ds3) Write(ctx context.Context, entity ThingStream, opts ...Conten
 
 	req := &s3manager.UploadInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 		Body:   body,
 	}
 
