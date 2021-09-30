@@ -18,12 +18,12 @@ type MyType struct {
 
 func (x MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct MyType
-	return dynamo.Encode(av, &x.HKey, &x.SKey, tStruct(x))
+	return dynamo.Encode(av, dynamo.IRI(x.HKey), dynamo.IRI(x.SKey), tStruct(x))
 }
 
 func (x *MyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *MyType
-	return dynamo.Decode(av, &x.HKey, &x.SKey, tStruct(x))
+	return dynamo.Decode(av, (*dynamo.IRI)(&x.HKey), (*dynamo.IRI)(&x.SKey), tStruct(x))
 }
 
 func TestEncodeDecode(t *testing.T) {

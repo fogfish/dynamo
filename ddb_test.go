@@ -291,7 +291,7 @@ func mockGetItem(returnVal map[string]*dynamodb.AttributeValue) dynamo.KeyValNoC
 func (mock *ddbGetItem) GetItemWithContext(ctx aws.Context, input *dynamodb.GetItemInput, opts ...request.Option) (*dynamodb.GetItemOutput, error) {
 	expect := map[string]*dynamodb.AttributeValue{
 		"prefix": {S: aws.String("dead:beef")},
-		"suffix": {S: aws.String("_")},
+		"suffix": {S: aws.String("1")},
 	}
 
 	if !reflect.DeepEqual(expect, input.Key) {
@@ -364,7 +364,7 @@ func (mock *ddbUpdateItem) UpdateItemWithContext(ctx aws.Context, input *dynamod
 			"prefix":  {S: aws.String("dead:beef")},
 			"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 			"name":    {S: aws.String("Verner Pleishner")},
-			"suffix":  {S: aws.String("_")},
+			"suffix":  {S: aws.String("1")},
 			"age":     {N: aws.String("64")},
 		},
 	}, nil
@@ -393,7 +393,7 @@ func (mock *ddbQuery) QueryWithContext(ctx aws.Context, input *dynamodb.QueryInp
 			"prefix":  {S: aws.String("dead:beef")},
 			"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
 			"name":    {S: aws.String("Verner Pleishner")},
-			"suffix":  {S: aws.String("_")},
+			"suffix":  {S: aws.String("1")},
 			"age":     {N: aws.String("64")},
 		})
 	}

@@ -53,7 +53,7 @@ func (dynamo *ds3) pathOf(entity Thing) string {
 	if skey == "" {
 		return hkey
 	}
-	return hkey + "*/" + skey
+	return hkey + "/_/" + skey
 }
 
 // Get fetches the entity identified by the key.
@@ -170,7 +170,7 @@ func (gen s3Gen) ID() (string, string) {
 		return "", ""
 	}
 
-	seq := strings.Split(*gen.key, "*/")
+	seq := strings.Split(*gen.key, "/_/")
 	if len(seq) == 1 {
 		return seq[0], ""
 	}
@@ -294,7 +294,7 @@ func (seq *s3Seq) Tail() bool {
 // Cursor is the global position in the sequence
 func (seq *s3Seq) Cursor() (string, string) {
 	if seq.q.StartAfter != nil {
-		seq := strings.Split(*seq.q.StartAfter, "*/")
+		seq := strings.Split(*seq.q.StartAfter, "/_/")
 		if len(seq) == 1 {
 			return seq[0], ""
 		}
@@ -321,7 +321,7 @@ func (seq *s3Seq) Continue(prefix, suffix string) Seq {
 		if suffix == "" {
 			seq.q.StartAfter = aws.String(prefix)
 		} else {
-			seq.q.StartAfter = aws.String(prefix + "*/" + suffix)
+			seq.q.StartAfter = aws.String(prefix + "/_/" + suffix)
 		}
 	}
 	return seq
