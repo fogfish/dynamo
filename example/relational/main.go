@@ -165,12 +165,11 @@ func lookupByAuthor(db dynamo.KeyValNoContext, author string) error {
 
 //
 func articlesOfJohnVonNeumann(db dynamo.KeyValNoContext) error {
-	err := registerAuthor(db, "neumann", "John von Neumann")
-	if err != nil {
+	if err := registerAuthor(db, "neumann", "John von Neumann"); err != nil {
 		return err
 	}
 
-	err = publishArticle(db, "neumann",
+	err := publishArticle(db, "neumann",
 		"theory_of_set",
 		"An axiomatization of set theory",
 		[]string{"theory", "math"},
@@ -193,12 +192,11 @@ func articlesOfJohnVonNeumann(db dynamo.KeyValNoContext) error {
 
 //
 func articlesOfLeonardKleinrock(db dynamo.KeyValNoContext) error {
-	err := registerAuthor(db, "kleinrock", "Leonard Kleinrock")
-	if err != nil {
+	if err := registerAuthor(db, "kleinrock", "Leonard Kleinrock"); err != nil {
 		return err
 	}
 
-	err = publishArticle(db, "kleinrock",
+	err := publishArticle(db, "kleinrock",
 		"queueing_sys_vol1",
 		"Queueing Systems: Volume I – Theory",
 		[]string{"queue", "theory"},
