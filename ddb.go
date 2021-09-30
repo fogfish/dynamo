@@ -91,7 +91,8 @@ func (dynamo *ddb) Get(ctx context.Context, entity Thing) (err error) {
 	}
 
 	if val.Item == nil {
-		err = NotFound{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
+		hkey, skey := entity.Identity()
+		err = NotFound{HashKey: hkey, SortKey: skey}
 		return
 	}
 
@@ -119,7 +120,8 @@ func (dynamo *ddb) Put(ctx context.Context, entity Thing, config ...Constrain) (
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
+				hkey, skey := entity.Identity()
+				err = PreConditionFailed{HashKey: hkey, SortKey: skey}
 			}
 			return
 		default:
@@ -150,7 +152,8 @@ func (dynamo *ddb) Remove(ctx context.Context, entity Thing, config ...Constrain
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
+				hkey, skey := entity.Identity()
+				err = PreConditionFailed{HashKey: hkey, SortKey: skey}
 			}
 			return
 		default:
@@ -228,7 +231,8 @@ func (dynamo *ddb) Update(ctx context.Context, entity Thing, config ...Constrain
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return PreConditionFailed{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
+				hkey, skey := entity.Identity()
+				err = PreConditionFailed{HashKey: hkey, SortKey: skey}
 			}
 			return
 		default:
@@ -286,7 +290,7 @@ type dbGen struct {
 
 // ID lifts generic representation to its Identity
 func (gen *dbGen) ID() (*curie.IRI, error) {
-	// TODO: fix
+	// TODO: why do we need this function?
 	prefix, isPrefix := gen.val[gen.ddb.pkPrefix]
 	suffix, isSuffix := gen.val[gen.ddb.skSuffix]
 	if !isPrefix || !isSuffix {
@@ -305,11 +309,6 @@ func (gen *dbGen) ID() (*curie.IRI, error) {
 // To lifts generic representation to Thing
 func (gen *dbGen) To(thing Thing) error {
 	return gen.ddb.unmarshalThing(gen.val, thing)
-	// item, err := unmarshal(gen.ddb.ddbConfig, gen.val)
-	// if err != nil {
-	// 	return err
-	// }
-	// return dynamodbattribute.UnmarshalMap(item, thing)
 }
 
 // dbSlice active page

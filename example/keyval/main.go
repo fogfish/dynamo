@@ -20,29 +20,26 @@ import (
 //
 // Person type demonstrates composition of core type with db one
 type Person struct {
-	HKey    curie.IRI `dynamodbav:"-"`
-	SKey    curie.IRI `dynamodbav:"-"`
+	HKey    curie.IRI `dynamodbav:"prefix,omitempty"`
+	SKey    curie.IRI `dynamodbav:"suffix,omitempty"`
 	Name    string    `dynamodbav:"name,omitempty"`
 	Age     int       `dynamodbav:"age,omitempty"`
 	Address string    `dynamodbav:"address,omitempty"`
 }
 
 //
-func (p Person) HashKey() *curie.IRI { return &p.HKey }
-
-//
-func (p Person) SortKey() *curie.IRI { return &p.SKey }
+func (p Person) Identity() (string, string) { return p.HKey.String(), p.SKey.String() }
 
 //
 func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct Person
-	return dynamo.Encode(av, &p.HKey, &p.SKey, tStruct(p))
+	return dynamo.Encode(av, dynamo.IRI(p.HKey), dynamo.IRI(p.SKey), tStruct(p))
 }
 
 //
 func (p *Person) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *Person
-	return dynamo.Decode(av, &p.HKey, &p.SKey, tStruct(p))
+	return dynamo.Decode(av, (*dynamo.IRI)(&p.HKey), (*dynamo.IRI)(&p.SKey), tStruct(p))
 }
 
 //

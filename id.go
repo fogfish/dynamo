@@ -93,7 +93,7 @@ The helper ensures compact URI serialization into DynamoDB schema.
     return dynamo.Encode(av, &x.HashKey, &x.SortKey, tStruct(x))
   }
 */
-func Encode(av *dynamodb.AttributeValue, hashkey *curie.IRI, sortkey *curie.IRI, val interface{}) error {
+func Encode(av *dynamodb.AttributeValue, hashkey, sortkey, val interface{}) error {
 	gen, err := dynamodbattribute.Marshal(val)
 	if err != nil {
 		return err
@@ -103,20 +103,24 @@ func Encode(av *dynamodb.AttributeValue, hashkey *curie.IRI, sortkey *curie.IRI,
 		gen.M = make(map[string]*dynamodb.AttributeValue)
 	}
 
-	if hashkey != nil && curie.Rank(*hashkey) != 0 {
-		hkey, err := dynamodbattribute.Marshal(IRI(*hashkey))
+	if hashkey != nil {
+		hkey, err := dynamodbattribute.Marshal(hashkey)
 		if err != nil {
 			return err
 		}
-		gen.M["__prefix"] = hkey
+		if hkey.S != nil {
+			gen.M["__prefix"] = hkey
+		}
 	}
 
-	if sortkey != nil && curie.Rank(*sortkey) != 0 {
-		skey, err := dynamodbattribute.Marshal(IRI(*sortkey))
+	if sortkey != nil {
+		skey, err := dynamodbattribute.Marshal(sortkey)
 		if err != nil {
 			return err
 		}
-		gen.M["__suffix"] = skey
+		if skey.S != nil {
+			gen.M["__suffix"] = skey
+		}
 	}
 
 	*av = *gen
@@ -133,21 +137,19 @@ The helper ensures compact URI de-serialization from DynamoDB schema.
     return dynamo.Decode(av, &x.HashKey, &x.SortKey, tStruct(x))
   }
 */
-func Decode(av *dynamodb.AttributeValue, hashkey *curie.IRI, sortkey *curie.IRI, val interface{}) error {
+func Decode(av *dynamodb.AttributeValue, hashkey, sortkey, val interface{}) error {
 	dynamodbattribute.Unmarshal(av, val)
 
-	hkey, exists := av.M["__prefix"]
-	if exists {
-		var iri IRI
-		dynamodbattribute.Unmarshal(hkey, &iri)
-		*hashkey = curie.IRI(iri)
+	if hkey, exists := av.M["__prefix"]; exists {
+		if err := dynamodbattribute.Unmarshal(hkey, hashkey); err != nil {
+			return err
+		}
 	}
 
-	skey, exists := av.M["__suffix"]
-	if exists {
-		var iri IRI
-		dynamodbattribute.Unmarshal(skey, &iri)
-		*sortkey = curie.IRI(iri)
+	if skey, exists := av.M["__suffix"]; exists {
+		if err := dynamodbattribute.Unmarshal(skey, sortkey); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -164,10 +166,10 @@ manageable by dynamo interfaces
     dynamo.ID
   }
 */
-type ID struct {
-	Prefix IRI `dynamodbav:"prefix" json:"-"`
-	Suffix IRI `dynamodbav:"suffix" json:"-"`
-}
+// type ID struct {
+// 	Prefix IRI `dynamodbav:"prefix" json:"-"`
+// 	Suffix IRI `dynamodbav:"suffix" json:"-"`
+// }
 
 /*
 
@@ -182,18 +184,18 @@ NewID transform category of curie.IRI to dynamo.ID.
 HashKey makes type compliant to Thing interface
 so that embedding ID makes any struct to be Thing.
 */
-func (id ID) HashKey() *curie.IRI {
-	return (*curie.IRI)(&id.Prefix)
-}
+// func (id ID) HashKey() *curie.IRI {
+// 	return (*curie.IRI)(&id.Prefix)
+// }
 
 /*
 
 SortKey makes type compliant to Thing interface
 so that embedding ID makes any struct to be Thing.
 */
-func (id ID) SortKey() *curie.IRI {
-	return (*curie.IRI)(&id.Suffix)
-}
+// func (id ID) SortKey() *curie.IRI {
+// 	return (*curie.IRI)(&id.Suffix)
+// }
 
 /*
 

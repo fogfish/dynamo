@@ -9,7 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -51,17 +51,11 @@ func (dynamo *ds3) Mock(db s3iface.S3API) {
 //-----------------------------------------------------------------------------
 
 func (dynamo *ds3) pathOf(entity Thing) string {
-	hkey := entity.HashKey()
-	if hkey == nil {
-		return ""
+	hkey, skey := entity.Identity()
+	if skey == "" {
+		return hkey
 	}
-
-	skey := entity.SortKey()
-	if skey == nil {
-		return curie.Path(*hkey)
-	}
-
-	return filepath.Join(curie.Path(*hkey), curie.Path(*skey))
+	return hkey + "/" + skey
 }
 
 // Get fetches the entity identified by the key.
@@ -75,11 +69,12 @@ func (dynamo *ds3) Get(ctx context.Context, entity Thing) (err error) {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == s3.ErrCodeNoSuchKey {
-				return NotFound{HashKey: entity.HashKey(), SortKey: entity.SortKey()}
+				hkey, skey := entity.Identity()
+				err = NotFound{HashKey: hkey, SortKey: skey}
 			}
-			return err
+			return
 		default:
-			return err
+			return
 		}
 	}
 
@@ -117,31 +112,33 @@ func (dynamo *ds3) Remove(ctx context.Context, entity Thing, _ ...Constrain) (er
 
 type tGen map[string]interface{}
 
-func (z tGen) Identity() curie.IRI { return z["id"].(curie.IRI) }
-
 // Update applies a partial patch to entity and returns new values
 func (dynamo *ds3) Update(ctx context.Context, entity Thing, _ ...Constrain) (err error) {
-	// TODO
-	// gen := tGen{"id": entity.Identity()}
-	// dynamo.Get(ctx, &gen)
+	var gen, par tGen
 
-	// var par tGen
-	// parbin, _ := json.Marshal(entity)
-	// json.Unmarshal(parbin, &par)
+	req := &s3.GetObjectInput{
+		Bucket: dynamo.bucket,
+		Key:    aws.String(dynamo.pathOf(entity)),
+	}
+	val, err := dynamo.db.GetObjectWithContext(ctx, req)
+	err = json.NewDecoder(val.Body).Decode(&gen)
 
-	// for keyA, valA := range par {
-	// 	if !reflect.ValueOf(valA).IsZero() {
-	// 		gen[keyA] = valA
-	// 	}
-	// }
-	// genbin, _ := json.Marshal(gen)
+	parbin, _ := json.Marshal(entity)
+	json.Unmarshal(parbin, &par)
 
-	// err = json.Unmarshal(genbin, &entity)
-	// if err != nil {
-	// 	return
-	// }
+	for keyA, valA := range par {
+		if !reflect.ValueOf(valA).IsZero() {
+			gen[keyA] = valA
+		}
+	}
+	genbin, _ := json.Marshal(gen)
 
-	// err = dynamo.Put(ctx, entity)
+	err = json.Unmarshal(genbin, &entity)
+	if err != nil {
+		return
+	}
+
+	err = dynamo.Put(ctx, entity)
 	return
 }
 
