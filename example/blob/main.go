@@ -11,12 +11,18 @@ import (
 	"github.com/fogfish/dynamo"
 )
 
+type id struct{ prefix, suffix string }
+
+func (id id) Identity() (string, string) {
+	return id.prefix, id.suffix
+}
+
 func main() {
 	db := dynamo.NewStreamContextDefault(
 		dynamo.MustStream(dynamo.NewStream(os.Args[1])),
 	)
 
-	in, err := db.Read(dynamo.NewfID(os.Args[2]))
+	in, err := db.Read(id{os.Args[2], os.Args[3]})
 	if err != nil {
 		panic(err)
 	}
