@@ -24,7 +24,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/fogfish/curie"
 )
 
 // ddbConfig of DynamoDB
@@ -289,21 +288,18 @@ type dbGen struct {
 }
 
 // ID lifts generic representation to its Identity
-func (gen *dbGen) ID() (*curie.IRI, error) {
-	// TODO: why do we need this function?
+func (gen *dbGen) ID() (hkey string, skey string) {
 	prefix, isPrefix := gen.val[gen.ddb.pkPrefix]
+	if isPrefix && prefix.S != nil {
+		hkey = aws.StringValue(prefix.S)
+	}
+
 	suffix, isSuffix := gen.val[gen.ddb.skSuffix]
-	if !isPrefix || !isSuffix {
-		return nil, errors.New("Invalid DDB schema")
+	if isSuffix && suffix.S != nil {
+		skey = aws.StringValue(suffix.S)
 	}
 
-	iri := curie.New(aws.StringValue(prefix.S))
-	if aws.StringValue(suffix.S) != "_" {
-		seq := strings.Split(aws.StringValue(suffix.S), "/")
-		iri = curie.Join(iri, seq...)
-	}
-
-	return &iri, nil
+	return
 }
 
 // To lifts generic representation to Thing
@@ -425,18 +421,26 @@ func (seq *dbSeq) Tail() bool {
 	}
 }
 
+type ddbCursor struct{ hkey, skey string }
+
+func (c ddbCursor) Identity() (string, string) { return c.hkey, c.skey }
+
 // Cursor is the global position in the sequence
-func (seq *dbSeq) Cursor() *curie.IRI {
+func (seq *dbSeq) Cursor() Thing {
 	if seq.q.ExclusiveStartKey != nil {
+		cur := ddbCursor{}
 		val := seq.q.ExclusiveStartKey
-		prefix, _ := val[seq.ddb.pkPrefix]
-		suffix, _ := val[seq.ddb.skSuffix]
-		iri := curie.New(aws.StringValue(prefix.S))
-		if aws.StringValue(suffix.S) != "_" {
-			iri = curie.Join(iri, aws.StringValue(suffix.S))
+		prefix, isPrefix := val[seq.ddb.pkPrefix]
+		if isPrefix && prefix.S != nil {
+			cur.hkey = aws.StringValue(prefix.S)
 		}
 
-		return &iri
+		suffix, isSuffix := val[seq.ddb.skSuffix]
+		if isSuffix && suffix.S != nil {
+			cur.skey = aws.StringValue(suffix.S)
+		}
+
+		return &cur
 	}
 
 	return nil
@@ -455,11 +459,10 @@ func (seq *dbSeq) Limit(n int64) Seq {
 }
 
 // Continue limited sequence from the cursor
-func (seq *dbSeq) Continue(cursor *curie.IRI) Seq {
+func (seq *dbSeq) Continue(cursor Thing) Seq {
 	if cursor != nil {
 		key := map[string]*dynamodb.AttributeValue{}
-		pfx := curie.Prefix(*cursor)
-		sfx := curie.Suffix(*cursor)
+		pfx, sfx := cursor.Identity()
 
 		key[seq.ddb.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(pfx)}
 		if sfx != "" {

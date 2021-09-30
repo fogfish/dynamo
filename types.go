@@ -17,8 +17,6 @@ import (
 	"fmt"
 	"io"
 	"time"
-
-	"github.com/fogfish/curie"
 )
 
 //-----------------------------------------------------------------------------
@@ -54,7 +52,7 @@ Gen is a generic representation of Thing at the storage
 */
 type Gen interface {
 	// return unique id of Thing
-	ID() (*curie.IRI, error)
+	ID() (string, string)
 	// To decodes generic representation to structure
 	To(Thing) error
 }
@@ -77,7 +75,7 @@ type SeqLazy interface {
 	// Error returns error of stream evaluation
 	Error() error
 	// Cursor is the global position in the sequence
-	Cursor() *curie.IRI
+	Cursor() Thing
 }
 
 /*
@@ -88,7 +86,7 @@ type SeqConfig interface {
 	// Limit sequence size to N elements (pagination)
 	Limit(int64) Seq
 	// Continue limited sequence from the cursor
-	Continue(cursor *curie.IRI) Seq
+	Continue(cursor Thing) Seq
 	// Reverse order of sequence
 	Reverse() Seq
 }
