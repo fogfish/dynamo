@@ -29,15 +29,15 @@ var fixtureEmptyItem Item = Item{
 	Prefix: dynamo.NewIRI("foo:prefix"),
 	Suffix: dynamo.NewIRI("suffix"),
 }
-var fixtureJson string = "{\"@id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
+var fixtureJson string = "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
 
-// var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI(curie.New("foo:a/suffix"))}
-var fixtureEmptyJson string = "{\"@id\":\"[foo:prefix/suffix]\"}"
+var fixtureEmptyJson string = "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\"}"
 
 var fixtureDdb map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{
-	"id":  {S: aws.String("foo:prefix/suffix")},
-	"ref": {S: aws.String("foo:a/suffix")},
-	"tag": {S: aws.String("tag")},
+	"prefix": {S: aws.String("foo:prefix")},
+	"suffix": {S: aws.String("suffix")},
+	"ref":    {S: aws.String("[foo:a/suffix]")},
+	"tag":    {S: aws.String("tag")},
 }
 
 func TestMarshalJSON(t *testing.T) {
