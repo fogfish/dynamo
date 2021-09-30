@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,7 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/fogfish/curie"
 )
 
 // ds3 is a S3 client
@@ -55,7 +53,7 @@ func (dynamo *ds3) pathOf(entity Thing) string {
 	if skey == "" {
 		return hkey
 	}
-	return hkey + "/" + skey
+	return hkey + "*/" + skey
 }
 
 // Get fetches the entity identified by the key.
@@ -167,22 +165,17 @@ type s3Gen struct {
 }
 
 // ID lifts generic representation to its Identity
-func (gen s3Gen) ID() (*curie.IRI, error) {
-	// TODO:
+func (gen s3Gen) ID() (string, string) {
 	if gen.key == nil {
-		return nil, errors.New("End Of Stream")
+		return "", ""
 	}
 
-	var id curie.IRI
-	seq := strings.SplitN(*gen.key, "/", 2)
-	switch {
-	case len(seq) == 2:
-		id = curie.New(strings.Join(seq, ":"))
-	default:
-		id = curie.New(*gen.key)
+	seq := strings.Split(*gen.key, "*/")
+	if len(seq) == 1 {
+		return seq[0], ""
 	}
 
-	return &id, nil
+	return seq[0], seq[1]
 }
 
 // Lifts generic representation to Thing
@@ -299,12 +292,15 @@ func (seq *s3Seq) Tail() bool {
 }
 
 // Cursor is the global position in the sequence
-func (seq *s3Seq) Cursor() *curie.IRI {
+func (seq *s3Seq) Cursor() (string, string) {
 	if seq.q.StartAfter != nil {
-		iri := curie.New(aws.StringValue(seq.q.StartAfter))
-		return &iri
+		seq := strings.Split(*seq.q.StartAfter, "*/")
+		if len(seq) == 1 {
+			return seq[0], ""
+		}
+		return seq[0], seq[1]
 	}
-	return nil
+	return "", ""
 }
 
 // Error indicates if any error appears during I/O
@@ -320,9 +316,13 @@ func (seq *s3Seq) Limit(n int64) Seq {
 }
 
 // Continue limited sequence from the cursor
-func (seq *s3Seq) Continue(cursor *curie.IRI) Seq {
-	if cursor != nil {
-		seq.q.StartAfter = aws.String(curie.Path(*cursor))
+func (seq *s3Seq) Continue(prefix, suffix string) Seq {
+	if prefix != "" {
+		if suffix == "" {
+			seq.q.StartAfter = aws.String(prefix)
+		} else {
+			seq.q.StartAfter = aws.String(prefix + "*/" + suffix)
+		}
 	}
 	return seq
 }

@@ -31,6 +31,7 @@ Thing is the most generic item type used by the library to
 abstract writable/readable items into storage services.
 
 The interfaces declares anything that have a unique identifier.
+The unique identity is exposed by pair of string: prefix and suffix.
 */
 type Thing interface {
 	Identity() (string, string)
@@ -75,7 +76,7 @@ type SeqLazy interface {
 	// Error returns error of stream evaluation
 	Error() error
 	// Cursor is the global position in the sequence
-	Cursor() Thing
+	Cursor() (string, string)
 }
 
 /*
@@ -86,7 +87,7 @@ type SeqConfig interface {
 	// Limit sequence size to N elements (pagination)
 	Limit(int64) Seq
 	// Continue limited sequence from the cursor
-	Continue(cursor Thing) Seq
+	Continue(string, string) Seq
 	// Reverse order of sequence
 	Reverse() Seq
 }

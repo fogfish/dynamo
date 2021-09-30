@@ -421,29 +421,25 @@ func (seq *dbSeq) Tail() bool {
 	}
 }
 
-type ddbCursor struct{ hkey, skey string }
-
-func (c ddbCursor) Identity() (string, string) { return c.hkey, c.skey }
-
 // Cursor is the global position in the sequence
-func (seq *dbSeq) Cursor() Thing {
+func (seq *dbSeq) Cursor() (string, string) {
 	if seq.q.ExclusiveStartKey != nil {
-		cur := ddbCursor{}
+		var hkey, skey string
 		val := seq.q.ExclusiveStartKey
 		prefix, isPrefix := val[seq.ddb.pkPrefix]
 		if isPrefix && prefix.S != nil {
-			cur.hkey = aws.StringValue(prefix.S)
+			hkey = aws.StringValue(prefix.S)
 		}
 
 		suffix, isSuffix := val[seq.ddb.skSuffix]
 		if isSuffix && suffix.S != nil {
-			cur.skey = aws.StringValue(suffix.S)
+			skey = aws.StringValue(suffix.S)
 		}
 
-		return &cur
+		return hkey, skey
 	}
 
-	return nil
+	return "", ""
 }
 
 // Error indicates if any error appears during I/O
@@ -459,16 +455,13 @@ func (seq *dbSeq) Limit(n int64) Seq {
 }
 
 // Continue limited sequence from the cursor
-func (seq *dbSeq) Continue(cursor Thing) Seq {
-	if cursor != nil {
+func (seq *dbSeq) Continue(prefix, suffix string) Seq {
+	if prefix != "" {
 		key := map[string]*dynamodb.AttributeValue{}
-		pfx, sfx := cursor.Identity()
 
-		key[seq.ddb.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(pfx)}
-		if sfx != "" {
-			key[seq.ddb.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sfx)}
-		} else {
-			key[seq.ddb.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
+		key[seq.ddb.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(prefix)}
+		if suffix != "" {
+			key[seq.ddb.skSuffix] = &dynamodb.AttributeValue{S: aws.String(suffix)}
 		}
 		seq.q.ExclusiveStartKey = key
 	}

@@ -13,23 +13,25 @@ import (
 )
 
 type Item struct {
-	dynamo.ID
-	Ref *dynamo.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
-	Tag string      `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
+	Prefix dynamo.IRI    `json:"prefix,omitempty"  dynamodbav:"prefix,omitempty"`
+	Suffix dynamo.IRI    `json:"suffix,omitempty"  dynamodbav:"suffix,omitempty"`
+	Ref    *curie.String `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag    string        `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
 }
 
-var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI(curie.New("foo:a/suffix"))}
-
 var fixtureItem Item = Item{
-	ID:  dynamo.NewfID("foo:prefix/suffix"),
-	Ref: dynamo.NewfID("foo:a/suffix").Unwrap(),
-	Tag: "tag",
+	Prefix: dynamo.NewIRI("foo:prefix"),
+	Suffix: dynamo.NewIRI("suffix"),
+	Ref:    curie.Safe(curie.IRI(dynamo.NewIRI("foo:a/suffix"))),
+	Tag:    "tag",
+}
+var fixtureEmptyItem Item = Item{
+	Prefix: dynamo.NewIRI("foo:prefix"),
+	Suffix: dynamo.NewIRI("suffix"),
 }
 var fixtureJson string = "{\"@id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
 
-var fixtureEmptyItem Item = Item{
-	ID: dynamo.NewfID("foo:prefix/suffix"),
-}
+// var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI(curie.New("foo:a/suffix"))}
 var fixtureEmptyJson string = "{\"@id\":\"[foo:prefix/suffix]\"}"
 
 var fixtureDdb map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{
@@ -106,6 +108,7 @@ func TestStream(t *testing.T) {
 		}).Should().Fail()
 }
 
+/*
 func TestIDs(t *testing.T) {
 	expect := curie.New("a:b/c")
 	a := dynamo.NewfID("a:b/c")
@@ -115,3 +118,4 @@ func TestIDs(t *testing.T) {
 		If(a.Identity()).Should().Equal(expect).
 		If(b.Identity()).Should().Equal(expect)
 }
+*/
