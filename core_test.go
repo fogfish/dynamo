@@ -107,15 +107,3 @@ func TestStream(t *testing.T) {
 			dynamo.MustStream(dynamo.NewStream("ddb:///a"))
 		}).Should().Fail()
 }
-
-/*
-func TestIDs(t *testing.T) {
-	expect := curie.New("a:b/c")
-	a := dynamo.NewfID("a:b/c")
-	b := dynamo.NewID(curie.New("a:b/c"))
-
-	it.Ok(t).
-		If(a.Identity()).Should().Equal(expect).
-		If(b.Identity()).Should().Equal(expect)
-}
-*/
