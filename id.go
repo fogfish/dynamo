@@ -207,9 +207,9 @@ Ref return reference to dynamo.IRI
 
 /*
 
-IDs sequence of Identities
+Identities sequence of Identities
 */
-// type IDs []ID
+type Identities [][]string
 
 /*
 
@@ -217,12 +217,9 @@ Join lifts sequence of matched objects to seq of IDs
 	seq := dynamo.IDs{}
 	dynamo.Match(...).FMap(seq.Join)
 */
-// func (seq *IDs) Join(gen Gen) error {
-// 	iri, err := gen.ID()
-// 	if err != nil {
-// 		return err
-// 	}
+func (seq *Identities) Join(gen Gen) error {
+	prefix, suffix := gen.ID()
 
-// 	*seq = append(*seq, NewID(*iri))
-// 	return nil
-// }
+	*seq = append(*seq, []string{prefix, suffix})
+	return nil
+}

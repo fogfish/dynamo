@@ -189,18 +189,17 @@ func TestS3FMapPrefixAndSuffix(t *testing.T) {
 		If(seq).Should().Equal(persons{thing, thing})
 }
 
-/*
 func TestS3FMapIDs(t *testing.T) {
-	seq := dynamo.IDs{}
-	api, _ := mockGetListObjects("dead/beef", 2)
-	thing := entity().ID
+	seq := dynamo.Identities{}
+	api, _ := mockGetListObjects("dead:beef", 2)
+	prefix, _ := entity().Identity()
+	thing := []string{prefix, ""}
 
-	err := api.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
+	err := api.Match(person{Prefix: dynamo.NewIRI("dead:beef")}).FMap(seq.Join)
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(seq).Should().Equal(dynamo.IDs{thing, thing})
+		If(seq).Should().Equal(dynamo.Identities{thing, thing})
 }
-*/
 
 func TestStreamSendContent(t *testing.T) {
 	req := &s3manager.UploadInput{}
@@ -341,6 +340,8 @@ func (mock *s3GetListObjects) GetObjectWithContext(ctx aws.Context, input *s3.Ge
 func (mock *s3GetListObjects) ListObjectsV2WithContext(aws.Context, *s3.ListObjectsV2Input, ...request.Option) (*s3.ListObjectsV2Output, error) {
 	seq := []*s3.Object{}
 	for i := 0; i < mock.returnLen; i++ {
+		// prefix, suffix := entity().Identity()
+		// aws.String(prefix + "/_/" + suffix)
 		seq = append(seq, &s3.Object{Key: aws.String(mock.expectKey)})
 	}
 

@@ -22,14 +22,13 @@ fmt.Sprintf("author:%s", "neumann")
   ⟿ author:neumann
 */
 type Author struct {
-	ID      string `dynamodbav:"prefix,omitempty"`
-	SortKey string `dynamodbav:"suffix,omitempty"`
-	Name    string `dynamodbav:"name,omitempty" json:"name,omitempty"`
+	ID   string `dynamodbav:"prefix,omitempty"`
+	Name string `dynamodbav:"name,omitempty" json:"name,omitempty"`
 }
 
 // Identity implements Thing interface
 func (author Author) Identity() (string, string) {
-	return author.ID, author.SortKey
+	return author.ID, "_"
 }
 
 /*
@@ -38,9 +37,8 @@ NewAuthor creates instance of author
 */
 func NewAuthor(id, name string) Author {
 	return Author{
-		ID:      fmt.Sprintf("author:%s", id),
-		SortKey: "_",
-		Name:    name,
+		ID:   fmt.Sprintf("author:%s", id),
+		Name: name,
 	}
 }
 

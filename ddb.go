@@ -260,7 +260,7 @@ func (dynamo *ddb) unmarshalThing(gen map[string]*dynamodb.AttributeValue, entit
 
 // Match applies a pattern matching to elements in the table
 func (dynamo *ddb) Match(ctx context.Context, key Thing) Seq {
-	gen, err := marshal(dynamo.ddbConfig, key)
+	gen, err := marshalEntity(dynamo.ddbConfig, key)
 	if err != nil {
 		return mkDbSeq(nil, nil, nil, err)
 	}
@@ -462,6 +462,8 @@ func (seq *dbSeq) Continue(prefix, suffix string) Seq {
 		key[seq.ddb.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(prefix)}
 		if suffix != "" {
 			key[seq.ddb.skSuffix] = &dynamodb.AttributeValue{S: aws.String(suffix)}
+		} else {
+			key[seq.ddb.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
 		}
 		seq.q.ExclusiveStartKey = key
 	}
@@ -482,6 +484,21 @@ func (seq *dbSeq) Reverse() Seq {
 
 //
 func marshal(cfg ddbConfig, entity Thing) (map[string]*dynamodb.AttributeValue, error) {
+	gen, err := marshalEntity(cfg, entity)
+	if err != nil {
+		return nil, err
+	}
+
+	_, isSuffix := gen[cfg.skSuffix]
+	if !isSuffix {
+		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
+	}
+
+	return gen, nil
+}
+
+//
+func marshalEntity(cfg ddbConfig, entity Thing) (map[string]*dynamodb.AttributeValue, error) {
 	gen, err := dynamodbattribute.MarshalMap(entity)
 	if err != nil {
 		return nil, err

@@ -253,23 +253,22 @@ func TestDdbFMapPrefixAndSuffix(t *testing.T) {
 		If(seq).Should().Equal(persons{thing, thing})
 }
 
-/*
 func TestDdbFMapIDs(t *testing.T) {
-	seq := dynamo.IDs{}
+	seq := dynamo.Identities{}
 	ddb := mockQuery(
 		map[string]*dynamodb.AttributeValue{
 			":prefix": {S: aws.String("dead:beef")},
 		},
 		2,
 	)
-	thing := entity().ID
+	prefix, suffix := entity().Identity()
+	thing := []string{prefix, suffix}
 
-	err := ddb.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
+	err := ddb.Match(person{Prefix: dynamo.NewIRI("dead:beef")}).FMap(seq.Join)
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(seq).Should().Equal(dynamo.IDs{thing, thing})
+		If(seq).Should().Equal(dynamo.Identities{thing, thing})
 }
-*/
 
 //-----------------------------------------------------------------------------
 //
