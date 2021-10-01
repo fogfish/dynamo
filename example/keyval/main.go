@@ -20,26 +20,26 @@ import (
 //
 // Person type demonstrates composition of core type with db one
 type Person struct {
-	HKey    curie.IRI `dynamodbav:"prefix,omitempty"`
-	SKey    curie.IRI `dynamodbav:"suffix,omitempty"`
+	Org     curie.IRI `dynamodbav:"prefix,omitempty"`
+	ID      curie.IRI `dynamodbav:"suffix,omitempty"`
 	Name    string    `dynamodbav:"name,omitempty"`
 	Age     int       `dynamodbav:"age,omitempty"`
 	Address string    `dynamodbav:"address,omitempty"`
 }
 
 //
-func (p Person) Identity() (string, string) { return p.HKey.String(), p.SKey.String() }
+func (p Person) Identity() (string, string) { return p.Org.String(), p.ID.String() }
 
 //
 func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct Person
-	return dynamo.Encode(av, dynamo.IRI(p.HKey), dynamo.IRI(p.SKey), tStruct(p))
+	return dynamo.Encode(av, dynamo.IRI(p.Org), dynamo.IRI(p.ID), tStruct(p))
 }
 
 //
 func (p *Person) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *Person
-	return dynamo.Decode(av, (*dynamo.IRI)(&p.HKey), (*dynamo.IRI)(&p.SKey), tStruct(p))
+	return dynamo.Decode(av, (*dynamo.IRI)(&p.Org), (*dynamo.IRI)(&p.ID), tStruct(p))
 }
 
 //
@@ -75,8 +75,8 @@ const n = 5
 func examplePut(db KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &Person{
-			HKey:    curie.New("test:"),
-			SKey:    curie.New("person:%d", i),
+			Org:     curie.New("test:"),
+			ID:      curie.New("person:%d", i),
 			Name:    "Verner Pleishner",
 			Age:     64,
 			Address: "Blumenstrasse 14, Berne, 3013",
@@ -90,14 +90,14 @@ func examplePut(db KeyVal) {
 func exampleGet(db KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &Person{
-			HKey: curie.New("test:"),
-			SKey: curie.New("person:%d", i),
+			Org: curie.New("test:"),
+			ID:  curie.New("person:%d", i),
 		}
 		switch err := db.Get(val).(type) {
 		case nil:
 			fmt.Printf("=[ get ]=> %+v\n", val)
 		case dynamo.NotFound:
-			fmt.Printf("=[ get ]=> Not found: (%v, %v)\n", val.HKey, val.SKey)
+			fmt.Printf("=[ get ]=> Not found: (%v, %v)\n", val.Org, val.ID)
 		default:
 			fmt.Printf("=[ get ]=> Fail: %v\n", err)
 		}
@@ -107,8 +107,8 @@ func exampleGet(db KeyVal) {
 func exampleUpdate(db KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &Person{
-			HKey:    curie.New("test:"),
-			SKey:    curie.New("person:%d", i),
+			Org:     curie.New("test:"),
+			ID:      curie.New("person:%d", i),
 			Address: "Viktoriastrasse 37, Berne, 3013",
 		}
 		err := db.Update(val)
@@ -119,7 +119,7 @@ func exampleUpdate(db KeyVal) {
 
 func exampleMatch(db KeyVal) {
 	seq := Persons{}
-	err := db.Match(Person{HKey: curie.New("test:")}).FMap(seq.Join)
+	err := db.Match(Person{Org: curie.New("test:")}).FMap(seq.Join)
 
 	if err == nil {
 		fmt.Printf("=[ match ]=> %+v\n", seq)
@@ -131,8 +131,8 @@ func exampleMatch(db KeyVal) {
 func exampleRemove(db KeyVal) {
 	for i := 0; i < n; i++ {
 		val := &Person{
-			HKey: curie.New("test:"),
-			SKey: curie.New("person:%d", i),
+			Org: curie.New("test:"),
+			ID:  curie.New("person:%d", i),
 		}
 		err := db.Remove(val)
 
