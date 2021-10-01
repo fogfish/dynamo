@@ -307,7 +307,8 @@ Let's consider a following example.
 
 ```go
 type Person struct {
-  dynamo.ID
+  Org     string `dynamodbav:"prefix,omitempty"`
+  ID      string `dynamodbav:"suffix,omitempty"`
   Name    string `dynamodbav:"anothername,omitempty"`
 }
 ```
@@ -325,7 +326,8 @@ However, the application operates with struct types. How to define a condition e
 
 ```go
 type Person struct {
-  dynamo.ID
+  Org     string `dynamodbav:"prefix,omitempty"`
+  ID      string `dynamodbav:"suffix,omitempty"`
   Name    string `dynamodbav:"anothername,omitempty"`
 }
 var Name = dynamo.Kind(Person{}).Field("Name")
@@ -383,7 +385,7 @@ s3 := dynamo.Must(dynamo.New("s3:///my-bucket"))
 
 There are few fundamental differences about AWS S3 bucket
 * use `s3` schema of connection URI;
-* primary key `dynamo.ID` is serialized to S3 bucket path. (e.g. `dynamo.NewfID("thread:A#C/E/F") ⟼ thread/A/C/E/F`);
+* compose primary key is serialized to S3 bucket path. (e.g. `⟨thread:A, C/E/F⟩ ⟼ thread/A/_/C/E/F`);
 * storage persists struct to JSON, use `json` field tags to specify serialization rules;
 * optimistic locking is not supported yet, any conditional expression is silently ignored;
 * `Update` is not thread safe.
