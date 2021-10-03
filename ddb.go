@@ -423,6 +423,7 @@ func (seq *dbSeq) Tail() bool {
 
 // Cursor is the global position in the sequence
 func (seq *dbSeq) Cursor() (string, string) {
+	// Note: q.ExclusiveStartKey is set by sequence seeding
 	if seq.q.ExclusiveStartKey != nil {
 		var hkey, skey string
 		val := seq.q.ExclusiveStartKey

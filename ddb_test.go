@@ -130,7 +130,7 @@ func TestDdbMatchNone(t *testing.T) {
 		map[string]*dynamodb.AttributeValue{
 			":prefix": {S: aws.String("dead:beef")},
 		},
-		0,
+		0, nil,
 	)
 
 	seq := ddb.Match(person{Prefix: dynamo.NewIRI("dead:beef")})
@@ -145,7 +145,7 @@ func TestDdbMatchOne(t *testing.T) {
 		map[string]*dynamodb.AttributeValue{
 			":prefix": {S: aws.String("dead:beef")},
 		},
-		1,
+		1, nil,
 	)
 
 	seq := ddb.Match(person{Prefix: dynamo.NewIRI("dead:beef")})
@@ -165,7 +165,7 @@ func TestDdbMatchMany(t *testing.T) {
 		map[string]*dynamodb.AttributeValue{
 			":prefix": {S: aws.String("dead:beef")},
 		},
-		5,
+		5, nil,
 	)
 
 	cnt := 0
@@ -205,7 +205,7 @@ func TestDdbFMapNone(t *testing.T) {
 		map[string]*dynamodb.AttributeValue{
 			":prefix": {S: aws.String("dead:beef")},
 		},
-		0,
+		0, nil,
 	)
 
 	err := ddb.Match(person{Prefix: dynamo.NewIRI("dead:beef")}).FMap(seq.Join)
@@ -221,7 +221,7 @@ func TestDdbFMapPrefixOnly(t *testing.T) {
 		map[string]*dynamodb.AttributeValue{
 			":prefix": {S: aws.String("dead:beef")},
 		},
-		2,
+		2, nil,
 	)
 	thing := entity()
 
@@ -232,14 +232,13 @@ func TestDdbFMapPrefixOnly(t *testing.T) {
 }
 
 func TestDdbFMapPrefixAndSuffix(t *testing.T) {
-
 	seq := persons{}
 	ddb := mockQuery(
 		map[string]*dynamodb.AttributeValue{
 			":prefix": {S: aws.String("dead:beef")},
 			":suffix": {S: aws.String("a/b/c")},
 		},
-		2,
+		2, nil,
 	)
 	thing := entity()
 
@@ -259,7 +258,7 @@ func TestDdbFMapIDs(t *testing.T) {
 		map[string]*dynamodb.AttributeValue{
 			":prefix": {S: aws.String("dead:beef")},
 		},
-		2,
+		2, nil,
 	)
 	prefix, suffix := entity().Identity()
 	thing := []string{prefix, suffix}
@@ -268,6 +267,34 @@ func TestDdbFMapIDs(t *testing.T) {
 	it.Ok(t).
 		If(err).Should().Equal(nil).
 		If(seq).Should().Equal(dynamo.Identities{thing, thing})
+}
+
+func TestDdbCursorAndContinue(t *testing.T) {
+	// seq := persons{}
+	ddb := mockQuery(
+		map[string]*dynamodb.AttributeValue{
+			":prefix": {S: aws.String("dead:beef")},
+		},
+		2,
+		map[string]*dynamodb.AttributeValue{
+			"prefix": {S: aws.String("dead:beef")},
+			"suffix": {S: aws.String("1")},
+		},
+	)
+
+	dbseq := ddb.Match(person{Prefix: dynamo.NewIRI("dead:beef")})
+	dbseq.Tail()
+	hkey0, skey0 := dbseq.Cursor()
+
+	dbseq = ddb.Match(person{Prefix: dynamo.NewIRI("dead:beef")}).Continue(hkey0, skey0)
+	dbseq.Tail()
+	hkey1, skey1 := dbseq.Cursor()
+
+	it.Ok(t).
+		If(hkey0).Equal("dead:beef").
+		If(skey0).Equal("1").
+		If(hkey1).Equal("dead:beef").
+		If(skey1).Equal("1")
 }
 
 //-----------------------------------------------------------------------------
@@ -373,12 +400,17 @@ func (mock *ddbUpdateItem) UpdateItemWithContext(ctx aws.Context, input *dynamod
 //
 type ddbQuery struct {
 	dynamodbiface.DynamoDBAPI
-	expectKey map[string]*dynamodb.AttributeValue
-	returnLen int
+	expectKey     map[string]*dynamodb.AttributeValue
+	returnLen     int
+	returnLastKey map[string]*dynamodb.AttributeValue
 }
 
-func mockQuery(expectKey map[string]*dynamodb.AttributeValue, returnLen int) dynamo.KeyValNoContext {
-	return mockDynamoDB(&ddbQuery{expectKey: expectKey, returnLen: returnLen})
+func mockQuery(
+	expectKey map[string]*dynamodb.AttributeValue,
+	returnLen int,
+	returnLastKey map[string]*dynamodb.AttributeValue,
+) dynamo.KeyValNoContext {
+	return mockDynamoDB(&ddbQuery{expectKey: expectKey, returnLen: returnLen, returnLastKey: returnLastKey})
 }
 
 func (mock *ddbQuery) QueryWithContext(ctx aws.Context, input *dynamodb.QueryInput, opts ...request.Option) (*dynamodb.QueryOutput, error) {
@@ -398,9 +430,10 @@ func (mock *ddbQuery) QueryWithContext(ctx aws.Context, input *dynamodb.QueryInp
 	}
 
 	return &dynamodb.QueryOutput{
-		ScannedCount: aws.Int64(int64(mock.returnLen)),
-		Count:        aws.Int64(int64(mock.returnLen)),
-		Items:        seq,
+		ScannedCount:     aws.Int64(int64(mock.returnLen)),
+		Count:            aws.Int64(int64(mock.returnLen)),
+		Items:            seq,
+		LastEvaluatedKey: mock.returnLastKey,
 	}, nil
 }
 

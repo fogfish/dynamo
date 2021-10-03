@@ -68,9 +68,7 @@ type Person struct {
 
 //
 // Identity implements thing interface
-func (p Person) Identity() (string, string) {
-  return p.Org, p.ID
-}
+func (p Person) Identity() (string, string) { return p.Org, p.ID }
 
 //
 // this data type is a normal Golang struct
