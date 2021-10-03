@@ -19,7 +19,10 @@ import (
 
 func TestS3Get(t *testing.T) {
 	t.Run("Using Key/Val", func(t *testing.T) {
-		val := person{ID: dynamo.NewfID("dead:beef")}
+		val := person{
+			Prefix: dynamo.NewIRI("dead:beef"),
+			Suffix: dynamo.NewIRI("1"),
+		}
 		api, _ := mockGetObject(entity())
 
 		err := api.Get(&val)
@@ -29,7 +32,10 @@ func TestS3Get(t *testing.T) {
 	})
 
 	t.Run("Using Stream", func(t *testing.T) {
-		val := person{ID: dynamo.NewfID("dead:beef")}
+		val := person{
+			Prefix: dynamo.NewIRI("dead:beef"),
+			Suffix: dynamo.NewIRI("1"),
+		}
 		_, api := mockGetObject(entity())
 
 		err := api.Get(&val)
@@ -39,7 +45,10 @@ func TestS3Get(t *testing.T) {
 	})
 
 	t.Run("I/O Error", func(t *testing.T) {
-		val := person{ID: dynamo.NewfID("some:key")}
+		val := person{
+			Prefix: dynamo.NewIRI("some:key"),
+			Suffix: dynamo.NewIRI("1"),
+		}
 		api, _ := mockGetObject(entity())
 
 		err := api.Get(&val)
@@ -50,7 +59,7 @@ func TestS3Get(t *testing.T) {
 
 func TestS3Put(t *testing.T) {
 	t.Run("Using Key/Val", func(t *testing.T) {
-		api, sio := mockPutObject("dead/beef", entity())
+		api, sio := mockPutObject("dead:beef/_/1", entity())
 
 		it.Ok(t).
 			If(api.Put(entity())).Should().Equal(nil).
@@ -60,7 +69,7 @@ func TestS3Put(t *testing.T) {
 
 func TestS3Remove(t *testing.T) {
 	t.Run("Using Key/Val", func(t *testing.T) {
-		api, sio := mockDeleteObject("dead/beef")
+		api, sio := mockDeleteObject("dead:beef/_/1")
 
 		it.Ok(t).
 			If(api.Remove(entity())).Should().Equal(nil).
@@ -71,10 +80,11 @@ func TestS3Remove(t *testing.T) {
 func TestS3Update(t *testing.T) {
 	t.Run("Using Key/Val", func(t *testing.T) {
 		val := person{
-			ID:  dynamo.NewfID("dead:beef"),
-			Age: 64,
+			Prefix: dynamo.NewIRI("dead:beef"),
+			Suffix: dynamo.NewIRI("1"),
+			Age:    64,
 		}
-		api, _ := mockGetPutObject("dead/beef", entity())
+		api, _ := mockGetPutObject("dead:beef/_/1", entity())
 
 		err := api.Update(&val)
 		it.Ok(t).
@@ -84,10 +94,11 @@ func TestS3Update(t *testing.T) {
 
 	t.Run("Using Stream", func(t *testing.T) {
 		val := person{
-			ID:  dynamo.NewfID("dead:beef"),
-			Age: 64,
+			Prefix: dynamo.NewIRI("dead:beef"),
+			Suffix: dynamo.NewIRI("1"),
+			Age:    64,
 		}
-		_, sio := mockGetPutObject("dead/beef", entity())
+		_, sio := mockGetPutObject("dead:beef/_/1", entity())
 
 		err := sio.Update(&val)
 		it.Ok(t).
@@ -97,9 +108,9 @@ func TestS3Update(t *testing.T) {
 }
 
 func TestS3MatchNone(t *testing.T) {
-	api, _ := mockGetListObjects("dead/beef", 0)
+	api, _ := mockGetListObjects("dead:beef", 0)
 
-	seq := api.Match(dynamo.NewfID("dead:beef"))
+	seq := api.Match(person{Prefix: dynamo.NewIRI("dead:beef")})
 
 	it.Ok(t).
 		IfFalse(seq.Tail()).
@@ -107,9 +118,9 @@ func TestS3MatchNone(t *testing.T) {
 }
 
 func TestS3MatchOne(t *testing.T) {
-	api, _ := mockGetListObjects("dead/beef", 1)
+	api, _ := mockGetListObjects("dead:beef/_/1", 1)
 
-	seq := api.Match(dynamo.NewfID("dead:beef"))
+	seq := api.Match(person{Prefix: dynamo.NewIRI("dead:beef")})
 
 	val := person{}
 	err := seq.Head(&val)
@@ -122,10 +133,10 @@ func TestS3MatchOne(t *testing.T) {
 }
 
 func TestS3MatchMany(t *testing.T) {
-	api, _ := mockGetListObjects("dead/beef", 5)
+	api, _ := mockGetListObjects("dead:beef/_/1", 5)
 
 	cnt := 0
-	seq := api.Match(dynamo.NewfID("dead:beef"))
+	seq := api.Match(person{Prefix: dynamo.NewIRI("dead:beef")})
 
 	for seq.Tail() {
 		cnt++
@@ -144,9 +155,9 @@ func TestS3MatchMany(t *testing.T) {
 
 func TestS3FMapNone(t *testing.T) {
 	seq := persons{}
-	api, _ := mockGetListObjects("dead/beef", 0)
+	api, _ := mockGetListObjects("dead:beef/_/1", 0)
 
-	err := api.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
+	err := api.Match(person{Prefix: dynamo.NewIRI("dead:beef")}).FMap(seq.Join)
 	it.Ok(t).
 		If(err).Should().Equal(nil).
 		If(seq).Should().Equal(persons{})
@@ -155,10 +166,10 @@ func TestS3FMapNone(t *testing.T) {
 
 func TestS3FMapPrefixOnly(t *testing.T) {
 	seq := persons{}
-	api, _ := mockGetListObjects("dead/beef", 2)
+	api, _ := mockGetListObjects("dead:beef/_/1", 2)
 	thing := entity()
 
-	err := api.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
+	err := api.Match(person{Prefix: dynamo.NewIRI("dead:beef")}).FMap(seq.Join)
 	it.Ok(t).
 		If(err).Should().Equal(nil).
 		If(seq).Should().Equal(persons{thing, thing})
@@ -166,24 +177,28 @@ func TestS3FMapPrefixOnly(t *testing.T) {
 
 func TestS3FMapPrefixAndSuffix(t *testing.T) {
 	seq := persons{}
-	api, _ := mockGetListObjects("dead/beef/a/b/c", 2)
+	api, _ := mockGetListObjects("dead:beef/_/a/b/c", 2)
 	thing := entity()
 
-	err := api.Match(dynamo.NewfID("dead:beef#a/b/c")).FMap(seq.Join)
+	err := api.Match(person{
+		Prefix: dynamo.NewIRI("dead:beef"),
+		Suffix: dynamo.NewIRI(""),
+	}).FMap(seq.Join)
 	it.Ok(t).
 		If(err).Should().Equal(nil).
 		If(seq).Should().Equal(persons{thing, thing})
 }
 
 func TestS3FMapIDs(t *testing.T) {
-	seq := dynamo.IDs{}
-	api, _ := mockGetListObjects("dead/beef", 2)
-	thing := entity().ID
+	seq := dynamo.Identities{}
+	api, _ := mockGetListObjects("dead:beef", 2)
+	prefix, _ := entity().Identity()
+	thing := []string{prefix, ""}
 
-	err := api.Match(dynamo.NewfID("dead:beef")).FMap(seq.Join)
+	err := api.Match(person{Prefix: dynamo.NewIRI("dead:beef")}).FMap(seq.Join)
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(seq).Should().Equal(dynamo.IDs{thing, thing})
+		If(seq).Should().Equal(dynamo.Identities{thing, thing})
 }
 
 func TestStreamSendContent(t *testing.T) {
@@ -220,7 +235,7 @@ func mockGetObject(returnVal interface{}) (dynamo.KeyValNoContext, dynamo.Stream
 }
 
 func (mock *s3GetObject) GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
-	if aws.StringValue(input.Key) != "dead/beef" {
+	if aws.StringValue(input.Key) != "dead:beef/_/1" {
 		return nil, errors.New("Unexpected request.")
 	}
 
@@ -325,6 +340,8 @@ func (mock *s3GetListObjects) GetObjectWithContext(ctx aws.Context, input *s3.Ge
 func (mock *s3GetListObjects) ListObjectsV2WithContext(aws.Context, *s3.ListObjectsV2Input, ...request.Option) (*s3.ListObjectsV2Output, error) {
 	seq := []*s3.Object{}
 	for i := 0; i < mock.returnLen; i++ {
+		// prefix, suffix := entity().Identity()
+		// aws.String(prefix + "/_/" + suffix)
 		seq = append(seq, &s3.Object{Key: aws.String(mock.expectKey)})
 	}
 
@@ -380,34 +397,38 @@ func mockS3Stream(mock s3iface.S3API) dynamo.StreamNoContext {
 // as the result old values might leakout while doing s3 update
 // this test case ensures correctness of update function
 type seqItem struct {
-	dynamo.ID
+	ID    string `json:"id,omitempty"`
 	Flag  bool   `json:"flag,omitempty"`
 	Label string `json:"label,omitempty"`
 }
 
 type seqType struct {
-	dynamo.ID
+	ID   string    `json:"id,omitempty"`
 	List []seqItem `json:"list,omitempty"`
+}
+
+func (seq seqType) Identity() (string, string) {
+	return seq.ID, ""
 }
 
 func seqLong() seqType {
 	return seqType{
-		ID: dynamo.NewfID("seq"),
+		ID: "seq",
 		List: []seqItem{
-			{ID: dynamo.NewfID("1"), Flag: true, Label: "a"},
-			{ID: dynamo.NewfID("2"), Flag: true, Label: "b"},
-			{ID: dynamo.NewfID("3"), Label: "c"},
-			{ID: dynamo.NewfID("4"), Label: "d"},
+			{ID: "1", Flag: true, Label: "a"},
+			{ID: "2", Flag: true, Label: "b"},
+			{ID: "3", Label: "c"},
+			{ID: "4", Label: "d"},
 		},
 	}
 }
 
 func seqShort() seqType {
 	return seqType{
-		ID: dynamo.NewfID("seq"),
+		ID: "seq",
 		List: []seqItem{
-			{ID: dynamo.NewfID("5"), Label: "e"},
-			{ID: dynamo.NewfID("6"), Label: "f"},
+			{ID: "5", Label: "e"},
+			{ID: "6", Label: "f"},
 		},
 	}
 }

@@ -13,29 +13,31 @@ import (
 )
 
 type Item struct {
-	dynamo.ID
-	Ref *dynamo.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
-	Tag string      `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
+	Prefix dynamo.IRI    `json:"prefix,omitempty"  dynamodbav:"prefix,omitempty"`
+	Suffix dynamo.IRI    `json:"suffix,omitempty"  dynamodbav:"suffix,omitempty"`
+	Ref    *curie.String `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag    string        `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
 }
-
-var fixtureLink dynamo.ID = dynamo.ID{dynamo.IRI(curie.New("foo:a/suffix"))}
 
 var fixtureItem Item = Item{
-	ID:  dynamo.NewfID("foo:prefix/suffix"),
-	Ref: dynamo.NewfID("foo:a/suffix").Unwrap(),
-	Tag: "tag",
+	Prefix: dynamo.NewIRI("foo:prefix"),
+	Suffix: dynamo.NewIRI("suffix"),
+	Ref:    curie.Safe(curie.IRI(dynamo.NewIRI("foo:a/suffix"))),
+	Tag:    "tag",
 }
-var fixtureJson string = "{\"@id\":\"[foo:prefix/suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
-
 var fixtureEmptyItem Item = Item{
-	ID: dynamo.NewfID("foo:prefix/suffix"),
+	Prefix: dynamo.NewIRI("foo:prefix"),
+	Suffix: dynamo.NewIRI("suffix"),
 }
-var fixtureEmptyJson string = "{\"@id\":\"[foo:prefix/suffix]\"}"
+var fixtureJson string = "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
+
+var fixtureEmptyJson string = "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\"}"
 
 var fixtureDdb map[string]*dynamodb.AttributeValue = map[string]*dynamodb.AttributeValue{
-	"id":  {S: aws.String("foo:prefix/suffix")},
-	"ref": {S: aws.String("foo:a/suffix")},
-	"tag": {S: aws.String("tag")},
+	"prefix": {S: aws.String("foo:prefix")},
+	"suffix": {S: aws.String("suffix")},
+	"ref":    {S: aws.String("[foo:a/suffix]")},
+	"tag":    {S: aws.String("tag")},
 }
 
 func TestMarshalJSON(t *testing.T) {
@@ -104,14 +106,4 @@ func TestStream(t *testing.T) {
 		If(func() {
 			dynamo.MustStream(dynamo.NewStream("ddb:///a"))
 		}).Should().Fail()
-}
-
-func TestIDs(t *testing.T) {
-	expect := curie.New("a:b/c")
-	a := dynamo.NewfID("a:b/c")
-	b := dynamo.NewID(curie.New("a:b/c"))
-
-	it.Ok(t).
-		If(a.Identity()).Should().Equal(expect).
-		If(b.Identity()).Should().Equal(expect)
 }

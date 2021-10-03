@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 )
 
@@ -18,12 +17,18 @@ The access patterns for authors follow a classical Key-Val I/O.
 The author unique identity is a candidate for partition key,
 sharding suffix can also be employed if needed.
 
-dynamo.NewID("author:%s", "neumann")
+HashKey is
+dynamo.NewIRI("author:%s", "neumann")
   ⟿ author:neumann
 */
 type Author struct {
-	dynamo.ID
-	Name string `dynamodbav:"name,omitempty" json:"name,omitempty"`
+	ID   dynamo.IRI `dynamodbav:"prefix,omitempty"`
+	Name string     `dynamodbav:"name,omitempty" json:"name,omitempty"`
+}
+
+// Identity implements Thing interface
+func (author Author) Identity() (string, string) {
+	return author.ID.String(), "_"
 }
 
 /*
@@ -32,7 +37,7 @@ NewAuthor creates instance of author
 */
 func NewAuthor(id, name string) Author {
 	return Author{
-		ID:   dynamo.NewfID("author:%s", id),
+		ID:   dynamo.NewIRI("author:%s", id),
 		Name: name,
 	}
 }
@@ -51,31 +56,40 @@ the author. Eventually building relation one author to many articles.
 The composed sort key is a pattern to build the relation. Author is
 the partition key, article id is a sort key
 
-dynamo.NewID("article:%s#%s", "neumann", "theory_of_automata")
-  ⟿ article:neumann#theory_of_automata
+HashKey is
+dynamo.NewIRI("author:%s", "neumann")
+  ⟿ author:neumann
 
+SortKey is
+dynamo.NewIRI("article:%s", "theory_of_automata")
+  ⟿ article:theory_of_automata
 */
 type Article struct {
-	dynamo.ID
-	Title    string `dynamodbav:"title,omitempty" json:"title,omitempty"`
-	Category string `dynamodbav:"category,omitempty" json:"category,omitempty"`
-	Year     string `dynamodbav:"year,omitempty" json:"year,omitempty"`
+	Author   dynamo.IRI `dynamodbav:"prefix,omitempty"`
+	ID       dynamo.IRI `dynamodbav:"suffix,omitempty"`
+	Title    string     `dynamodbav:"title,omitempty" json:"title,omitempty"`
+	Category string     `dynamodbav:"category,omitempty" json:"category,omitempty"`
+	Year     string     `dynamodbav:"year,omitempty" json:"year,omitempty"`
+}
+
+// Identity implements Thing interface
+func (article Article) Identity() (string, string) {
+	return article.Author.String(), article.ID.String()
 }
 
 /*
 
 NewArticle creates instance of Article
 */
-func NewArticle(author dynamo.ID, id, title string) Article {
-	iri := curie.Join(curie.NewScheme(curie.IRI(author.IRI), "article"), id)
-
+func NewArticle(author string, id, title string) Article {
 	category := "Math"
 	if rand.Float64() < 0.5 {
 		category = "Computer Science"
 	}
 
 	return Article{
-		ID:       dynamo.NewID(iri),
+		Author:   dynamo.NewIRI("author:%s", author),
+		ID:       dynamo.NewIRI("article:%s", id),
 		Title:    title,
 		Category: category,
 		Year:     fmt.Sprintf("%d", 1930+rand.Intn(40)),
@@ -118,18 +132,31 @@ The first one is the forward article-to-keyword, the second one is
 an inverse keyword-to-article. It is possible to craft these lists
 explicitly. The composed sort key builds for this lists:
 
-dynamo.NewID("keyword:%s#article/%s/%s",
-  "theory", "neumann", "theory_of_automata")
-    ⟿ keyword:theory#article/neumann/theory_of_automata
+HashKey is
+dynamo.NewIRI("keyword:%s", "theory")
+  ⟿ keyword:theory
 
-dynamo.NewID("article:%s/%s#keyword/%s",
-  "neumann", "theory_of_automata", "theory")
-    ⟿ article:neumann/theory_of_automata#keyword:theory
+SortKey is
+dynamo.NewIRI("article:%s/%s", "neumann", "theory_of_automata")
+  ⟿ article:neumann/theory_of_automata
 
+and inverse
+
+HashKey is
+  ⟿ article:neumann/theory_of_automata
+
+SortKey is
+  ⟿ keyword:theory
 */
 type Keyword struct {
-	dynamo.ID
-	Text string `dynamodbav:"text,omitempty" json:"text,omitempty"`
+	HashKey dynamo.IRI `dynamodbav:"prefix,omitempty"`
+	SortKey dynamo.IRI `dynamodbav:"suffix,omitempty"`
+	Text    string     `dynamodbav:"text,omitempty" json:"text,omitempty"`
+}
+
+// Identity implements Thing interface
+func (keyword Keyword) Identity() (string, string) {
+	return keyword.HashKey.String(), keyword.SortKey.String()
 }
 
 /*
@@ -137,13 +164,13 @@ type Keyword struct {
 NewKeyword explicitly creates pair of Keyword ⟼ Article and
 Article ⟼ Keyword relations.
 */
-func NewKeyword(article dynamo.ID, title string, keyword string) []Keyword {
-	keywordID := curie.Split(curie.Heir(curie.New("keyword:%s", keyword), curie.IRI(article.IRI)), 3)
-	articleID := curie.Join(curie.IRI(article.IRI), "keyword", keyword)
+func NewKeyword(author, article, title, keyword string) []Keyword {
+	hashKey := dynamo.NewIRI("keyword:%s", keyword)
+	sortKey := dynamo.NewIRI("article:%s/%s", author, article)
 
 	return []Keyword{
-		{ID: dynamo.NewID(keywordID), Text: title},
-		{ID: dynamo.NewID(articleID), Text: keyword},
+		{HashKey: hashKey, SortKey: sortKey, Text: title},
+		{HashKey: sortKey, SortKey: hashKey, Text: keyword},
 	}
 }
 

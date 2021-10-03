@@ -17,8 +17,6 @@ import (
 	"fmt"
 	"io"
 	"time"
-
-	"github.com/fogfish/curie"
 )
 
 //-----------------------------------------------------------------------------
@@ -33,10 +31,10 @@ Thing is the most generic item type used by the library to
 abstract writable/readable items into storage services.
 
 The interfaces declares anything that have a unique identifier.
+The unique identity is exposed by pair of string: prefix and suffix.
 */
 type Thing interface {
-	// any kind of identifier for any kind of Thing
-	Identity() curie.IRI
+	Identity() (string, string)
 }
 
 /*
@@ -55,7 +53,7 @@ Gen is a generic representation of Thing at the storage
 */
 type Gen interface {
 	// return unique id of Thing
-	ID() (*curie.IRI, error)
+	ID() (string, string)
 	// To decodes generic representation to structure
 	To(Thing) error
 }
@@ -78,7 +76,7 @@ type SeqLazy interface {
 	// Error returns error of stream evaluation
 	Error() error
 	// Cursor is the global position in the sequence
-	Cursor() *curie.IRI
+	Cursor() (string, string)
 }
 
 /*
@@ -89,7 +87,7 @@ type SeqConfig interface {
 	// Limit sequence size to N elements (pagination)
 	Limit(int64) Seq
 	// Continue limited sequence from the cursor
-	Continue(cursor *curie.IRI) Seq
+	Continue(string, string) Seq
 	// Reverse order of sequence
 	Reverse() Seq
 }
@@ -306,11 +304,11 @@ type StreamNoContext interface {
 NotFound is an error to handle unknown elements
 */
 type NotFound struct {
-	Key curie.IRI
+	HashKey, SortKey string
 }
 
 func (e NotFound) Error() string {
-	return fmt.Sprintf("Not Found %v", e.Key)
+	return fmt.Sprintf("Not Found (%s, %s) ", e.HashKey, e.SortKey)
 }
 
 /*
@@ -319,9 +317,9 @@ PreConditionFailed is an error to handler aborted I/O on
 requests with conditional expressions
 */
 type PreConditionFailed struct {
-	Key curie.IRI
+	HashKey, SortKey string
 }
 
 func (e PreConditionFailed) Error() string {
-	return fmt.Sprintf("Pre Condition Failed %v", e.Key)
+	return fmt.Sprintf("Pre Condition Failed (%s, %s) ", e.HashKey, e.SortKey)
 }

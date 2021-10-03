@@ -26,6 +26,19 @@ type IRI curie.IRI
 
 /*
 
+NewIRI transform category of strings to dynamo.IRI
+*/
+func NewIRI(iri string, args ...interface{}) IRI {
+	return IRI(curie.New(iri, args...))
+}
+
+// String is helper function to transform IRI to string
+func (iri IRI) String() string {
+	return curie.IRI(iri).String()
+}
+
+/*
+
 MarshalDynamoDBAttributeValue `IRI ⟼ "prefix:suffix"`
 */
 func (iri IRI) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
@@ -82,16 +95,11 @@ The helper ensures compact URI serialization into DynamoDB schema.
 
   func (x MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
     type tStruct MyType
-    return dynamo.Encode(av, x.ID, tStruct(x))
+    return dynamo.Encode(av, &x.HashKey, &x.SortKey, tStruct(x))
   }
 */
-func Encode(av *dynamodb.AttributeValue, id curie.IRI, val interface{}) error {
+func Encode(av *dynamodb.AttributeValue, hashkey, sortkey, val interface{}) error {
 	gen, err := dynamodbattribute.Marshal(val)
-	if err != nil {
-		return err
-	}
-
-	uid, err := dynamodbattribute.Marshal(IRI(id))
 	if err != nil {
 		return err
 	}
@@ -99,7 +107,26 @@ func Encode(av *dynamodb.AttributeValue, id curie.IRI, val interface{}) error {
 	if gen.M == nil {
 		gen.M = make(map[string]*dynamodb.AttributeValue)
 	}
-	gen.M["id"] = uid
+
+	if hashkey != nil {
+		hkey, err := dynamodbattribute.Marshal(hashkey)
+		if err != nil {
+			return err
+		}
+		if hkey.S != nil {
+			gen.M["__prefix"] = hkey
+		}
+	}
+
+	if sortkey != nil {
+		skey, err := dynamodbattribute.Marshal(sortkey)
+		if err != nil {
+			return err
+		}
+		if skey.S != nil {
+			gen.M["__suffix"] = skey
+		}
+	}
 
 	*av = *gen
 	return nil
@@ -112,17 +139,22 @@ The helper ensures compact URI de-serialization from DynamoDB schema.
 
   func (x *MyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
     type tStruct *MyType
-    return dynamo.Decode(av, &x.ID, tStruct(x))
+    return dynamo.Decode(av, &x.HashKey, &x.SortKey, tStruct(x))
   }
 */
-func Decode(av *dynamodb.AttributeValue, id *curie.IRI, val interface{}) error {
+func Decode(av *dynamodb.AttributeValue, hashkey, sortkey, val interface{}) error {
 	dynamodbattribute.Unmarshal(av, val)
 
-	raw, exists := av.M["id"]
-	if exists {
-		var iri IRI
-		dynamodbattribute.Unmarshal(raw, &iri)
-		*id = curie.IRI(iri)
+	if hkey, exists := av.M["__prefix"]; exists {
+		if err := dynamodbattribute.Unmarshal(hkey, hashkey); err != nil {
+			return err
+		}
+	}
+
+	if skey, exists := av.M["__suffix"]; exists {
+		if err := dynamodbattribute.Unmarshal(skey, sortkey); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -130,57 +162,9 @@ func Decode(av *dynamodb.AttributeValue, id *curie.IRI, val interface{}) error {
 
 /*
 
-
-ID is compact URI (CURIE) type for struct tagging, It declares unique identity
-of a thing. The tagged struct belongs to Thing category so that the struct is
-manageable by dynamo interfaces
-
-  type MyStruct struct {
-    dynamo.ID
-  }
+Identities sequence of Identities
 */
-type ID struct {
-	IRI IRI `dynamodbav:"id" json:"@id"`
-}
-
-/*
-
-NewfID transform category of strings to dynamo.ID.
-*/
-func NewfID(iri string, args ...interface{}) ID {
-	return ID{IRI(curie.New(iri, args...))}
-}
-
-/*
-
-NewID transform category of curie.IRI to dynamo.ID.
-*/
-func NewID(iri curie.IRI) ID {
-	return ID{IRI(iri)}
-}
-
-/*
-
-Identity makes CURIE compliant to Thing interface so that embedding ID makes any
-struct to be Thing.
-*/
-func (id ID) Identity() curie.IRI {
-	return curie.IRI(id.IRI)
-}
-
-/*
-
-Ref return reference to dynamo.IRI
-*/
-func (id ID) Unwrap() *IRI {
-	return &id.IRI
-}
-
-/*
-
-IDs sequence of Identities
-*/
-type IDs []ID
+type Identities [][]string
 
 /*
 
@@ -188,12 +172,9 @@ Join lifts sequence of matched objects to seq of IDs
 	seq := dynamo.IDs{}
 	dynamo.Match(...).FMap(seq.Join)
 */
-func (seq *IDs) Join(gen Gen) error {
-	iri, err := gen.ID()
-	if err != nil {
-		return err
-	}
+func (seq *Identities) Join(gen Gen) error {
+	prefix, suffix := gen.ID()
 
-	*seq = append(*seq, NewID(*iri))
+	*seq = append(*seq, []string{prefix, suffix})
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,7 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/fogfish/curie"
 )
 
 // ds3 is a S3 client
@@ -50,22 +48,31 @@ func (dynamo *ds3) Mock(db s3iface.S3API) {
 //
 //-----------------------------------------------------------------------------
 
+func (dynamo *ds3) pathOf(entity Thing) string {
+	hkey, skey := entity.Identity()
+	if skey == "" {
+		return hkey
+	}
+	return hkey + "/_/" + skey
+}
+
 // Get fetches the entity identified by the key.
 func (dynamo *ds3) Get(ctx context.Context, entity Thing) (err error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 	}
 	val, err := dynamo.db.GetObjectWithContext(ctx, req)
 	if err != nil {
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == s3.ErrCodeNoSuchKey {
-				return NotFound{entity.Identity()}
+				hkey, skey := entity.Identity()
+				err = NotFound{HashKey: hkey, SortKey: skey}
 			}
-			return err
+			return
 		default:
-			return err
+			return
 		}
 	}
 
@@ -82,7 +89,7 @@ func (dynamo *ds3) Put(ctx context.Context, entity Thing, _ ...Constrain) (err e
 
 	req := &s3.PutObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 		Body:   aws.ReadSeekCloser(bytes.NewReader(gen)),
 	}
 
@@ -94,7 +101,7 @@ func (dynamo *ds3) Put(ctx context.Context, entity Thing, _ ...Constrain) (err e
 func (dynamo *ds3) Remove(ctx context.Context, entity Thing, _ ...Constrain) (err error) {
 	req := &s3.DeleteObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 	}
 
 	_, err = dynamo.db.DeleteObjectWithContext(ctx, req)
@@ -103,14 +110,17 @@ func (dynamo *ds3) Remove(ctx context.Context, entity Thing, _ ...Constrain) (er
 
 type tGen map[string]interface{}
 
-func (z tGen) Identity() curie.IRI { return z["id"].(curie.IRI) }
-
 // Update applies a partial patch to entity and returns new values
 func (dynamo *ds3) Update(ctx context.Context, entity Thing, _ ...Constrain) (err error) {
-	gen := tGen{"id": entity.Identity()}
-	dynamo.Get(ctx, &gen)
+	var gen, par tGen
 
-	var par tGen
+	req := &s3.GetObjectInput{
+		Bucket: dynamo.bucket,
+		Key:    aws.String(dynamo.pathOf(entity)),
+	}
+	val, err := dynamo.db.GetObjectWithContext(ctx, req)
+	err = json.NewDecoder(val.Body).Decode(&gen)
+
 	parbin, _ := json.Marshal(entity)
 	json.Unmarshal(parbin, &par)
 
@@ -141,7 +151,7 @@ func (dynamo *ds3) Match(ctx context.Context, key Thing) Seq {
 	req := &s3.ListObjectsV2Input{
 		Bucket:  dynamo.bucket,
 		MaxKeys: aws.Int64(1000),
-		Prefix:  aws.String(curie.Path(key.Identity())),
+		Prefix:  aws.String(dynamo.pathOf(key)),
 	}
 
 	return mkS3Seq(ctx, dynamo, req, nil)
@@ -155,21 +165,17 @@ type s3Gen struct {
 }
 
 // ID lifts generic representation to its Identity
-func (gen s3Gen) ID() (*curie.IRI, error) {
+func (gen s3Gen) ID() (string, string) {
 	if gen.key == nil {
-		return nil, errors.New("End Of Stream")
+		return "", ""
 	}
 
-	var id curie.IRI
-	seq := strings.SplitN(*gen.key, "/", 2)
-	switch {
-	case len(seq) == 2:
-		id = curie.New(strings.Join(seq, ":"))
-	default:
-		id = curie.New(*gen.key)
+	seq := strings.Split(*gen.key, "/_/")
+	if len(seq) == 1 {
+		return seq[0], ""
 	}
 
-	return &id, nil
+	return seq[0], seq[1]
 }
 
 // Lifts generic representation to Thing
@@ -286,12 +292,15 @@ func (seq *s3Seq) Tail() bool {
 }
 
 // Cursor is the global position in the sequence
-func (seq *s3Seq) Cursor() *curie.IRI {
+func (seq *s3Seq) Cursor() (string, string) {
 	if seq.q.StartAfter != nil {
-		iri := curie.New(aws.StringValue(seq.q.StartAfter))
-		return &iri
+		seq := strings.Split(*seq.q.StartAfter, "/_/")
+		if len(seq) == 1 {
+			return seq[0], ""
+		}
+		return seq[0], seq[1]
 	}
-	return nil
+	return "", ""
 }
 
 // Error indicates if any error appears during I/O
@@ -307,9 +316,13 @@ func (seq *s3Seq) Limit(n int64) Seq {
 }
 
 // Continue limited sequence from the cursor
-func (seq *s3Seq) Continue(cursor *curie.IRI) Seq {
-	if cursor != nil {
-		seq.q.StartAfter = aws.String(curie.Path(*cursor))
+func (seq *s3Seq) Continue(prefix, suffix string) Seq {
+	if prefix != "" {
+		if suffix == "" {
+			seq.q.StartAfter = aws.String(prefix)
+		} else {
+			seq.q.StartAfter = aws.String(prefix + "/_/" + suffix)
+		}
 	}
 	return seq
 }
@@ -329,7 +342,7 @@ func (seq *s3Seq) Reverse() Seq {
 func (dynamo *ds3) SourceURL(ctx context.Context, entity Thing, expire time.Duration) (string, error) {
 	req := &s3.GetObjectInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 	}
 
 	item, _ := dynamo.db.GetObjectRequest(req)
@@ -379,7 +392,7 @@ func (dynamo *ds3) Write(ctx context.Context, entity ThingStream, opts ...Conten
 
 	req := &s3manager.UploadInput{
 		Bucket: dynamo.bucket,
-		Key:    aws.String(curie.Path(entity.Identity())),
+		Key:    aws.String(dynamo.pathOf(entity)),
 		Body:   body,
 	}
 
