@@ -8,7 +8,7 @@ The `dynamo` library has been developed to streamline the data design process us
 
 > The first step in designing your DynamoDB application is to identify the specific query patterns that the system must satisfy.
 
-The data writing is an "easiest" part in the process. Entire data lifecycle management is built with three operations: create, update and remove data items. These operations are defined over pure Golang structs - public fields are serialized into DynamoDB attributes, the field tag `dynamodbav` controls marshal/unmarshal process.
+The data writing is an "easiest" part in the process. Entire data lifecycle management is built with three operations: create, update and remove data items. These operations are defined over pure Golang structs (a type) - public fields are serialized into DynamoDB attributes, the field tag `dynamodbav` controls marshal/unmarshal process.
 
 ```go
 type Author struct {
@@ -23,7 +23,7 @@ The data reading requires thoughtful work upfront. Typically, all data is denorm
 * As a reader I want to fetch the article ...
 * As a reader I want to list all articles written by the author ...
 * As a reader I want to look up articles titles for given keywords ...
-* As a reader I want to look up articles titles written by the author for a given keyword ... 
+* As a reader I want to look up article titles written by the author for a given keyword ... 
 * As a reader I want to look up all keywords of the article ...
 * As a reader I want to look up all articles for a given category in chronological order ...
 * As a reader I want to list all articles written by the author in chronological order ...
@@ -37,11 +37,24 @@ In the context of DynamoDB, the implementation of all access patterns is achieve
 
 > Related items can be grouped together and queried efficiently if their key design causes them to sort together. This is an important NoSQL design strategy.
 
-AWS DynamoDB supports either simple (a partition key only) or composite (a partition key combined with a sort key) to uniquely identify items. The `dynamo` library defines a special data type `dynamo.ID` for the purpose of composite key modelling. This type is a synonym to compact Internationalized Resource Identifiers (`curie.IRI`), which facilitates linked-data, hierarchical structures and cheap relations between data items. The library demands from each pure Golang structure embeds `dynamo.ID`. This type acts as struct annotation -- Golang compiler raises an error at compile time if another data type is supplied for DynamoDB I/O.
+AWS DynamoDB supports either simple (a partition key only) or composite (a partition key combined with a sort key) to uniquely identify items. The `dynamo` library is 100% compatible with standard Golang AWS SDK, the composite key is defined by pair of attributes and annotated with the field tag `dynamodbav`. However, the library requires that each type implements `Thing` interface and its single method `Identity` that returns composite key pair. The `Thing` interface acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied.
+
+The library does not enforce any special type for key modelling, anything castable to string suite but the `dynamo` library defines a special data type `dynamo.IRI` for the purpose of composite key modelling. This type is a synonym to compact Internationalized Resource Identifiers (`curie.IRI`), which facilitates linked-data, hierarchical structures and cheap relations between data items. 
 
 ```go
-type Author struct {
-  dynamo.ID
+type Article struct {
+	Author   dynamo.IRI `dynamodbav:"prefix,omitempty"`
+	ID       dynamo.IRI `dynamodbav:"suffix,omitempty"`
+  // ...
+}
+
+func (article Article) Identity() (string, string) {
+	return curie.IRI(article.Author).String(), curie.IRI(article.ID).String()
+}
+
+article := Article{
+  Author: dynamo.NewIRI("author:%s", "neumann"),
+  ID:     dynamo.NewIRI("article:%s", "theory_of_automata"),
   // ...
 }
 ```
@@ -52,42 +65,43 @@ Let's emphasize a few fundamental design problems solved by this data type.
 
 Let's consider our application, what the access pattern has been defined for. It operates with three concepts: `author`, `article` and `keyword`. Haskell Curry author's identity might collide with an article identity about Haskell programming language or some keywords about functional programming. 
 
-The data type `dynamo.ID` (`curie.IRI`) makes a formal definition of the logical partition the identity belongs to. The scheme explicitly defines the purpose of the identity and protects from accidental "collisions". 
+The data type `dynamo.IRI` (`curie.IRI`) makes a formal definition of the logical partition the identity belongs to. The scheme explicitly defines the purpose of the identity and protects from accidental "collisions". 
 
 ```go
-dynamo.NewID("author:haskell")
-dynamo.NewID("article:haskell")
-dynamo.NewID("keyword:haskell")
+dynamo.NewIRI("author:haskell")
+dynamo.NewIRI("article:haskell")
+dynamo.NewIRI("keyword:haskell")
 ```
 
 **Sharding** is a technique for distributing loads more evenly across data partitions. The imbalanced or "hot" partition is a well-known issue with DynamoDB. Either random or calculated suffixes is the strategy for load distribution evenly across a partition key space.
 
-The data type `dynamo.ID` (`curie.IRI`) makes formal rules of building keys from multiple segments. The application has a common interface to construct keys of any complexity to resolve data sharding aspects. 
+The data type `dynamo.IRI` (`curie.IRI`) makes formal rules of building keys from multiple segments. The application has a common interface to construct keys of any complexity to resolve data sharding aspects. 
 
 ```go
-dynamo.NewID("author:smith/%d", 1)
-dynamo.NewID("author:smith/%d", 2)
+dynamo.NewIRI("author:smith/%d", 1)
+dynamo.NewIRI("author:smith/%d", 2)
 ```
 
-**Composite key** is built from partition key combined with a sort key. The sort key helps an application to keep related data together in one "place" so that it can be efficiently accessed, effectively building one-to-many relation. Well-crafted composite sort keys define a hierarchical structures that can be queries at any level of the hierarchy. For example, the following key is efficiently listing nested geographical locations `country/region/state/county/city/district`.
+**Composite key** is built from partition key combined with a sort key. It helps an application to keep related data together in one "place" so that it can be efficiently accessed, effectively building one-to-many relation. Well-crafted composite sort keys define a hierarchical structures that can be queries at any level of the hierarchy. For example, the following key is efficiently listing nested geographical locations `country/region/state/county/city/district`.
 
-The data type `dynamo.ID` (`curie.IRI`) is composed of two elements prefix and suffix, which are automatically serialized into DynamoDB attributes partition (HASH) and sort (RANGE) keys. This approach simplifies data modelling, and identities of data items are built from a well defined type that is exchangeable between application, DynamoDB and other systems.
+The data type `dynamo.IRI` (`curie.IRI`) simplifies data modelling, and identities of data items, which are built from a well defined type that is exchangeable between application, DynamoDB and other systems.
 
-Let's follow up previously specified access patterns, this composite sort key type to model algebraic data types for fictional arxiv.org application:
+Let's follow up previously specified access patterns and this composite primary key type to model algebraic data types for fictional arxiv.org application:
 
 The access patterns for authors follow a classical key-value I/O.
 * As an author I want to register a profile ...
 
 The scheme `author` and author unique identity is a candidate for
-partition key, sharding suffix can also be employed if needed.
+partition key
 
 ```go
 /*
-dynamo.NewID("author:%s", "neumann")
+HashKey is
+dynamo.NewIRI("author:%s", "neumann")
   ⟿ author:neumann
 */
 type Author struct {
-  dynamo.ID
+  ID dynamo.IRI `dynamodbav:"prefix,omitempty"`
 }
 ```
 
@@ -103,20 +117,18 @@ the partition key, article id is a sort key. Any instance of author identity can
 
 ```go
 /*
-dynamo.NewID("article:%s#%s", "neumann", "theory_of_automata")
-  ⟿ article:neumann#theory_of_automata
+HashKey is
+dynamo.NewIRI("author:%s", "neumann")
+  ⟿ author:neumann
+
+SortKey is
+dynamo.NewIRI("article:%s", "theory_of_automata")
+  ⟿ article:theory_of_automata
 */
 type Article struct {
-  dynamo.ID
+	Author   dynamo.IRI `dynamodbav:"prefix,omitempty"`
+	ID       dynamo.IRI `dynamodbav:"suffix,omitempty"`
 }
-
-/*
-Any instance of author identity can be casted to article identity and back.
-*/
-curie.Join(
-  curie.NewScheme(curie.IRI(author), "article"),
-  "theory_of_automata",
-)
 ```
 
 The access patterns for an article - keyword is a classical many-to-many I/O
@@ -132,20 +144,30 @@ an inverse keyword-to-article. It is possible to craft these lists
 explicitly with following keys.
 ```go
 /*
-dynamo.NewID("keyword:%s#article/%s/%s",
-  "theory", "neumann", "theory_of_automata")
-    ⟿ keyword:theory#article/neumann/theory_of_automata
 
-dynamo.NewID("article:%s/%s#keyword/%s",
-  "neumann", "theory_of_automata", "theory")
-    ⟿ article:neumann/theory_of_automata#keyword:theory
+HashKey is
+dynamo.NewIRI("keyword:%s", "theory")
+  ⟿ keyword:theory
+
+SortKey is
+dynamo.NewIRI("article:%s/%s", "neumann", "theory_of_automata")
+  ⟿ article:neumann/theory_of_automata
+
+and inverse
+
+HashKey is
+  ⟿ article:neumann/theory_of_automata
+
+SortKey is
+  ⟿ keyword:theory
 */
 type Keyword struct {
-  dynamo.ID
+	HashKey dynamo.IRI `dynamodbav:"prefix,omitempty"`
+	SortKey dynamo.IRI `dynamodbav:"suffix,omitempty"`
 }
 ```
 
-There are only a few limited ways to query data efficiently from DynamoDB. The composite sort key together with `dynamo.ID` (`curie.IRI`) data type let application retrieve hierarchy of related items using range queries with expressions `begins_with`, `between`, `>`, `<`, etc.
+There are only a few limited ways to query data efficiently from DynamoDB. The composite sort key together with `dynamo.IRI` (`curie.IRI`) data type let application retrieve hierarchy of related items using range queries with expressions `begins_with`, `between`, `>`, `<`, etc. The `dynamo` library automates construction of these expressions.
 
 
 ## Secondary indexes
@@ -156,11 +178,11 @@ Composite sort key supports hierarchical one-to-many relations. Additional ortho
 * As a reader I want to list all articles written by the author ...
 * As a reader I want to look up all articles for a given category in chronological order ...
 
-The first access pattern is addressed by composite sort key `author ⟼ article`, the second one requires another `category ⟼ year` key. One approach is an explicit projection of data but secondary indexes are easy. DynamoDB implicitly copies data from the main table into the secondary index in a redesigned shape, therefore a new access dimension is unlocked. Eventual consistency is only the feature to consider. The local secondary indexes provide strong consistency but general advice to favour global indexes.
+The first access pattern is addressed by composite sort key `author ⟼ article`, the second one requires another `category ⟼ year` key. One approach is an explicit projection of data but secondary indexes are easy. DynamoDB implicitly copies data from the main table into the secondary index using another pair of attributes to establish identity. Therefore a new access dimension is unlocked. Eventual consistency is only the aspect to consider while using indexes. The local secondary indexes provide strong consistency but general advice to favour global indexes.
 
 The `dynamo` library supports both global and local secondary indexes with particular behavior:
 * it creates a client instance per table, therefore each index requires own instance of the client;
-* it automatically projects `dynamo.ID` (`curie.IRI`) into partition (HASH) and sort (RANGE) keys attributes. The default values of attributes are `prefix` and `suffix`. If table design uses other attribute names, which is always a cases of secondary indexes, then connection URI shall give a hint about new name;
+* it automatically projects type attributes into partition (HASH) and sort (RANGE) keys attributes. The default values of attributes are `prefix` and `suffix`. If table design uses other attribute names, which is always a cases of secondary indexes, then connection URI shall give a hint about new name;
 * application shall instantiate read-only clients for secondary indexes.
 
 ```go
@@ -182,17 +204,11 @@ The article shall define additional attributes, they would be projected
 by DynamoDB into partition and sort keys. Eventually building additional
 one subject to many year relations. 
 
-dynamo.NewID("%s#%s", "Computer Science", "1991")
-  ⟿ Computer Science#1991
-
-Note: the key here is missing schema definition because secondary index
-attributes are usually natural keys, in contrast with previous examples where surrogates were used.
-
 */
 type Article struct {
-  dynamo.ID
-  Category string `dynamodbav:"category,omitempty"`
-  Year     string `dynamodbav:"year,omitempty"`
+  // ...
+  Category string     `dynamodbav:"category,omitempty"`
+  Year     string     `dynamodbav:"year,omitempty"`
 }
 ```
 
@@ -207,11 +223,11 @@ Actual reads and writes into DynamoDB tables are very straightforward with the `
 
 **As an author I want to publish an article to the system ...**
 
-The example application instantiates `Author` type, defining composite sort key and other attributes. The instance is `Put` to DynamoDB  
+The example application instantiates `Author` type, defining primary key and other attributes. The instance is `Put` to DynamoDB  
 
 ```go
 author := Author{
-  ID: dynamo.NewID("author:%s", "neumann"),
+  ID: dynamo.NewIRI("author:%s", "neumann"),
   // ...
 } 
 
@@ -220,11 +236,12 @@ db.Put(author)
 
 **As an author I want to publishes an article to system ...**
 
-Fundamentally, there is no difference what data type the application writes to DynamoDB. It is all about type instantiation structure with right composite key
+Fundamentally, there is no difference what data type the application writes to DynamoDB. It is all about instantiation right structure with right composite key
 
 ```go
 article := Article{
-  ID: dynamo.NewID("article:%s#%s", "neumann", "theory_of_automata"),
+  Author: dynamo.NewIRI("author:%s", "neumann"),
+  ID:     dynamo.NewIRI("article:%s", "theory_of_automata"),
   // ...
 }
 
@@ -234,16 +251,11 @@ db.Put(article)
 The example arxiv.org application does not use a secondary index to support implicit search by keywords (so called adjacency list design pattern). Therefore, the application needs to publish keywords explicitly 
 
 ```go
-forward := Keyword{
-  ID: dynamo.NewID("keyword:%s#article/%s/%s",
-        "theory", "neumann", "theory_of_automata"),
-  // ...  
-}
-inverse := Keyword{
-  ID: dynamo.NewID("article:%s/%s#keyword/%s",
-        "neumann", "theory_of_automata", "theory")
-  // ...
-}
+keyword := dynamo.NewIRI("keyword:%s", "theory")
+article := dynamo.NewIRI("article:%s/%s", "neumann", "theory_of_automata"),
+
+forward := Keyword{HashKey: keyword, SortKey: article, /* ... */} 
+inverse := Keyword{HashKey: article, SortKey: keyword, /* ... */}
 
 db.Put(forward)
 db.Put(inverse)
@@ -255,7 +267,8 @@ The lookup of concrete instances of items requires knowledge about the full comp
 
 ```go
 article := Article{
-  ID: dynamo.NewID("article:%s#%s", "neumann", "theory_of_automata"),
+  Author: dynamo.NewIRI("author:%s", "neumann"),
+  ID:     dynamo.NewIRI("article:%s", "theory_of_automata"),
 }
 
 db.Get(&article)
@@ -263,46 +276,50 @@ db.Get(&article)
 
 **As a reader I want to list all articles written by the author ...**
 
-This is one of the primary one-to-many access patterns supported by composite sort keys. The application defines partition key (author) and queries all associated articles. The `dynamo` library implements `Match` function, which uses `dynamo.ID` (`curie.IRI`) as a pattern of composite sort key. The function returns a lazy sequence of generic representations that has to be transformed into actual data types. `FMap` is a utility that takes a closure function that lifts generic to the struct. The example below uses a monoid pattern to materialize a sequence of generic elements, please see [api documentation](https://github.com/fogfish/dynamo) for details about this pattern.
+This is one of the primary one-to-many access patterns supported by composite sort keys. The application defines partition key (author) and queries all associated articles. The `dynamo` library implements `Match` function, which uses `dynamo.IRI` (`curie.IRI`) as a pattern of composite sort key. The function returns a lazy sequence of generic representations that has to be transformed into actual data types. `FMap` is a utility that takes a closure function that lifts generic to the struct. The example below uses a monoid pattern to materialize a sequence of generic elements, please see [api documentation](https://github.com/fogfish/dynamo) for details about this pattern.
 
 ```go
-id := dynamo.NewID("article:%s", "neumann")
-
 var seq Articles
-db.Match(id).FMap(seq.Join)
+
+db.Match(Article{
+  Author: dynamo.NewIRI("author:%s", "neumann"),
+}).FMap(seq.Join)
 ```
 
 **As a reader I want to look up articles titles for given keywords ...**
 
-The table contains forwards and inverse lists of all keywords. The application crafts `dynamo.ID` (`curie.IRI`) to query keywords partition and return all articles.
+The table contains forwards and inverse lists of all keywords. The application crafts `dynamo.IRI` (`curie.IRI`) to query keywords partition and return all articles.
 
 ```go
-id := dynamo.NewID("keyword:%s", "theory")
-
 var seq Keywords
-db.Match(id).FMap(seq.Join)
+
+db.Match(Keyword{
+  HashKey: dynamo.NewIRI("keyword:%s", "theory"),
+}).FMap(seq.Join)
 ```
 
 **As a reader I want to look up articles titles written by the author for a given keyword ...**
 
-The access pattern is implemented using composite sort keys ability to encode hierarchical structures. It requires scope articles by two dimensions keyword and author. Like in the previous access pattern, the keyword partition is a primary dimension to query articles. However the `begins_with` constraints of sort keys limits articles to "written by" subset because sort key is designed to maintain hierarchical relation `keyword ⟼ author ⟼ article`. The `dynamo` library automatically deducts this and constructs the correct query if the application uses `dynamo.ID` (`curie.IRI`) data type to supply identity to the collection.
+The access pattern is implemented using composite sort keys ability to encode hierarchical structures. It requires scope articles by two dimensions keyword and author. Like in the previous access pattern, the keyword partition is a primary dimension to query articles. However the `begins_with` constraints of sort keys limits articles to "written by" subset because sort key is designed to maintain hierarchical relation `keyword ⟼ author ⟼ article`. The `dynamo` library automatically deducts this and constructs the correct query if the application uses `dynamo.IRI` (`curie.IRI`) data type to supply identity to the collection.
 
 ```go
-id := dynamo.NewID("keyword:%s#article/%s", "theory", "neumann")
-
 var seq Keywords
-ddb.Match(id).FMap(seq.Join)
+ddb.Match(Keyword{
+  HashKey: dynamo.NewIRI("keyword:%s", "theory"),
+  SortKey: dynamo.NewIRI("article:%s", "neumann"),
+}).FMap(seq.Join)
 ```
 
 **As a reader I want to look up all keywords of the article ...**
 
-The `article ⟼ keyword` is one-to-many relation supported by the inverse keywords list. The application crafts `dynamo.ID` (`curie.IRI`) to query a partition dedicated for articles metadata and filters keywords only.
+The `article ⟼ keyword` is one-to-many relation supported by the inverse keywords list. The application crafts `dynamo.IRI` (`curie.IRI`) to query a partition dedicated for articles metadata and filters keywords only.
 
 ```go
-id := dynamo.NewID("article:%s/%s#keyword", "neumann", "theory_of_automata")
-
 var seq Keywords
-ddb.Match(id).FMap(seq.Join)
+ddb.Match(Keyword{
+  HashKey: dynamo.IRI("article:%s/%s", "neumann", "theory_of_automata"),
+  SortKey: dynamo.IRI("keyword:")
+}).FMap(seq.Join)
 ```
 
 **As a reader I want to look up all articles for a given category in chronological order ...**
@@ -312,10 +329,10 @@ The access pattern requires a global secondary index. Otherwise, the lookup is s
 ```go
 gsi := dynamo.Must(dynamo.ReadOnly("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))
 
-id := dynamo.NewID("%s", "Computer Science")
-
 var seq Articles
-gsi.Match(id).FMap(seq.Join)
+gsi.Match(Article{
+  Category: "Computer Science",
+}).FMap(seq.Join)
 ```
 
 **As a reader I want to list all articles written by the author in chronological order ...**
@@ -326,10 +343,10 @@ The access pattern requires a local secondary index. As it has been discussed ea
 // client to access global secondary index
 lsi := dynamo.Must(dynamo.ReadOnly("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year"))
 
-id := dynamo.NewID("article:%s", "neumann")
-
 var seq Articles
-lsi.Match(id).FMap(seq.Join)
+lsi.Match(Article{
+  Author: dynamo.NewIRI("article:%s", "neumann"),
+}).FMap(seq.Join)
 ```
 
 ## Afterwords
