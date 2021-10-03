@@ -2,6 +2,7 @@
 
 The library implements a simple key-value abstraction to store algebraic data types at AWS storage services: AWS DynamoDB and AWS S3.
 
+[![Version](https://img.shields.io/github/v/tag/fogfish/dynamo?label=version)](https://github.com/fogfish/dynamo/releases)
 [![Documentation](https://pkg.go.dev/badge/github.com/fogfish/dynamo)](https://pkg.go.dev/github.com/fogfish/dynamo)
 [![Build Status](https://github.com/fogfish/dynamo/workflows/build/badge.svg)](https://github.com/fogfish/dynamo/actions/)
 [![Git Hub](https://img.shields.io/github/last-commit/fogfish/dynamo.svg)](https://github.com/fogfish/dynamo)
