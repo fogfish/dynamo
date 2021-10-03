@@ -49,7 +49,7 @@ type Article struct {
 }
 
 func (article Article) Identity() (string, string) {
-	return curie.IRI(article.Author).String(), curie.IRI(article.ID).String()
+	return article.Author.String(), article.ID.String()
 }
 
 article := Article{

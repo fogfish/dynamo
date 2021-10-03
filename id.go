@@ -26,10 +26,15 @@ type IRI curie.IRI
 
 /*
 
-NewIRI transform category of strings to dynamo.ID.
+NewIRI transform category of strings to dynamo.IRI
 */
 func NewIRI(iri string, args ...interface{}) IRI {
 	return IRI(curie.New(iri, args...))
+}
+
+// String is helper function to transform IRI to string
+func (iri IRI) String() string {
+	return curie.IRI(iri).String()
 }
 
 /*
@@ -154,56 +159,6 @@ func Decode(av *dynamodb.AttributeValue, hashkey, sortkey, val interface{}) erro
 
 	return nil
 }
-
-/*
-
-
-ID is compact URI (CURIE) type for struct tagging, It declares unique identity
-of a thing. The tagged struct belongs to Thing category so that the struct is
-manageable by dynamo interfaces
-
-  type MyStruct struct {
-    dynamo.ID
-  }
-*/
-// type ID struct {
-// 	Prefix IRI `dynamodbav:"prefix" json:"-"`
-// 	Suffix IRI `dynamodbav:"suffix" json:"-"`
-// }
-
-/*
-
-NewID transform category of curie.IRI to dynamo.ID.
-*/
-// func NewID(iri curie.IRI) IRI {
-// 	return ID{IRI(iri)}
-// }
-
-/*
-
-HashKey makes type compliant to Thing interface
-so that embedding ID makes any struct to be Thing.
-*/
-// func (id ID) HashKey() *curie.IRI {
-// 	return (*curie.IRI)(&id.Prefix)
-// }
-
-/*
-
-SortKey makes type compliant to Thing interface
-so that embedding ID makes any struct to be Thing.
-*/
-// func (id ID) SortKey() *curie.IRI {
-// 	return (*curie.IRI)(&id.Suffix)
-// }
-
-/*
-
-Ref return reference to dynamo.IRI
-*/
-// func (id ID) Unwrap() *IRI {
-// 	return &id.IRI
-// }
 
 /*
 

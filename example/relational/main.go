@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 
 	"github.com/fogfish/dynamo"
@@ -67,8 +66,8 @@ func fetchArticle(db dynamo.KeyValNoContext) error {
 	log.Printf("==> fetch article: An axiomatization of set theory\n")
 
 	article := Article{
-		AuthorID: fmt.Sprintf("author:%s", "neumann"),
-		ID:       fmt.Sprintf("article:%s", "theory_of_automata"),
+		Author: dynamo.NewIRI("author:%s", "neumann"),
+		ID:     dynamo.NewIRI("article:%s", "theory_of_automata"),
 	}
 
 	if err := db.Get(&article); err != nil {
@@ -87,9 +86,10 @@ func lookupArticlesByAuthor(db dynamo.KeyValNoContext, author string) error {
 
 	var seq Articles
 	err := db.Match(Article{
-		AuthorID: fmt.Sprintf("author:%s", author),
-		ID:       "article",
+		Author: dynamo.NewIRI("author:%s", author),
+		ID:     dynamo.NewIRI("article:"),
 	}).FMap(seq.Join)
+
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,16 @@ As a reader I want to look up articles titles for given keywords ...
 func lookupArticlesByKeyword(db dynamo.KeyValNoContext, keyword string) error {
 	log.Printf("==> lookup articles by keyword: %s\n", keyword)
 
-	return lookupKeywords(db, fmt.Sprintf("keyword:%s", keyword), "")
+	var seq Keywords
+	err := db.Match(Keyword{
+		HashKey: dynamo.NewIRI("keyword:%s", keyword),
+	}).FMap(seq.Join)
+
+	if err != nil {
+		return err
+	}
+
+	return stdio(seq)
 }
 
 /*
@@ -114,7 +123,17 @@ As a reader I want to look up articles titles written by the author for a given 
 func lookupArticlesByKeywordAuthor(db dynamo.KeyValNoContext, keyword, author string) error {
 	log.Printf("==> lookup articles by keyword %s and author: %s\n", keyword, author)
 
-	return lookupKeywords(db, fmt.Sprintf("keyword:%s", keyword), fmt.Sprintf("article:%s", author))
+	var seq Keywords
+	err := db.Match(Keyword{
+		HashKey: dynamo.NewIRI("keyword:%s", keyword),
+		SortKey: dynamo.NewIRI("article:%s", author),
+	}).FMap(seq.Join)
+
+	if err != nil {
+		return err
+	}
+
+	return stdio(seq)
 }
 
 /*
@@ -124,7 +143,17 @@ As a reader I want to look up all keywords of the article ...
 func fetchArticleKeywords(db dynamo.KeyValNoContext) error {
 	log.Printf("==> lookup keyword for An axiomatization of set theory\n")
 
-	return lookupKeywords(db, "article:neumann/theory_of_set", "keyword:")
+	var seq Keywords
+	err := db.Match(Keyword{
+		HashKey: dynamo.NewIRI("article:%s/%s", "neumann", "theory_of_set"),
+		SortKey: dynamo.NewIRI("keyword:"),
+	}).FMap(seq.Join)
+
+	if err != nil {
+		return err
+	}
+
+	return stdio(seq)
 }
 
 /*
@@ -138,6 +167,7 @@ func lookupArticlesByCategory(db dynamo.KeyValNoContext, category string) error 
 	err := db.Match(Article{
 		Category: category,
 	}).FMap(seq.Join)
+
 	if err != nil {
 		return err
 	}
@@ -154,8 +184,9 @@ func lookupByAuthor(db dynamo.KeyValNoContext, author string) error {
 
 	var seq Articles
 	err := db.Match(Article{
-		AuthorID: fmt.Sprintf("author:%s", author),
+		Author: dynamo.NewIRI("author:%s", author),
 	}).FMap(seq.Join)
+
 	if err != nil {
 		return err
 	}
@@ -254,17 +285,6 @@ func publishArticle(db dynamo.KeyValNoContext, author, id, title string, keyword
 	}
 
 	return nil
-}
-
-//
-func lookupKeywords(db dynamo.KeyValNoContext, hashkey, sortkey string) error {
-	var seq Keywords
-	err := db.Match(Keyword{HashKey: hashkey, SortKey: sortkey}).FMap(seq.Join)
-	if err != nil {
-		return err
-	}
-
-	return stdio(seq)
 }
 
 // stdio outputs query result
