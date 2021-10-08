@@ -505,29 +505,17 @@ func marshalEntity(cfg ddbConfig, entity Thing) (map[string]*dynamodb.AttributeV
 		return nil, err
 	}
 
-	if val, exists := gen["__prefix"]; exists {
-		gen[cfg.pkPrefix] = val
-		delete(gen, "__prefix")
-	}
-
-	if val, exists := gen["__suffix"]; exists {
-		gen[cfg.skSuffix] = val
-		delete(gen, "__suffix")
-	}
-
 	return gen, nil
 }
 
 //
 func unmarshal(cfg ddbConfig, ddb map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
-	prefix, isPrefix := ddb[cfg.pkPrefix]
-	suffix, isSuffix := ddb[cfg.skSuffix]
+	_, isPrefix := ddb[cfg.pkPrefix]
+	_, isSuffix := ddb[cfg.skSuffix]
 	if !isPrefix || !isSuffix {
 		return nil, errors.New("Invalid DDB schema")
 	}
 
-	ddb["__prefix"] = prefix
-	ddb["__suffix"] = suffix
 	return ddb, nil
 }
 

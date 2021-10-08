@@ -1,16 +1,6 @@
 package dynamo_test
 
-import (
-	"fmt"
-	"testing"
-
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
-	"github.com/fogfish/it"
-)
-
+/*
 type MyType struct {
 	HKey curie.IRI     `dynamodbav:"-"`
 	SKey curie.IRI     `dynamodbav:"-"`
@@ -168,3 +158,4 @@ func TestEncodeBadSKey(t *testing.T) {
 	_, err := dynamodbattribute.Marshal(core)
 	it.Ok(t).IfNotNil(err)
 }
+*/
