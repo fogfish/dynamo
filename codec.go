@@ -19,30 +19,33 @@ import (
 
 /*
 
-Custom codec for struct
+Helper functions to implement codec for struct
 */
 
 /*
 
-Type ...
+Type is a runtime representation of struct
 */
 type Type struct{ reflect.Type }
 
 /*
 
-Codec ...
+Codec for struct fields, the type implement Encode/Decode primitives
 */
 type Codec []string
 
 /*
 
-Coder ...
+Coder is a function, applies tranformation of generic dynamodb AttributeValue
 */
 type Coder func(map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error)
 
 /*
 
-Struct ...
+Struct lifts a structure to its runtime representation
+
+  type MyType struct { ... }
+	var typeOf = dynamo.Struct(MyType{})
 */
 func Struct(t interface{}) Type {
 	typeof := reflect.TypeOf(t)
@@ -55,7 +58,14 @@ func Struct(t interface{}) Type {
 
 /*
 
-Codec ...
+Codec builds a Codec specification for struct fields
+
+  type MyType struct {
+    ID   string
+		Name string
+  }
+	var typeOf = dynamo.Struct(MyType{}).Codec("ID", "Name")
+
 */
 func (t Type) Codec(names ...string) Codec {
 	lens := make([]string, len(names))
@@ -79,7 +89,7 @@ func (t Type) Codec(names ...string) Codec {
 
 /*
 
-Decode ...
+Decode generic DynamoDB attribute values into struct fields behind pointers
 */
 func (lenses Codec) Decode(vals ...interface{}) Coder {
 	return func(gen map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
@@ -98,7 +108,7 @@ func (lenses Codec) Decode(vals ...interface{}) Coder {
 
 /*
 
-Encode ...
+Encode encode struct field into DynamoDB attribute values
 */
 func (lenses Codec) Encode(vals ...interface{}) Coder {
 	return func(gen map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
