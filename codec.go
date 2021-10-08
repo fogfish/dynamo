@@ -30,9 +30,9 @@ type Type struct{ reflect.Type }
 
 /*
 
-Lens ...
+Codec ...
 */
-type Lens []string
+type Codec []string
 
 /*
 
@@ -42,9 +42,9 @@ type Coder func(map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.Attri
 
 /*
 
-Codec ...
+Struct ...
 */
-func Codec(t interface{}) Type {
+func Struct(t interface{}) Type {
 	typeof := reflect.TypeOf(t)
 	if typeof.Kind() == reflect.Ptr {
 		typeof = typeof.Elem()
@@ -55,9 +55,9 @@ func Codec(t interface{}) Type {
 
 /*
 
-Fields ...
+Codec ...
 */
-func (t Type) Fields(names ...string) Lens {
+func (t Type) Codec(names ...string) Codec {
 	lens := make([]string, len(names))
 
 	for i, name := range names {
@@ -81,7 +81,7 @@ func (t Type) Fields(names ...string) Lens {
 
 Decode ...
 */
-func (lenses Lens) Decode(vals ...interface{}) Coder {
+func (lenses Codec) Decode(vals ...interface{}) Coder {
 	return func(gen map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
 		for i, val := range vals {
 			field := lenses[i]
@@ -100,7 +100,7 @@ func (lenses Lens) Decode(vals ...interface{}) Coder {
 
 Encode ...
 */
-func (lenses Lens) Encode(vals ...interface{}) Coder {
+func (lenses Codec) Encode(vals ...interface{}) Coder {
 	return func(gen map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
 		for i, val := range vals {
 			gval, err := dynamodbattribute.Marshal(val)
@@ -117,9 +117,20 @@ func (lenses Lens) Encode(vals ...interface{}) Coder {
 
 /*
 
-DecodeX ...
+Decode is a helper function to decode core domain types from Dynamo DB format.
+The helper ensures compact URI de-serialization from DynamoDB schema.
+
+  var codec = dynamo.Struct(MyType{}).Codec("HashKey", "SortKey")
+
+  func (x *MyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+    type tStruct *MyType
+    return dynamo.Decode(av, tStruct(x),
+      codec.Decode((*dynamo.IRI)(&x.HashKey), (*dynamo.IRI)(&x.SortKey)),
+    )
+  }
+
 */
-func DecodeX(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err error) {
+func Decode(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err error) {
 	av.M, err = coder(av.M)
 	if err != nil {
 		return err
@@ -130,9 +141,20 @@ func DecodeX(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err err
 
 /*
 
-EncodeX ...
+Encode is a helper function to encode core domain types into struct.
+The helper ensures compact URI serialization into DynamoDB schema.
+
+  var codec = dynamo.Struct(MyType{}).Codec("HashKey", "SortKey")
+
+  func (x MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+    type tStruct MyType
+    return dynamo.Encode(av, tStruct(x),
+      codec.Encode(x.HashKey, x.SortKey)
+    )
+  }
+
 */
-func EncodeX(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err error) {
+func Encode(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err error) {
 	gen, err := dynamodbattribute.Marshal(val)
 	if err != nil {
 		return err
