@@ -27,19 +27,25 @@ type Person struct {
 	Address string    `dynamodbav:"address,omitempty"`
 }
 
+var codec = dynamo.Struct(Person{}).Codec("Org", "ID")
+
 //
 func (p Person) Identity() (string, string) { return p.Org.String(), p.ID.String() }
 
 //
 func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct Person
-	return dynamo.Encode(av, dynamo.IRI(p.Org), dynamo.IRI(p.ID), tStruct(p))
+	return dynamo.Encode(av, tStruct(p),
+		codec.Encode(dynamo.IRI(p.Org), dynamo.IRI(p.ID)),
+	)
 }
 
 //
 func (p *Person) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *Person
-	return dynamo.Decode(av, (*dynamo.IRI)(&p.Org), (*dynamo.IRI)(&p.ID), tStruct(p))
+	return dynamo.Decode(av, tStruct(p),
+		codec.Decode((*dynamo.IRI)(&p.Org), (*dynamo.IRI)(&p.ID)),
+	)
 }
 
 //
