@@ -7,7 +7,7 @@
 //
 
 //
-// The file declares NoContext warppers
+// The file declares NoContext wrappers
 //
 
 package dynamo

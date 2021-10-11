@@ -259,7 +259,7 @@ func (seq *s3Seq) FMap(f func(Gen) error) error {
 			return err
 		}
 	}
-	return nil
+	return seq.err
 }
 
 // Head selects the first element of matched collection.

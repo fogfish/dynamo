@@ -45,7 +45,7 @@ type Coder func(map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.Attri
 Struct lifts a structure to its runtime representation
 
   type MyType struct { ... }
-	var typeOf = dynamo.Struct(MyType{})
+  var typeOf = dynamo.Struct(MyType{})
 */
 func Struct(t interface{}) Type {
 	typeof := reflect.TypeOf(t)
@@ -62,9 +62,9 @@ Codec builds a Codec specification for struct fields
 
   type MyType struct {
     ID   string
-		Name string
+    Name string
   }
-	var typeOf = dynamo.Struct(MyType{}).Codec("ID", "Name")
+  var typeOf = dynamo.Struct(MyType{}).Codec("ID", "Name")
 
 */
 func (t Type) Codec(names ...string) Codec {
