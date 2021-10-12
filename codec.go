@@ -170,6 +170,10 @@ func Encode(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err erro
 		return err
 	}
 
+	if gen.M == nil {
+		gen.M = make(map[string]*dynamodb.AttributeValue)
+	}
+
 	gen.M, err = coder(gen.M)
 	if err != nil {
 		return err
