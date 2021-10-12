@@ -532,7 +532,9 @@ func keyOnly(cfg ddbConfig, gen map[string]*dynamodb.AttributeValue) map[string]
 func exprOf(gen map[string]*dynamodb.AttributeValue) (val map[string]*dynamodb.AttributeValue) {
 	val = map[string]*dynamodb.AttributeValue{}
 	for k, v := range gen {
-		val[":"+k] = v
+		if v.NULL == nil || !*v.NULL {
+			val[":"+k] = v
+		}
 	}
 
 	return
