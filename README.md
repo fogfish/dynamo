@@ -276,6 +276,7 @@ Development of complex Golang application might lead developers towards [Standar
 
 ```go
 // core.go
+// 1. structure with core types is defined, no deps to dynamo library
 type Person struct {
   Org      curie.IRI  `dynamodbav:"prefix,omitempty"`
   ID       curie.IRI  `dynamodbav:"suffix,omitempty"`
@@ -283,16 +284,25 @@ type Person struct {
 }
 
 // aws/ddb/ddb.go
+// 2. type alias to core type implements dynamo custom codec
 type dbPerson Person
 
+// 3. custom codec for structure field is defined 
+var codec = dynamo.Struct(dbPerson{}).Codec("Org", "ID")
+
+// 4. use custom codec
 func (x dbPerson) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	type tStruct dbPerson
-	return dynamo.Encode(av, dynamo.IRI(x.Org), dynamo.IRI(x.ID), tStruct(x))
+  type tStruct dbPerson
+  return dynamo.Encode(av, tStruct(x),
+    codec.Encode(dynamo.IRI(x.Org), dynamo.IRI(x.ID)),
+  )
 }
 
 func (x *dbPerson) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	type tStruct *dbPerson
-	return dynamo.Decode(av, (*dynamo.IRI)(&x.Org), (*dynamo.IRI)(&x.ID), tStruct(x))
+  type tStruct *dbPerson
+  return dynamo.Decode(av, tStruct(x),
+    codec.Decode((*dynamo.IRI)(&x.Org), (*dynamo.IRI)(&x.ID)),
+  )
 }
 ```
 
