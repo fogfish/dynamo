@@ -266,8 +266,8 @@ func (dynamo *ddb) Match(ctx context.Context, key Thing) Seq {
 	}
 
 	expr := dynamo.pkPrefix + " = :" + dynamo.pkPrefix
-	_, isSuffix := gen[dynamo.skSuffix]
-	if isSuffix {
+	suffix, isSuffix := gen[dynamo.skSuffix]
+	if isSuffix && suffix.S != nil {
 		expr = expr + " and begins_with(" + dynamo.skSuffix + ", :" + dynamo.skSuffix + ")"
 	}
 
@@ -490,8 +490,8 @@ func marshal(cfg ddbConfig, entity Thing) (map[string]*dynamodb.AttributeValue, 
 		return nil, err
 	}
 
-	_, isSuffix := gen[cfg.skSuffix]
-	if !isSuffix {
+	suffix, isSuffix := gen[cfg.skSuffix]
+	if !isSuffix || suffix.S == nil {
 		gen[cfg.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
 	}
 
