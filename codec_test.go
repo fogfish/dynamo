@@ -92,8 +92,8 @@ func TestCodecEncode(t *testing.T) {
 //
 //
 type codecMyType struct {
-	HKey curie.IRI     `dynamodbav:"hkey"`
-	SKey curie.IRI     `dynamodbav:"skey"`
+	HKey curie.IRI     `dynamodbav:"hkey,omitempty"`
+	SKey curie.IRI     `dynamodbav:"skey,omitempty"`
 	Link *curie.String `dynamodbav:"link,omitempty"`
 }
 
