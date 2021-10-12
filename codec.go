@@ -171,6 +171,7 @@ func Encode(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err erro
 	}
 
 	if gen.M == nil {
+		gen.NULL = nil
 		gen.M = make(map[string]*dynamodb.AttributeValue)
 	}
 
