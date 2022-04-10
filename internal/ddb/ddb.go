@@ -2,6 +2,7 @@ package ddb
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -200,4 +201,46 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 	}
 
 	return db.codec.Decode(val.Attributes)
+}
+
+// Match applies a pattern matching to elements in the table
+func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.SeqV2[T] {
+	gen, err := db.codec.EncodeKey(key)
+	if err != nil {
+		return newSeq[T](nil, nil, nil, err)
+	}
+
+	suffix, isSuffix := gen[db.codec.skSuffix]
+	if suffix.S != nil && *suffix.S == "_" {
+		delete(gen, db.codec.skSuffix)
+		isSuffix = false
+	}
+
+	expr := db.codec.pkPrefix + " = :" + db.codec.pkPrefix
+	if isSuffix && suffix.S != nil {
+		expr = expr + " and begins_with(" + db.codec.skSuffix + ", :" + db.codec.skSuffix + ")"
+	}
+
+	q := &dynamodb.QueryInput{
+		KeyConditionExpression:    aws.String(expr),
+		ExpressionAttributeValues: exprOf(gen),
+		TableName:                 db.table,
+		IndexName:                 db.index,
+	}
+
+	fmt.Printf("q => %+v\n", q)
+
+	return newSeq(ctx, db, q, err)
+}
+
+//
+func exprOf(gen map[string]*dynamodb.AttributeValue) (val map[string]*dynamodb.AttributeValue) {
+	val = map[string]*dynamodb.AttributeValue{}
+	for k, v := range gen {
+		if v.NULL == nil || !*v.NULL {
+			val[":"+k] = v
+		}
+	}
+
+	return
 }

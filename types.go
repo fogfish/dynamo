@@ -114,6 +114,27 @@ type Seq interface {
 	FMap(func(Gen) error) error
 }
 
+type SeqV2[T ThingV2] interface {
+	// Head lifts first element of sequence
+	Head() (*T, error)
+	// Tail evaluates tail of sequence
+	Tail() bool
+	// Error returns error of stream evaluation
+	Error() error
+	// Cursor is the global position in the sequence
+	Cursor() ThingV2
+
+	// Limit sequence size to N elements (pagination)
+	Limit(int64) SeqV2[T]
+	// Continue limited sequence from the cursor
+	Continue(ThingV2) SeqV2[T]
+	// Reverse order of sequence
+	Reverse() SeqV2[T]
+
+	// Sequence transformer
+	FMap(func(*T) error) error
+}
+
 //-----------------------------------------------------------------------------
 //
 // Storage Getter
@@ -282,6 +303,7 @@ type KeyVal interface {
 type KeyValV2[T ThingV2] interface {
 	KeyValGetterV2[T]
 	KeyValWriterV2[T]
+	Match(context.Context, T) SeqV2[T]
 }
 
 /*

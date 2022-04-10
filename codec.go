@@ -15,7 +15,84 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/fogfish/golem/pure/hseq"
 )
+
+type CodecV2[T ThingV2, A any] interface {
+	Decode(*A) Coder
+	Encode(A) Coder
+}
+
+type codec[T ThingV2, A any] string
+
+func mkCodec[T ThingV2, A any](t hseq.Type[T]) CodecV2[T, A] {
+	tag := t.Tag.Get("dynamodbav")
+	if tag == "" {
+		return codec[T, A]("")
+	}
+
+	return codec[T, A](strings.Split(tag, ",")[0])
+}
+
+/*
+
+Decode generic DynamoDB attribute values into struct fields behind pointers
+*/
+func (key codec[T, A]) Decode(val *A) Coder {
+	return func(gen map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
+		if gval, exists := gen[string(key)]; exists {
+			if err := dynamodbattribute.Unmarshal(gval, val); err != nil {
+				return nil, err
+			}
+			delete(gen, string(key))
+		}
+		return gen, nil
+	}
+}
+
+/*
+
+Encode encode struct field into DynamoDB attribute values
+*/
+func (key codec[T, A]) Encode(val A) Coder {
+	return func(gen map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
+		gval, err := dynamodbattribute.Marshal(val)
+		if err != nil {
+			return nil, err
+		}
+
+		gen[string(key)] = gval
+		return gen, nil
+	}
+}
+
+func Codec3[T ThingV2, A, B, C any]() (
+	CodecV2[T, A],
+	CodecV2[T, B],
+	CodecV2[T, C],
+) {
+	return hseq.FMap3(
+		hseq.Generic[T](),
+		mkCodec[T, A],
+		mkCodec[T, B],
+		mkCodec[T, C],
+	)
+}
+
+func Codec4[T ThingV2, A, B, C, D any]() (
+	CodecV2[T, A],
+	CodecV2[T, B],
+	CodecV2[T, C],
+	CodecV2[T, D],
+) {
+	return hseq.FMap4(
+		hseq.Generic[T](),
+		mkCodec[T, A],
+		mkCodec[T, B],
+		mkCodec[T, C],
+		mkCodec[T, D],
+	)
+}
 
 /*
 
@@ -140,10 +217,12 @@ The helper ensures compact URI de-serialization from DynamoDB schema.
   }
 
 */
-func Decode(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err error) {
-	av.M, err = coder(av.M)
-	if err != nil {
-		return err
+func Decode(av *dynamodb.AttributeValue, val interface{}, coder ...Coder) (err error) {
+	for _, fcoder := range coder {
+		av.M, err = fcoder(av.M)
+		if err != nil {
+			return err
+		}
 	}
 
 	return dynamodbattribute.Unmarshal(av, val)
@@ -164,7 +243,7 @@ The helper ensures compact URI serialization into DynamoDB schema.
   }
 
 */
-func Encode(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err error) {
+func Encode(av *dynamodb.AttributeValue, val interface{}, coder ...Coder) (err error) {
 	gen, err := dynamodbattribute.Marshal(val)
 	if err != nil {
 		return err
@@ -175,9 +254,11 @@ func Encode(av *dynamodb.AttributeValue, val interface{}, coder Coder) (err erro
 		gen.M = make(map[string]*dynamodb.AttributeValue)
 	}
 
-	gen.M, err = coder(gen.M)
-	if err != nil {
-		return err
+	for _, fcoder := range coder {
+		gen.M, err = fcoder(gen.M)
+		if err != nil {
+			return err
+		}
 	}
 
 	*av = *gen
