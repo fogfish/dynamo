@@ -34,6 +34,21 @@ func Schema3[T ThingV2, A, B, C any]() (
 	)
 }
 
+func Schema4[T ThingV2, A, B, C, D any]() (
+	TypeV2[T, A],
+	TypeV2[T, B],
+	TypeV2[T, C],
+	TypeV2[T, D],
+) {
+	return hseq.FMap4(
+		hseq.Generic[T](),
+		mkType[T, A],
+		mkType[T, B],
+		mkType[T, C],
+		mkType[T, D],
+	)
+}
+
 func mkType[T ThingV2, A any](t hseq.Type[T]) TypeV2[T, A] {
 	tag := t.Tag.Get("dynamodbav")
 	if tag == "" {

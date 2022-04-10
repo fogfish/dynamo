@@ -35,6 +35,15 @@ func (codec Codec[T]) EncodeKey(key T) (map[string]*dynamodb.AttributeValue, err
 }
 
 //
+func (codec Codec[T]) KeyOnly(gen map[string]*dynamodb.AttributeValue) map[string]*dynamodb.AttributeValue {
+	key := map[string]*dynamodb.AttributeValue{}
+	key[codec.pkPrefix] = gen[codec.pkPrefix]
+	key[codec.skSuffix] = gen[codec.skSuffix]
+
+	return key
+}
+
+//
 func (codec Codec[T]) Encode(entity T) (map[string]*dynamodb.AttributeValue, error) {
 	gen, err := dynamodbattribute.MarshalMap(entity)
 	if err != nil {

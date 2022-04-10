@@ -204,6 +204,8 @@ type KeyValWriter interface {
 
 type KeyValWriterV2[T ThingV2] interface {
 	Put(context.Context, T, ...ConstrainV2[T]) error
+	Remove(context.Context, T, ...ConstrainV2[T]) error
+	Update(context.Context, T, ...ConstrainV2[T]) (*T, error)
 }
 
 /*

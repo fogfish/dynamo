@@ -29,6 +29,12 @@ func maybeConditionExpression[T dynamo.ThingV2](
 				expressionAttributeNames,
 				expressionAttributeValues,
 			)
+		case *constrain.Unary:
+			unary(op,
+				conditionExpression,
+				expressionAttributeNames,
+				expressionAttributeValues,
+			)
 		}
 
 		// Unfortunately empty maps are not accepted by DynamoDB
@@ -42,9 +48,34 @@ func maybeConditionExpression[T dynamo.ThingV2](
 	return
 }
 
+func maybeUpdateConditionExpression[T dynamo.ThingV2](
+	conditionExpression **string,
+	expressionAttributeNames map[string]*string,
+	expressionAttributeValues map[string]*dynamodb.AttributeValue,
+	config []dynamo.ConstrainV2[T],
+) {
+	if len(config) > 0 {
+		switch op := config[0].(type) {
+		case *constrain.Dyadic:
+			dyadic(op,
+				conditionExpression,
+				expressionAttributeNames,
+				expressionAttributeValues,
+			)
+		case *constrain.Unary:
+			unary(op,
+				conditionExpression,
+				expressionAttributeNames,
+				expressionAttributeValues,
+			)
+		}
+	}
+}
+
 /*
 
- */
+dyadic ...
+*/
 func dyadic(
 	op *constrain.Dyadic,
 	conditionExpression **string,
@@ -65,5 +96,26 @@ func dyadic(
 	expressionAttributeValues[let] = lit
 	expressionAttributeNames[key] = &op.Key
 	*conditionExpression = aws.String(key + " " + op.Op + " " + let)
+	return
+}
+
+/*
+
+unary ...
+*/
+func unary(
+	op *constrain.Unary,
+	conditionExpression **string,
+	expressionAttributeNames map[string]*string,
+	expressionAttributeValues map[string]*dynamodb.AttributeValue,
+) {
+	if op.Key == "" {
+		return
+	}
+
+	key := "#__" + op.Key + "__"
+	expressionAttributeNames[key] = aws.String(op.Key)
+
+	*conditionExpression = aws.String(op.Op + "(" + key + ")")
 	return
 }
