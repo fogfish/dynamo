@@ -22,8 +22,6 @@ type ddb[T dynamo.ThingV2] struct {
 	schema *Schema[T]
 }
 
-// TODO: projection expression for get
-
 func New[T dynamo.ThingV2](
 	io *session.Session,
 	spec *dynamo.URL,

@@ -31,7 +31,7 @@ Thing is the most generic item type used by the library to
 abstract writable/readable items into storage services.
 
 The interfaces declares anything that have a unique identifier.
-The unique identity is exposed by pair of string: prefix and suffix.
+The unique identity is exposed by pair of string: HashKey and SortKey.
 */
 type Thing interface {
 	Identity() (string, string)
