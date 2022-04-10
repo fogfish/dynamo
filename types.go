@@ -42,6 +42,11 @@ type ThingV2 interface {
 	SortKey() string
 }
 
+type StreamV2 struct {
+	ThingV2
+	io.Reader
+}
+
 /*
 
 ThingStream is an extension to Thing that provides a stream

@@ -8,6 +8,7 @@ import (
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/internal/ddb"
 	"github.com/fogfish/dynamo/internal/s3"
+	"github.com/fogfish/dynamo/internal/stream"
 )
 
 func NewV2[T dynamo.ThingV2](
@@ -49,6 +50,8 @@ func factoryV2[T dynamo.ThingV2](uri string, defSession ...*session.Session) (cr
 		return s3.New[T], (*dynamo.URL)(spec), nil
 	case spec.Scheme == "ddb":
 		return ddb.New[T], (*dynamo.URL)(spec), nil
+	case spec.Scheme == "stream":
+		return stream.New[T], (*dynamo.URL)(spec), nil
 	default:
 		return nil, nil, fmt.Errorf("Unsupported schema: %s", uri)
 	}
