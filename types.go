@@ -37,6 +37,11 @@ type Thing interface {
 	Identity() (string, string)
 }
 
+type ThingV2 interface {
+	HashKey() string
+	SortKey() string
+}
+
 /*
 
 ThingStream is an extension to Thing that provides a stream
@@ -123,6 +128,10 @@ type KeyValGetter interface {
 	Get(context.Context, Thing) error
 }
 
+type KeyValGetterV2[T ThingV2] interface {
+	Get(context.Context, T) (*T, error)
+}
+
 /*
 
 KeyValGetterNoContext defines read by key notation
@@ -191,6 +200,10 @@ type KeyValWriter interface {
 	Put(context.Context, Thing, ...Constrain) error
 	Remove(context.Context, Thing, ...Constrain) error
 	Update(context.Context, Thing, ...Constrain) error
+}
+
+type KeyValWriterV2[T ThingV2] interface {
+	Put(context.Context, T, ...ConstrainV2[T]) error
 }
 
 /*
@@ -262,6 +275,11 @@ KeyVal is a generic key-value trait to access domain objects.
 type KeyVal interface {
 	KeyValReader
 	KeyValWriter
+}
+
+type KeyValV2[T ThingV2] interface {
+	KeyValGetterV2[T]
+	KeyValWriterV2[T]
 }
 
 /*
