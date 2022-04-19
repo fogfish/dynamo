@@ -8,12 +8,13 @@ import (
 	"github.com/fogfish/dynamo/internal/constrain"
 )
 
-//
-// Internal
-//
-func maybeConditionExpression[T dynamo.ThingV2](
+/*
+
+Internal implementation of conditional expressions for dynamo db
+*/
+func maybeConditionExpression[T dynamo.Thing](
 	conditionExpression **string,
-	config []dynamo.ConstrainV2[T],
+	config []dynamo.Constrain[T],
 ) (
 	expressionAttributeNames map[string]*string,
 	expressionAttributeValues map[string]*dynamodb.AttributeValue,
@@ -48,11 +49,16 @@ func maybeConditionExpression[T dynamo.ThingV2](
 	return
 }
 
-func maybeUpdateConditionExpression[T dynamo.ThingV2](
+/*
+
+Internal implementation of conditional expressions for dynamo db in the case of
+update.
+*/
+func maybeUpdateConditionExpression[T dynamo.Thing](
 	conditionExpression **string,
 	expressionAttributeNames map[string]*string,
 	expressionAttributeValues map[string]*dynamodb.AttributeValue,
-	config []dynamo.ConstrainV2[T],
+	config []dynamo.Constrain[T],
 ) {
 	if len(config) > 0 {
 		switch op := config[0].(type) {
@@ -74,7 +80,7 @@ func maybeUpdateConditionExpression[T dynamo.ThingV2](
 
 /*
 
-dyadic ...
+dyadic translate expression to dynamo format
 */
 func dyadic(
 	op *constrain.Dyadic,
@@ -101,7 +107,7 @@ func dyadic(
 
 /*
 
-unary ...
+unary translate expression to dynamo format
 */
 func unary(
 	op *constrain.Unary,

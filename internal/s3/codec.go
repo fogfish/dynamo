@@ -2,7 +2,11 @@ package s3
 
 import "github.com/fogfish/dynamo"
 
-type Codec[T dynamo.ThingV2] struct{}
+/*
+
+Codec is utility to encode/decode objects to s3 representation
+*/
+type Codec[T dynamo.Thing] struct{}
 
 //
 func (codec Codec[T]) EncodeKey(key T) string {

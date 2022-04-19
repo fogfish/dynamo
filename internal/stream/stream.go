@@ -15,18 +15,18 @@ import (
 )
 
 // ds3 is a S3 client
-type ds3 struct {
+type ds3[T dynamo.StreamVI] struct {
 	io     *session.Session
 	s3     s3iface.S3API
 	codec  Codec
 	bucket *string
 }
 
-func New[T dynamo.ThingV2](
+func New[T dynamo.StreamVI](
 	io *session.Session,
 	spec *dynamo.URL,
 ) dynamo.KeyValV2[T] {
-	db := &ds3{io: io, s3: s3.New(io)}
+	db := &ds3[T]{io: io, s3: s3.New(io)}
 
 	// config bucket name
 	seq := spec.Segments(2)
@@ -35,7 +35,11 @@ func New[T dynamo.ThingV2](
 	//
 	db.codec = Codec{}
 
-	return dynamo.KeyValV2[dynamo.StreamV2](db).(dynamo.KeyValV2[T])
+	return db
+	//dynamo.KeyValV2[T](db).(dynamo.KeyValV2[T])
+	// db
+	//dynamo.KeyValV2[dynamo.StreamVI](db)
+	//.(dynamo.KeyValV2[T])
 }
 
 //-----------------------------------------------------------------------------
@@ -44,7 +48,7 @@ func New[T dynamo.ThingV2](
 //
 //-----------------------------------------------------------------------------
 
-func (db *ds3) sourceURL(ctx context.Context, key dynamo.StreamV2, expire time.Duration) (string, error) {
+func (db *ds3[T]) sourceURL(ctx context.Context, key T, expire time.Duration) (string, error) {
 	req := &s3.GetObjectInput{
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(key)),
@@ -56,7 +60,7 @@ func (db *ds3) sourceURL(ctx context.Context, key dynamo.StreamV2, expire time.D
 }
 
 // Get item from storage
-func (db *ds3) Get(ctx context.Context, key dynamo.StreamV2) (*dynamo.StreamV2, error) {
+func (db *ds3[T]) Get(ctx context.Context, key T) (*T, error) {
 	url, err := db.sourceURL(ctx, key, 20*time.Minute)
 	if err != nil {
 		return nil, err
@@ -84,14 +88,12 @@ func (db *ds3) Get(ctx context.Context, key dynamo.StreamV2) (*dynamo.StreamV2, 
 		return nil, err
 	}
 
-	return &dynamo.StreamV2{
-		ThingV2: key,
-		Reader:  in.Body,
-	}, nil
+	yy := key.New(in.Body).(T)
+	return &yy, nil
 }
 
 // Put writes entity
-func (db *ds3) Put(ctx context.Context, entity dynamo.StreamV2, config ...dynamo.ConstrainV2[dynamo.StreamV2]) error {
+func (db *ds3[T]) Put(ctx context.Context, entity T, config ...dynamo.ConstrainV2[T]) error {
 	up := s3manager.NewUploader(db.io)
 
 	req := &s3manager.UploadInput{
@@ -108,7 +110,7 @@ func (db *ds3) Put(ctx context.Context, entity dynamo.StreamV2, config ...dynamo
 }
 
 // Remove discards the entity from the table
-func (db *ds3) Remove(ctx context.Context, key dynamo.StreamV2, config ...dynamo.ConstrainV2[dynamo.StreamV2]) error {
+func (db *ds3[T]) Remove(ctx context.Context, key T, config ...dynamo.ConstrainV2[T]) error {
 	req := &s3.DeleteObjectInput{
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(key)),
@@ -120,10 +122,10 @@ func (db *ds3) Remove(ctx context.Context, key dynamo.StreamV2, config ...dynamo
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *ds3) Update(ctx context.Context, entity dynamo.StreamV2, config ...dynamo.ConstrainV2[dynamo.StreamV2]) (*dynamo.StreamV2, error) {
+func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.ConstrainV2[T]) (*T, error) {
 	return nil, nil
 }
 
-func (db *ds3) Match(ctx context.Context, key dynamo.StreamV2) dynamo.SeqV2[dynamo.StreamV2] {
+func (db *ds3[T]) Match(ctx context.Context, key T) dynamo.SeqV2[T] {
 	return nil
 }

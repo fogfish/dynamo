@@ -2,7 +2,6 @@ package ddb
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -11,9 +10,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/internal/common"
 )
 
-type ddb[T dynamo.ThingV2] struct {
+/*
+
+ddb internal handler for dynamo I/O
+*/
+type ddb[T dynamo.Thing] struct {
 	io     *session.Session
 	dynamo dynamodbiface.DynamoDBAPI
 	codec  Codec[T]
@@ -22,10 +26,7 @@ type ddb[T dynamo.ThingV2] struct {
 	schema *Schema[T]
 }
 
-func New[T dynamo.ThingV2](
-	io *session.Session,
-	spec *dynamo.URL,
-) dynamo.KeyValV2[T] {
+func New[T dynamo.Thing](io *session.Session, spec *common.URL) dynamo.KeyVal[T] {
 	db := &ddb[T]{io: io, dynamo: dynamodb.New(io)}
 
 	// config table name and index name
@@ -41,6 +42,15 @@ func New[T dynamo.ThingV2](
 	}
 
 	return db
+}
+
+// Mock dynamoDB I/O channel
+func (db *ddb[T]) Mock(dynamo dynamodbiface.DynamoDBAPI) {
+	db.dynamo = dynamo
+	db.codec = Codec[T]{
+		pkPrefix: "prefix",
+		skSuffix: "suffix",
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -69,17 +79,14 @@ func (db *ddb[T]) Get(ctx context.Context, key T) (*T, error) {
 	}
 
 	if val.Item == nil {
-		return nil, dynamo.NotFound{
-			HashKey: key.HashKey(),
-			SortKey: key.SortKey(),
-		}
+		return nil, dynamo.NotFound{key}
 	}
 
 	return db.codec.Decode(val.Item)
 }
 
 // Put writes entity
-func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.ConstrainV2[T]) error {
+func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constrain[T]) error {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
 		return err
@@ -99,10 +106,7 @@ func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.ConstrainV
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return dynamo.PreConditionFailed{
-					HashKey: entity.HashKey(),
-					SortKey: entity.SortKey(),
-				}
+				return dynamo.PreConditionFailed{entity}
 			}
 			return err
 		default:
@@ -114,7 +118,7 @@ func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.ConstrainV
 }
 
 // Remove discards the entity from the table
-func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.ConstrainV2[T]) error {
+func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constrain[T]) error {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
 		return err
@@ -133,10 +137,7 @@ func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.ConstrainV
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return dynamo.PreConditionFailed{
-					HashKey: key.HashKey(),
-					SortKey: key.SortKey(),
-				}
+				return dynamo.PreConditionFailed{key}
 			}
 			return err
 		default:
@@ -148,7 +149,7 @@ func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.ConstrainV
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.ConstrainV2[T]) (*T, error) {
+func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constrain[T]) (*T, error) {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
 		return nil, err
@@ -187,10 +188,7 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return nil, dynamo.PreConditionFailed{
-					HashKey: entity.HashKey(),
-					SortKey: entity.SortKey(),
-				}
+				return nil, dynamo.PreConditionFailed{entity}
 			}
 			return nil, err
 		default:
@@ -202,7 +200,7 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 }
 
 // Match applies a pattern matching to elements in the table
-func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.SeqV2[T] {
+func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
 		return newSeq[T](nil, nil, nil, err)
@@ -214,19 +212,19 @@ func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.SeqV2[T] {
 		isSuffix = false
 	}
 
-	expr := db.codec.pkPrefix + " = :" + db.codec.pkPrefix
+	expr := db.codec.pkPrefix + " = :__" + db.codec.pkPrefix + "__"
 	if isSuffix && suffix.S != nil {
-		expr = expr + " and begins_with(" + db.codec.skSuffix + ", :" + db.codec.skSuffix + ")"
+		expr = expr + " and begins_with(" + db.codec.skSuffix + ", :__" + db.codec.skSuffix + "__)"
 	}
 
 	q := &dynamodb.QueryInput{
 		KeyConditionExpression:    aws.String(expr),
 		ExpressionAttributeValues: exprOf(gen),
+		ProjectionExpression:      db.schema.Projection,
+		ExpressionAttributeNames:  db.schema.ExpectedAttributeNames,
 		TableName:                 db.table,
 		IndexName:                 db.index,
 	}
-
-	fmt.Printf("q => %+v\n", q)
 
 	return newSeq(ctx, db, q, err)
 }
@@ -236,7 +234,7 @@ func exprOf(gen map[string]*dynamodb.AttributeValue) (val map[string]*dynamodb.A
 	val = map[string]*dynamodb.AttributeValue{}
 	for k, v := range gen {
 		if v.NULL == nil || !*v.NULL {
-			val[":"+k] = v
+			val[":__"+k+"__"] = v
 		}
 	}
 

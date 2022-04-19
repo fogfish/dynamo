@@ -1,4 +1,4 @@
-package dynamo_test
+package s3_test
 
 import (
 	"bytes"

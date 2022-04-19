@@ -1,6 +1,10 @@
 package constrain
 
-// Note: hides structure of constrai
+import (
+	"time"
+)
+
+// Note: hides structure of constrains
 
 /*
 
@@ -20,6 +24,10 @@ type Dyadic struct {
 	Key string
 	Val interface{}
 }
+
+//
+// Consrains for storage
+//
 
 /*
 
@@ -103,4 +111,33 @@ NotExists attribute constrain
 */
 func NotExists(key string) *Unary {
 	return &Unary{Op: "attribute_not_exists", Key: key}
+}
+
+//
+// Consrains for protocol
+//
+
+// CacheControl header
+func CacheControl(val string) *Dyadic {
+	return &Dyadic{Op: "http", Key: "CacheControl", Val: val}
+}
+
+// ContentEncoding header
+func ContentEncoding(val string) *Dyadic {
+	return &Dyadic{Op: "http", Key: "ContentEncoding", Val: val}
+}
+
+// ContentLanguage header
+func ContentLanguage(val string) *Dyadic {
+	return &Dyadic{Op: "http", Key: "ContentLanguage", Val: val}
+}
+
+// ContentType header
+func ContentType(val string) *Dyadic {
+	return &Dyadic{Op: "http", Key: "ContentType", Val: val}
+}
+
+// Expires header
+func Expires(val time.Time) *Dyadic {
+	return &Dyadic{Op: "http", Key: "Expires", Val: val}
 }

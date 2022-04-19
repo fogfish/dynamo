@@ -53,7 +53,7 @@ func (c cursor) SortKey() string { return c.sortKey }
 // }
 
 // seq is an iterator over matched results
-type seq[T dynamo.ThingV2] struct {
+type seq[T dynamo.Thing] struct {
 	ctx    context.Context
 	db     *ds3[T]
 	q      *s3.ListObjectsV2Input
@@ -63,7 +63,7 @@ type seq[T dynamo.ThingV2] struct {
 	err    error
 }
 
-func newSeq[T dynamo.ThingV2](
+func newSeq[T dynamo.Thing](
 	ctx context.Context,
 	db *ds3[T],
 	q *s3.ListObjectsV2Input,
@@ -176,7 +176,7 @@ func (seq *seq[T]) Tail() bool {
 }
 
 // Cursor is the global position in the sequence
-func (seq *seq[T]) Cursor() dynamo.ThingV2 {
+func (seq *seq[T]) Cursor() dynamo.Thing {
 	if seq.q.StartAfter != nil {
 		seq := strings.Split(*seq.q.StartAfter, "/_/")
 		if len(seq) == 1 {
@@ -193,14 +193,14 @@ func (seq *seq[T]) Error() error {
 }
 
 // Limit sequence to N elements
-func (seq *seq[T]) Limit(n int64) dynamo.SeqV2[T] {
+func (seq *seq[T]) Limit(n int64) dynamo.Seq[T] {
 	seq.q.MaxKeys = aws.Int64(n)
 	seq.stream = false
 	return seq
 }
 
 // Continue limited sequence from the cursor
-func (seq *seq[T]) Continue(key dynamo.ThingV2) dynamo.SeqV2[T] {
+func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
 	prefix := key.HashKey()
 	suffix := key.SortKey()
 
@@ -215,6 +215,6 @@ func (seq *seq[T]) Continue(key dynamo.ThingV2) dynamo.SeqV2[T] {
 }
 
 // Reverse order of sequence
-func (seq *seq[T]) Reverse() dynamo.SeqV2[T] {
+func (seq *seq[T]) Reverse() dynamo.Seq[T] {
 	return seq
 }

@@ -7,25 +7,20 @@ import (
 	"github.com/fogfish/golem/pure/hseq"
 )
 
-type Schema[T dynamo.ThingV2] struct{ hseq.Seq[T] }
+/*
 
-func NewSchema[T dynamo.ThingV2]() *Schema[T] {
+Schema is utility that merges two struct
+*/
+type Schema[T dynamo.Thing] struct{ hseq.Seq[T] }
+
+func NewSchema[T dynamo.Thing]() *Schema[T] {
 	return &Schema[T]{hseq.Generic[T]()}
-
-	// keys := hseq.FMap(
-	// 	hseq.Generic[T](),
-	// 	func(t hseq.Type[T]) string {
-	// 		return t.StructField.Name
-	// 	},
-	// )
-
-	// return &Schema{Keys: keys}
 }
 
 func (schema Schema[T]) Merge(a, b T) (c T) {
 	va := reflect.ValueOf(a)
 	vb := reflect.ValueOf(b)
-	vc := reflect.ValueOf(c)
+	vc := reflect.ValueOf(&c).Elem()
 
 	for _, f := range schema.Seq {
 		fa := va.FieldByIndex(f.Index)

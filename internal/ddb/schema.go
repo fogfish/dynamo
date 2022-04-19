@@ -8,12 +8,16 @@ import (
 	"github.com/fogfish/golem/pure/hseq"
 )
 
-type Schema[T dynamo.ThingV2] struct {
+/*
+
+Schema is utility that decodes type into projection expression
+*/
+type Schema[T dynamo.Thing] struct {
 	ExpectedAttributeNames map[string]*string
 	Projection             *string
 }
 
-func NewSchema[T dynamo.ThingV2]() *Schema[T] {
+func NewSchema[T dynamo.Thing]() *Schema[T] {
 	seq := hseq.FMap(
 		hseq.Generic[T](),
 		func(t hseq.Type[T]) string {

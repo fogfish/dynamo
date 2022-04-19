@@ -5,7 +5,7 @@ import "github.com/fogfish/dynamo"
 type Codec struct{}
 
 //
-func (codec Codec) EncodeKey(key dynamo.StreamV2) string {
+func (codec Codec) EncodeKey(key dynamo.StreamVI) string {
 	hkey := key.HashKey()
 	skey := key.SortKey()
 

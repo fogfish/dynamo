@@ -33,19 +33,22 @@ type codecStruct struct {
 	City string    `dynamodbav:"city"`
 }
 
-var lensCodecStruct = dynamo.Struct(codecStruct{}).Codec("ID", "Type")
+func (s codecStruct) HashKey() string { return s.ID.Val }
+func (s codecStruct) SortKey() string { return s.Type.Val }
+
+var lensCodecID, lensCodecType = dynamo.Codec2[codecStruct, codecTypeDB, codecTypeDB]("ID", "Type")
 
 func (x codecStruct) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct codecStruct
 	return dynamo.Encode(av, tStruct(x),
-		lensCodecStruct.Encode((*codecTypeDB)(&x.ID), (*codecTypeDB)(&x.Type)),
+		lensCodecID.Encode((codecTypeDB)(x.ID)), lensCodecType.Encode((codecTypeDB)(x.Type)),
 	)
 }
 
 func (x *codecStruct) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *codecStruct
 	return dynamo.Decode(av, tStruct(x),
-		lensCodecStruct.Decode((*codecTypeDB)(&x.ID), (*codecTypeDB)(&x.Type)),
+		lensCodecID.Decode((*codecTypeDB)(&x.ID)), lensCodecType.Decode((*codecTypeDB)(&x.Type)),
 	)
 }
 
@@ -97,19 +100,22 @@ type codecMyType struct {
 	Link *curie.String `dynamodbav:"link,omitempty"`
 }
 
-var lensCodecMyType = dynamo.Struct(codecMyType{}).Codec("HKey", "SKey")
+func (s codecMyType) HashKey() string { return s.HKey.String() }
+func (s codecMyType) SortKey() string { return s.SKey.String() }
+
+var lensCodecHKey, lensCodecSKey = dynamo.Codec2[codecMyType, dynamo.IRI, dynamo.IRI]("HKey", "SKey")
 
 func (x codecMyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct codecMyType
 	return dynamo.Encode(av, tStruct(x),
-		lensCodecMyType.Encode(dynamo.IRI(x.HKey), dynamo.IRI(x.SKey)),
+		lensCodecHKey.Encode(dynamo.IRI(x.HKey)), lensCodecSKey.Encode(dynamo.IRI(x.SKey)),
 	)
 }
 
 func (x *codecMyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *codecMyType
 	return dynamo.Decode(av, tStruct(x),
-		lensCodecMyType.Decode((*dynamo.IRI)(&x.HKey), (*dynamo.IRI)(&x.SKey)),
+		lensCodecHKey.Decode((*dynamo.IRI)(&x.HKey)), lensCodecSKey.Decode((*dynamo.IRI)(&x.SKey)),
 	)
 }
 
@@ -187,19 +193,22 @@ type codecBadType struct {
 	Link codecTypeBad `dynamodbav:"link,omitempty"`
 }
 
-var lensCodecBadType = dynamo.Struct(codecBadType{}).Codec("HKey", "SKey")
+func (s codecBadType) HashKey() string { return s.HKey.String() }
+func (s codecBadType) SortKey() string { return s.SKey.String() }
+
+var lensCodecBadHKey, lensCodecBadSKey = dynamo.Codec2[codecBadType, dynamo.IRI, dynamo.IRI]("HKey", "SKey")
 
 func (x codecBadType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct codecBadType
 	return dynamo.Encode(av, tStruct(x),
-		lensCodecBadType.Encode(dynamo.IRI(x.HKey), dynamo.IRI(x.SKey)),
+		lensCodecBadHKey.Encode(dynamo.IRI(x.HKey)), lensCodecBadSKey.Encode(dynamo.IRI(x.SKey)),
 	)
 }
 
 func (x *codecBadType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *codecBadType
 	return dynamo.Decode(av, tStruct(x),
-		lensCodecBadType.Decode((*dynamo.IRI)(&x.HKey), (*dynamo.IRI)(&x.SKey)),
+		lensCodecBadHKey.Decode((*dynamo.IRI)(&x.HKey)), lensCodecBadSKey.Decode((*dynamo.IRI)(&x.SKey)),
 	)
 }
 
@@ -234,19 +243,26 @@ type codecBadStruct struct {
 	Link codecType `dynamodbav:"link"`
 }
 
-var lensCodecBadStruct = dynamo.Struct(codecBadStruct{}).Codec("HKey", "SKey", "Link")
+func (s codecBadStruct) HashKey() string { return s.HKey.Val }
+func (s codecBadStruct) SortKey() string { return s.SKey.Val }
+
+var lensCodecBadsHKey, lensCodecBadsSKey, lensCodecBadsLink = dynamo.Codec3[codecBadType, codecTypeBad, codecTypeBad, codecTypeBad]("HKey", "SKey", "Link")
 
 func (x codecBadStruct) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct codecBadStruct
 	return dynamo.Encode(av, tStruct(x),
-		lensCodecBadStruct.Encode(codecTypeBad(x.HKey), codecTypeBad(x.SKey), codecTypeBad(x.Link)),
+		lensCodecBadsHKey.Encode(codecTypeBad(x.HKey)),
+		lensCodecBadsSKey.Encode(codecTypeBad(x.SKey)),
+		lensCodecBadsLink.Encode(codecTypeBad(x.Link)),
 	)
 }
 
 func (x *codecBadStruct) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *codecBadStruct
 	return dynamo.Decode(av, tStruct(x),
-		lensCodecBadStruct.Decode((*codecTypeBad)(&x.HKey), (*codecTypeBad)(&x.SKey), (*codecTypeBad)(&x.Link)),
+		lensCodecBadsHKey.Decode((*codecTypeBad)(&x.HKey)),
+		lensCodecBadsSKey.Decode((*codecTypeBad)(&x.SKey)),
+		lensCodecBadsLink.Decode((*codecTypeBad)(&x.Link)),
 	)
 }
 

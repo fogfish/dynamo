@@ -87,22 +87,3 @@ func (iri *IRI) UnmarshalJSON(b []byte) error {
 	*iri = IRI(val)
 	return nil
 }
-
-/*
-
-Identities sequence of Identities
-*/
-type Identities [][]string
-
-/*
-
-Join lifts sequence of matched objects to seq of IDs
-	seq := dynamo.IDs{}
-	dynamo.Match(...).FMap(seq.Join)
-*/
-func (seq *Identities) Join(gen Gen) error {
-	prefix, suffix := gen.ID()
-
-	*seq = append(*seq, []string{prefix, suffix})
-	return nil
-}

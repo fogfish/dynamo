@@ -7,22 +7,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/internal/common"
 )
 
-//
-type cursor struct{ hashKey, sortKey string }
-
-func (c cursor) HashKey() string { return c.hashKey }
-func (c cursor) SortKey() string { return c.sortKey }
-
 // slice active page, loaded into memory
-type slice[T dynamo.ThingV2] struct {
+type slice[T dynamo.Thing] struct {
 	db   *ddb[T]
 	head int
 	heap []map[string]*dynamodb.AttributeValue
 }
 
-func newSlice[T dynamo.ThingV2](db *ddb[T], heap []map[string]*dynamodb.AttributeValue) *slice[T] {
+func newSlice[T dynamo.Thing](db *ddb[T], heap []map[string]*dynamodb.AttributeValue) *slice[T] {
 	return &slice[T]{
 		db:   db,
 		head: 0,
@@ -46,7 +41,7 @@ func (slice *slice[T]) Tail() bool {
 
 //
 // seq is an iterator over matched results
-type seq[T dynamo.ThingV2] struct {
+type seq[T dynamo.Thing] struct {
 	ctx    context.Context
 	db     *ddb[T]
 	q      *dynamodb.QueryInput
@@ -55,7 +50,7 @@ type seq[T dynamo.ThingV2] struct {
 	err    error
 }
 
-func newSeq[T dynamo.ThingV2](
+func newSeq[T dynamo.Thing](
 	ctx context.Context,
 	ddb *ddb[T],
 	q *dynamodb.QueryInput,
@@ -143,7 +138,7 @@ func (seq *seq[T]) Tail() bool {
 }
 
 // Cursor is the global position in the sequence
-func (seq *seq[T]) Cursor() dynamo.ThingV2 {
+func (seq *seq[T]) Cursor() dynamo.Thing {
 	// Note: q.ExclusiveStartKey is set by sequence seeding
 	if seq.q.ExclusiveStartKey != nil {
 		var hkey, skey string
@@ -158,10 +153,10 @@ func (seq *seq[T]) Cursor() dynamo.ThingV2 {
 			skey = aws.StringValue(suffix.S)
 		}
 
-		return &cursor{hashKey: hkey, sortKey: skey}
+		return common.Cursor(hkey, skey)
 	}
 
-	return &cursor{}
+	return common.Cursor("", "")
 }
 
 // Error indicates if any error appears during I/O
@@ -170,14 +165,14 @@ func (seq *seq[T]) Error() error {
 }
 
 // Limit sequence size to N elements, fetch a page of sequence
-func (seq *seq[T]) Limit(n int64) dynamo.SeqV2[T] {
+func (seq *seq[T]) Limit(n int64) dynamo.Seq[T] {
 	seq.q.Limit = aws.Int64(n)
 	seq.stream = false
 	return seq
 }
 
 // Continue limited sequence from the cursor
-func (seq *seq[T]) Continue(key dynamo.ThingV2) dynamo.SeqV2[T] {
+func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
 	prefix := key.HashKey()
 	suffix := key.SortKey()
 
@@ -196,7 +191,7 @@ func (seq *seq[T]) Continue(key dynamo.ThingV2) dynamo.SeqV2[T] {
 }
 
 // Reverse order of sequence
-func (seq *seq[T]) Reverse() dynamo.SeqV2[T] {
+func (seq *seq[T]) Reverse() dynamo.Seq[T] {
 	seq.q.ScanIndexForward = aws.Bool(false)
 	return seq
 }

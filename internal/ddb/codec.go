@@ -10,12 +10,16 @@ import (
 	"github.com/fogfish/dynamo"
 )
 
-type Codec[T dynamo.ThingV2] struct {
+/*
+
+Codec is utility to encode/decode objects to dynamo representation
+*/
+type Codec[T dynamo.Thing] struct {
 	pkPrefix string
 	skSuffix string
 }
 
-//
+// EncodeKey to dynamo representation
 func (codec Codec[T]) EncodeKey(key T) (map[string]*dynamodb.AttributeValue, error) {
 	hashkey := key.HashKey()
 	if hashkey == "" {
@@ -34,7 +38,7 @@ func (codec Codec[T]) EncodeKey(key T) (map[string]*dynamodb.AttributeValue, err
 	return gen, nil
 }
 
-//
+// KeyOnly extracts key value from generic representation
 func (codec Codec[T]) KeyOnly(gen map[string]*dynamodb.AttributeValue) map[string]*dynamodb.AttributeValue {
 	key := map[string]*dynamodb.AttributeValue{}
 	key[codec.pkPrefix] = gen[codec.pkPrefix]
@@ -43,7 +47,7 @@ func (codec Codec[T]) KeyOnly(gen map[string]*dynamodb.AttributeValue) map[strin
 	return key
 }
 
-//
+// Encode object to dynamo representation
 func (codec Codec[T]) Encode(entity T) (map[string]*dynamodb.AttributeValue, error) {
 	gen, err := dynamodbattribute.MarshalMap(entity)
 	if err != nil {
@@ -58,7 +62,7 @@ func (codec Codec[T]) Encode(entity T) (map[string]*dynamodb.AttributeValue, err
 	return gen, nil
 }
 
-//
+// Decode dynamo representation to object
 func (codec Codec[T]) Decode(gen map[string]*dynamodb.AttributeValue) (*T, error) {
 	_, isPrefix := gen[codec.pkPrefix]
 	_, isSuffix := gen[codec.skSuffix]

@@ -16,7 +16,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
 )
 
 //-----------------------------------------------------------------------------
@@ -34,38 +33,36 @@ The interfaces declares anything that have a unique identifier.
 The unique identity is exposed by pair of string: HashKey and SortKey.
 */
 type Thing interface {
-	Identity() (string, string)
-}
-
-type ThingV2 interface {
 	HashKey() string
 	SortKey() string
 }
 
-type StreamV2 struct {
-	ThingV2
-	io.Reader
+/*
+
+Things is sequence of Thing
+*/
+type Things[T Thing] []T
+
+/*
+
+Join lifts sequence of matched objects to seq of IDs
+	seq := dynamo.Things{}
+	dynamo.Match(...).FMap(seq.Join)
+*/
+func (seq *Things[T]) Join(t *T) error {
+	*seq = append(*seq, *t)
+	return nil
 }
 
 /*
 
-ThingStream is an extension to Thing that provides a stream
+Stream is an extension to Thing that provides metadata together with
+large binary object
 */
-type ThingStream interface {
+type Stream interface {
 	Thing
-	// reader of thing content
-	Reader() (io.Reader, error)
-}
-
-/*
-
-Gen is a generic representation of Thing at the storage
-*/
-type Gen interface {
-	// return unique id of Thing
-	ID() (string, string)
-	// To decodes generic representation to structure
-	To(Thing) error
+	Blob() (io.ReadCloser, error)
+	Copy(io.ReadCloser) Stream
 }
 
 //-----------------------------------------------------------------------------
@@ -78,48 +75,7 @@ type Gen interface {
 
 SeqLazy is an interface to iterate through collection of objects at storage
 */
-type SeqLazy interface {
-	// Head lifts first element of sequence
-	Head(Thing) error
-	// Tail evaluates tail of sequence
-	Tail() bool
-	// Error returns error of stream evaluation
-	Error() error
-	// Cursor is the global position in the sequence
-	Cursor() (string, string)
-}
-
-/*
-
-SeqConfig configures optional sequence behavior
-*/
-type SeqConfig interface {
-	// Limit sequence size to N elements (pagination)
-	Limit(int64) Seq
-	// Continue limited sequence from the cursor
-	Continue(string, string) Seq
-	// Reverse order of sequence
-	Reverse() Seq
-}
-
-/*
-
-Seq is an interface to transform collection of objects
-
-  db.Match(dynamo.NewID("users")).FMap(func(gen Gen) error {
-     val = &Person{}
-     return gen.To(val)
-  })
-*/
-type Seq interface {
-	SeqLazy
-	SeqConfig
-
-	// Sequence transformer
-	FMap(func(Gen) error) error
-}
-
-type SeqV2[T ThingV2] interface {
+type SeqLazy[T Thing] interface {
 	// Head lifts first element of sequence
 	Head() (*T, error)
 	// Tail evaluates tail of sequence
@@ -127,14 +83,31 @@ type SeqV2[T ThingV2] interface {
 	// Error returns error of stream evaluation
 	Error() error
 	// Cursor is the global position in the sequence
-	Cursor() ThingV2
+	Cursor() Thing
+}
 
+/*
+
+SeqConfig configures optional sequence behavior
+*/
+type SeqConfig[T Thing] interface {
 	// Limit sequence size to N elements (pagination)
-	Limit(int64) SeqV2[T]
+	Limit(int64) Seq[T]
 	// Continue limited sequence from the cursor
-	Continue(ThingV2) SeqV2[T]
+	Continue(Thing) Seq[T]
 	// Reverse order of sequence
-	Reverse() SeqV2[T]
+	Reverse() Seq[T]
+}
+
+/*
+
+Seq is an interface to transform collection of objects
+
+  db.Match(dynamo.NewID("users")).FMap(func(x *T) error { ... })
+*/
+type Seq[T Thing] interface {
+	SeqLazy[T]
+	SeqConfig[T]
 
 	// Sequence transformer
 	FMap(func(*T) error) error
@@ -150,11 +123,7 @@ type SeqV2[T ThingV2] interface {
 
 KeyValGetter defines read by key notation
 */
-type KeyValGetter interface {
-	Get(context.Context, Thing) error
-}
-
-type KeyValGetterV2[T ThingV2] interface {
+type KeyValGetter[T Thing] interface {
 	Get(context.Context, T) (*T, error)
 }
 
@@ -162,8 +131,8 @@ type KeyValGetterV2[T ThingV2] interface {
 
 KeyValGetterNoContext defines read by key notation
 */
-type KeyValGetterNoContext interface {
-	Get(Thing) error
+type KeyValGetterNoContext[T Thing] interface {
+	Get(T) (*T, error)
 }
 
 //-----------------------------------------------------------------------------
@@ -176,16 +145,16 @@ type KeyValGetterNoContext interface {
 
 KeyValPattern defines simple pattern matching lookup I/O
 */
-type KeyValPattern interface {
-	Match(context.Context, Thing) Seq
+type KeyValPattern[T Thing] interface {
+	Match(context.Context, T) Seq[T]
 }
 
 /*
 
 KeyValPatternNoContext defines simple pattern matching lookup I/O
 */
-type KeyValPatternNoContext interface {
-	Match(Thing) Seq
+type KeyValPatternNoContext[T Thing] interface {
+	Match(T) Seq[T]
 }
 
 //-----------------------------------------------------------------------------
@@ -198,18 +167,18 @@ type KeyValPatternNoContext interface {
 
 KeyValReader a generic key-value trait to read domain objects
 */
-type KeyValReader interface {
-	KeyValGetter
-	KeyValPattern
+type KeyValReader[T Thing] interface {
+	KeyValGetter[T]
+	KeyValPattern[T]
 }
 
 /*
 
 KeyValReaderNoContext a generic key-value trait to read domain objects
 */
-type KeyValReaderNoContext interface {
-	KeyValGetterNoContext
-	KeyValPatternNoContext
+type KeyValReaderNoContext[T Thing] interface {
+	KeyValGetterNoContext[T]
+	KeyValPatternNoContext[T]
 }
 
 //-----------------------------------------------------------------------------
@@ -222,26 +191,20 @@ type KeyValReaderNoContext interface {
 
 KeyValWriter defines a generic key-value writer
 */
-type KeyValWriter interface {
-	Put(context.Context, Thing, ...Constrain) error
-	Remove(context.Context, Thing, ...Constrain) error
-	Update(context.Context, Thing, ...Constrain) error
-}
-
-type KeyValWriterV2[T ThingV2] interface {
-	Put(context.Context, T, ...ConstrainV2[T]) error
-	Remove(context.Context, T, ...ConstrainV2[T]) error
-	Update(context.Context, T, ...ConstrainV2[T]) (*T, error)
+type KeyValWriter[T Thing] interface {
+	Put(context.Context, T, ...Constrain[T]) error
+	Remove(context.Context, T, ...Constrain[T]) error
+	Update(context.Context, T, ...Constrain[T]) (*T, error)
 }
 
 /*
 
 KeyValWriterNoContext defines a generic key-value writer
 */
-type KeyValWriterNoContext interface {
-	Put(Thing, ...Constrain) error
-	Remove(Thing, ...Constrain) error
-	Update(Thing, ...Constrain) error
+type KeyValWriterNoContext[T Thing] interface {
+	Put(T, ...Constrain[T]) error
+	Remove(T, ...Constrain[T]) error
+	Update(T, ...Constrain[T]) (*T, error)
 }
 
 //-----------------------------------------------------------------------------
@@ -254,19 +217,19 @@ type KeyValWriterNoContext interface {
 
 StreamReader is a generic reader of byte streams
 */
-type StreamReader interface {
-	SourceURL(context.Context, Thing, time.Duration) (string, error)
-	Read(context.Context, Thing) (io.ReadCloser, error)
-}
+// type StreamReader interface {
+// 	SourceURL(context.Context, Thing, time.Duration) (string, error)
+// 	Read(context.Context, Thing) (io.ReadCloser, error)
+// }
 
 /*
 
 StreamReaderNoContext is a generic reader of byte streams
 */
-type StreamReaderNoContext interface {
-	SourceURL(Thing, time.Duration) (string, error)
-	Read(Thing) (io.ReadCloser, error)
-}
+// type StreamReaderNoContext interface {
+// 	SourceURL(Thing, time.Duration) (string, error)
+// 	Read(Thing) (io.ReadCloser, error)
+// }
 
 //-----------------------------------------------------------------------------
 //
@@ -278,17 +241,17 @@ type StreamReaderNoContext interface {
 
 StreamWriter is a generic writer of byte streams
 */
-type StreamWriter interface {
-	Write(context.Context, ThingStream, ...Content) error
-}
+// type StreamWriter interface {
+// 	Write(context.Context, ThingStream, ...Content) error
+// }
 
 /*
 
 StreamWriterNoContext is a generic writer of byte streams
 */
-type StreamWriterNoContext interface {
-	Write(ThingStream, ...Content) error
-}
+// type StreamWriterNoContext interface {
+// 	Write(ThingStream, ...Content) error
+// }
 
 //-----------------------------------------------------------------------------
 //
@@ -300,45 +263,39 @@ type StreamWriterNoContext interface {
 
 KeyVal is a generic key-value trait to access domain objects.
 */
-type KeyVal interface {
-	KeyValReader
-	KeyValWriter
-}
-
-type KeyValV2[T ThingV2] interface {
-	KeyValGetterV2[T]
-	KeyValWriterV2[T]
-	Match(context.Context, T) SeqV2[T]
+type KeyVal[T Thing] interface {
+	KeyValReader[T]
+	KeyValWriter[T]
 }
 
 /*
 
 KeyValNoContext is a generic key-value trait to access domain objects.
 */
-type KeyValNoContext interface {
-	KeyValReaderNoContext
-	KeyValWriterNoContext
+type KeyValNoContext[T Thing] interface {
+	KeyValReaderNoContext[T]
+	KeyValWriterNoContext[T]
 }
 
 /*
 
 Stream is a generic byte stream trait to access large binary data
 */
-type Stream interface {
-	KeyVal
-	StreamReader
-	StreamWriter
-}
+// type Stream interface {
+// 	KeyVal
+// 	StreamReader
+// 	StreamWriter
+// }
 
 /*
 
 StreamNoContext is a generic byte stream trait to access large binary data
 */
-type StreamNoContext interface {
-	KeyValNoContext
-	StreamReaderNoContext
-	StreamWriterNoContext
-}
+// type StreamNoContext interface {
+// 	KeyValNoContext
+// 	StreamReaderNoContext
+// 	StreamWriterNoContext
+// }
 
 //-----------------------------------------------------------------------------
 //
@@ -350,12 +307,10 @@ type StreamNoContext interface {
 
 NotFound is an error to handle unknown elements
 */
-type NotFound struct {
-	HashKey, SortKey string
-}
+type NotFound struct{ Thing }
 
 func (e NotFound) Error() string {
-	return fmt.Sprintf("Not Found (%s, %s) ", e.HashKey, e.SortKey)
+	return fmt.Sprintf("Not Found (%s, %s) ", e.Thing.HashKey(), e.Thing.SortKey())
 }
 
 /*
@@ -363,10 +318,8 @@ func (e NotFound) Error() string {
 PreConditionFailed is an error to handler aborted I/O on
 requests with conditional expressions
 */
-type PreConditionFailed struct {
-	HashKey, SortKey string
-}
+type PreConditionFailed struct{ Thing }
 
 func (e PreConditionFailed) Error() string {
-	return fmt.Sprintf("Pre Condition Failed (%s, %s) ", e.HashKey, e.SortKey)
+	return fmt.Sprintf("Pre Condition Failed (%s, %s) ", e.Thing.HashKey(), e.Thing.SortKey())
 }
