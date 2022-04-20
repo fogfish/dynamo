@@ -1,0 +1,20 @@
+"[#] doc":
+ - doc/*
+ - doc/**/*
+ - examples/**/*
+
+"[#] core":
+ - *.go
+ - keyval/*
+ - internal/common/*
+ - internal/constrain/*
+ - internal/dynamotest/*
+
+"[#] dynamodb":
+ - internal/ddb/*
+ - internal/ddb/**/*
+
+"[#] s3":
+ - internal/s3/*
+ - internal/s3/**/*
+

@@ -229,7 +229,7 @@ func articlesOfLeonardKleinrock(db dynamo.KeyValNoContext) error {
 
 	err := publishArticle(db, "kleinrock",
 		"queueing_sys_vol1",
-		"Queueing Systems: Volume I – Theory",
+		"Queueing Systems: Volume I - Theory",
 		[]string{"queue", "theory"},
 	)
 	if err != nil {
@@ -238,7 +238,7 @@ func articlesOfLeonardKleinrock(db dynamo.KeyValNoContext) error {
 
 	err = publishArticle(db, "kleinrock",
 		"queueing_sys_vol2",
-		"Queueing Systems: Volume II – Computer Applications",
+		"Queueing Systems: Volume II - Computer Applications",
 		[]string{"queue", "computer"},
 	)
 	if err != nil {

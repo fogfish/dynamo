@@ -1,0 +1,12 @@
+name: label
+on:
+- pull_request_target
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/labeler@v4
+      with:
+        sync-labels: true
+        repo-token: "${{ github.token }}"
