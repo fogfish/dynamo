@@ -3,7 +3,7 @@
  - doc/**/*
  - examples/**/*
 
-"[#] core":
+"[#] api":
  - *.go
  - keyval/*
  - internal/common/*

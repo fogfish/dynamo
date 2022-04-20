@@ -27,9 +27,8 @@ type Author struct {
 }
 
 // Identity implements Thing interface
-func (author Author) Identity() (string, string) {
-	return author.ID.String(), "_"
-}
+func (author Author) HashKey() string { return author.ID.String() }
+func (author Author) SortKey() string { return "_" }
 
 /*
 
@@ -73,9 +72,8 @@ type Article struct {
 }
 
 // Identity implements Thing interface
-func (article Article) Identity() (string, string) {
-	return article.Author.String(), article.ID.String()
-}
+func (article Article) HashKey() string { return article.Author.String() }
+func (article Article) SortKey() string { return article.ID.String() }
 
 /*
 
@@ -103,15 +101,11 @@ Articles is sequence of Articles.
 This code snippet shows the best approach to lift generic sequence of DynamoDB
 items into the sequence of articles. The pattern uses concept of monoid.
 */
-type Articles []Article
+type Articles dynamo.Things[Article]
 
 // Join generic element into sequence
-func (seq *Articles) Join(gen dynamo.Gen) error {
-	val := Article{}
-	if fail := gen.To(&val); fail != nil {
-		return fail
-	}
-	*seq = append(*seq, val)
+func (seq *Articles) Join(val *Article) error {
+	*seq = append(*seq, *val)
 	return nil
 }
 
@@ -149,15 +143,14 @@ SortKey is
   ⟿ keyword:theory
 */
 type Keyword struct {
-	HashKey dynamo.IRI `dynamodbav:"prefix,omitempty"`
-	SortKey dynamo.IRI `dynamodbav:"suffix,omitempty"`
-	Text    string     `dynamodbav:"text,omitempty" json:"text,omitempty"`
+	HKey dynamo.IRI `dynamodbav:"prefix,omitempty"`
+	SKey dynamo.IRI `dynamodbav:"suffix,omitempty"`
+	Text string     `dynamodbav:"text,omitempty" json:"text,omitempty"`
 }
 
 // Identity implements Thing interface
-func (keyword Keyword) Identity() (string, string) {
-	return keyword.HashKey.String(), keyword.SortKey.String()
-}
+func (keyword Keyword) HashKey() string { return keyword.HKey.String() }
+func (keyword Keyword) SortKey() string { return keyword.SKey.String() }
 
 /*
 
@@ -169,8 +162,8 @@ func NewKeyword(author, article, title, keyword string) []Keyword {
 	sortKey := dynamo.NewIRI("article:%s/%s", author, article)
 
 	return []Keyword{
-		{HashKey: hashKey, SortKey: sortKey, Text: title},
-		{HashKey: sortKey, SortKey: hashKey, Text: keyword},
+		{HKey: hashKey, SKey: sortKey, Text: title},
+		{HKey: sortKey, SKey: hashKey, Text: keyword},
 	}
 }
 
@@ -181,11 +174,7 @@ Keywords is a sequence of Keywords
 type Keywords []Keyword
 
 // Join generic element into sequence
-func (seq *Keywords) Join(gen dynamo.Gen) error {
-	val := Keyword{}
-	if fail := gen.To(&val); fail != nil {
-		return fail
-	}
-	*seq = append(*seq, val)
+func (seq *Keywords) Join(val *Keyword) error {
+	*seq = append(*seq, *val)
 	return nil
 }

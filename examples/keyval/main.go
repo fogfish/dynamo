@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/keyval"
 )
 
 //
@@ -27,7 +28,10 @@ type Person struct {
 	Address string    `dynamodbav:"address,omitempty"`
 }
 
-var codec = dynamo.Struct(Person{}).Codec("Org", "ID")
+func (p Person) HashKey() string { return p.Org.String() }
+func (p Person) SortKey() string { return p.ID.String() }
+
+var codecHKey, codecSKey = dynamo.Codec2[Person, dynamo.IRI, dynamo.IRI]("Org", "ID")
 
 //
 func (p Person) Identity() (string, string) { return p.Org.String(), p.ID.String() }
@@ -36,7 +40,8 @@ func (p Person) Identity() (string, string) { return p.Org.String(), p.ID.String
 func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct Person
 	return dynamo.Encode(av, tStruct(p),
-		codec.Encode(dynamo.IRI(p.Org), dynamo.IRI(p.ID)),
+		codecHKey.Encode(dynamo.IRI(p.Org)),
+		codecSKey.Encode(dynamo.IRI(p.ID)),
 	)
 }
 
@@ -44,43 +49,33 @@ func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error
 func (p *Person) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *Person
 	return dynamo.Decode(av, tStruct(p),
-		codec.Decode((*dynamo.IRI)(&p.Org), (*dynamo.IRI)(&p.ID)),
+		codecHKey.Decode((*dynamo.IRI)(&p.Org)),
+		codecSKey.Decode((*dynamo.IRI)(&p.ID)),
 	)
 }
 
-//
-type Persons []Person
-
-// Join ...
-func (seq *Persons) Join(gen dynamo.Gen) error {
-	val := Person{}
-	if fail := gen.To(&val); fail != nil {
-		return fail
-	}
-	*seq = append(*seq, val)
-	return nil
-}
-
 // KeyVal is type synonym
-type KeyVal dynamo.KeyValNoContext
+type KeyVal dynamo.KeyValNoContext[Person]
 
 //
 //
 func main() {
-	db := dynamo.NewKeyValContextDefault(dynamo.Must(dynamo.New(os.Args[1])))
+	db := dynamo.NewKeyValContextDefault(
+		keyval.Must(keyval.New[Person](os.Args[1])),
+	)
 
 	examplePut(db)
 	exampleGet(db)
 	exampleUpdate(db)
 	exampleMatch(db)
-	// exampleRemove(db)
+	exampleRemove(db)
 }
 
 const n = 5
 
 func examplePut(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &Person{
+		val := Person{
 			Org:     curie.New("test:"),
 			ID:      curie.New("person:%d", i),
 			Name:    "Verner Pleishner",
@@ -95,36 +90,36 @@ func examplePut(db KeyVal) {
 
 func exampleGet(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &Person{
+		val, err := db.Get(Person{
 			Org: curie.New("test:"),
 			ID:  curie.New("person:%d", i),
-		}
-		switch err := db.Get(val).(type) {
+		})
+
+		switch v := err.(type) {
 		case nil:
 			fmt.Printf("=[ get ]=> %+v\n", val)
 		case dynamo.NotFound:
 			fmt.Printf("=[ get ]=> Not found: (%v, %v)\n", val.Org, val.ID)
 		default:
-			fmt.Printf("=[ get ]=> Fail: %v\n", err)
+			fmt.Printf("=[ get ]=> Fail: %v\n", v)
 		}
 	}
 }
 
 func exampleUpdate(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &Person{
+		val, err := db.Update(Person{
 			Org:     curie.New("test:"),
 			ID:      curie.New("person:%d", i),
 			Address: "Viktoriastrasse 37, Berne, 3013",
-		}
-		err := db.Update(val)
+		})
 
 		fmt.Printf("=[ update ]=> %+v\n", either(err, val))
 	}
 }
 
 func exampleMatch(db KeyVal) {
-	seq := Persons{}
+	seq := dynamo.Things[Person]{}
 	err := db.Match(Person{Org: curie.New("test:")}).FMap(seq.Join)
 
 	if err == nil {
@@ -136,13 +131,12 @@ func exampleMatch(db KeyVal) {
 
 func exampleRemove(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val := &Person{
+		err := db.Remove(Person{
 			Org: curie.New("test:"),
 			ID:  curie.New("person:%d", i),
-		}
-		err := db.Remove(val)
+		})
 
-		fmt.Println("=[ remove ]=> ", either(err, val))
+		fmt.Println("=[ remove ]=> ", err)
 	}
 }
 

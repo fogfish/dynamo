@@ -61,13 +61,13 @@ func (db *ddb[T]) Mock(dynamo dynamodbiface.DynamoDBAPI) {
 
 // Get item from storage
 func (db *ddb[T]) Get(ctx context.Context, key T) (*T, error) {
-	gen, err := db.codec.EncodeKey(key)
+	gen, err := db.codec.Encode(key)
 	if err != nil {
 		return nil, err
 	}
 
 	req := &dynamodb.GetItemInput{
-		Key:                      gen,
+		Key:                      db.codec.KeyOnly(gen),
 		TableName:                db.table,
 		ProjectionExpression:     db.schema.Projection,
 		ExpressionAttributeNames: db.schema.ExpectedAttributeNames,
@@ -119,13 +119,13 @@ func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constrain[
 
 // Remove discards the entity from the table
 func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constrain[T]) error {
-	gen, err := db.codec.EncodeKey(key)
+	gen, err := db.codec.Encode(key)
 	if err != nil {
 		return err
 	}
 
 	req := &dynamodb.DeleteItemInput{
-		Key:       gen,
+		Key:       db.codec.KeyOnly(gen),
 		TableName: db.table,
 	}
 	names, values := maybeConditionExpression(&req.ConditionExpression, config)
@@ -201,7 +201,7 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 
 // Match applies a pattern matching to elements in the table
 func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
-	gen, err := db.codec.EncodeKey(key)
+	gen, err := db.codec.Encode(key)
 	if err != nil {
 		return newSeq[T](nil, nil, nil, err)
 	}
