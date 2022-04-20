@@ -15,7 +15,6 @@ package dynamo
 import (
 	"context"
 	"fmt"
-	"io"
 )
 
 //-----------------------------------------------------------------------------
@@ -52,17 +51,6 @@ Join lifts sequence of matched objects to seq of IDs
 func (seq *Things[T]) Join(t *T) error {
 	*seq = append(*seq, *t)
 	return nil
-}
-
-/*
-
-Stream is an extension to Thing that provides metadata together with
-large binary object
-*/
-type Stream interface {
-	Thing
-	Blob() (io.ReadCloser, error)
-	Copy(io.ReadCloser) Stream
 }
 
 //-----------------------------------------------------------------------------
