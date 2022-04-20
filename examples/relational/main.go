@@ -26,7 +26,7 @@ func main() {
 		keyval.Must(keyval.New[Article]("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year")),
 	)
 	gsi := dynamo.NewKeyValContextDefault(
-		keyval.Must(keyval.New[Article]("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year")),
+		keyval.Must(keyval.New[Category]("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year")),
 	)
 
 	//
@@ -169,11 +169,11 @@ func fetchArticleKeywords(db dynamo.KeyValNoContext[Keyword]) error {
 
 As a reader I want to look up all articles for a given category in chronological order ...
 */
-func lookupArticlesByCategory(db dynamo.KeyValNoContext[Article], category string) error {
+func lookupArticlesByCategory(db dynamo.KeyValNoContext[Category], category string) error {
 	log.Printf("==> lookup articles by category: %s\n", category)
 
-	var seq Articles
-	err := db.Match(Article{
+	var seq dynamo.Things[Category]
+	err := db.Match(Category{
 		Category: category,
 	}).FMap(seq.Join)
 

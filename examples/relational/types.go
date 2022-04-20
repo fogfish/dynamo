@@ -77,6 +77,16 @@ func (article Article) SortKey() string { return article.ID.String() }
 
 /*
 
+Category is a projection of the Article to different index
+*/
+type Category Article
+
+// Identity implements Thing interface
+func (article Category) HashKey() string { return article.Category }
+func (article Category) SortKey() string { return article.Year }
+
+/*
+
 NewArticle creates instance of Article
 */
 func NewArticle(author string, id, title string) Article {

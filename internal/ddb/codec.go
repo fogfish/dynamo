@@ -2,6 +2,7 @@ package ddb
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -19,23 +20,23 @@ type Codec[T dynamo.Thing] struct {
 }
 
 // EncodeKey to dynamo representation
-// func (codec Codec[T]) EncodeKey(key T) (map[string]*dynamodb.AttributeValue, error) {
-// 	hashkey := key.HashKey()
-// 	if hashkey == "" {
-// 		return nil, fmt.Errorf("invalid key of %T, hashkey cannot be empty", key)
-// 	}
+func (codec Codec[T]) EncodeKey(key T) (map[string]*dynamodb.AttributeValue, error) {
+	hashkey := key.HashKey()
+	if hashkey == "" {
+		return nil, fmt.Errorf("invalid key of %T, hashkey cannot be empty", key)
+	}
 
-// 	sortkey := key.SortKey()
-// 	if sortkey == "" {
-// 		sortkey = "_"
-// 	}
+	sortkey := key.SortKey()
+	if sortkey == "" {
+		sortkey = "_"
+	}
 
-// 	gen := map[string]*dynamodb.AttributeValue{}
-// 	gen[codec.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(hashkey)}
-// 	gen[codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sortkey)}
+	gen := map[string]*dynamodb.AttributeValue{}
+	gen[codec.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(hashkey)}
+	gen[codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sortkey)}
 
-// 	return gen, nil
-// }
+	return gen, nil
+}
 
 // KeyOnly extracts key value from generic representation
 func (codec Codec[T]) KeyOnly(gen map[string]*dynamodb.AttributeValue) map[string]*dynamodb.AttributeValue {

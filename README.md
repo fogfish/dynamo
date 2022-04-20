@@ -1,6 +1,6 @@
 # dynamo
 
-The library implements a simple key-value abstraction to store algebraic data types at AWS storage services: AWS DynamoDB and AWS S3.
+The library implements a simple key-value abstraction to store algebraic, linked-data data types at AWS storage services: AWS DynamoDB and AWS S3.
 
 [![Version](https://img.shields.io/github/v/tag/fogfish/dynamo?label=version)](https://github.com/fogfish/dynamo/releases)
 [![Documentation](https://pkg.go.dev/badge/github.com/fogfish/dynamo)](https://pkg.go.dev/github.com/fogfish/dynamo)
@@ -13,18 +13,18 @@ The library implements a simple key-value abstraction to store algebraic data ty
 
 ## Inspiration
 
-The library encourages developers to use Golang struct to define domain models, write correct, maintainable code. Using the library, the application can achieve the ideal data model that would require a single request to DynamoDB and model one-to-one, one-to-many and even many-to-many relations. The library uses generic programming style to implement actual storage I/O, while expose external domain object as `interface{}` with implicit conversion back and forth
-between a concrete struct(s). The library uses [AWS Golang SDK](https://aws.amazon.com/sdk-for-go/) under the hood
+The library encourages developers to use Golang struct to define domain models, write correct, maintainable code. Using the library, the application can achieve the ideal data model that would require a single request to DynamoDB and model one-to-one, one-to-many and even many-to-many relations. The library uses generic programming style to implement actual storage I/O, while expose external domain object as `[T dynamo.Thing]` with implicit conversion back and forth
+between a concrete struct(s). The library uses [AWS Golang SDK](https://aws.amazon.com/sdk-for-go/) under the hood.
 
 Essentially, the library implement a following generic key-value trait to access domain objects. 
 
-```scala
-trait KeyVal[T] {
-  def put(entity: T): T
-  def get(pattern: T): T
-  def remove(pattern: T): T
-  def update(entity: T): T
-  def match(pattern: T): Seq[T]
+```go
+type KeyVal[T any] {
+  Put(T) error
+  Get(T) (*T, error)
+  Remove(T) error
+  Update(T): (*T, error)
+  Match(T): Seq[T]
 }
 ```
 
@@ -33,6 +33,8 @@ The library philosophy and use-cases are covered in depth at the post
 
 
 ## Getting started
+
+The library requires Go **1.18** or later due to usage of [generics](https://go.dev/blog/intro-generics).
 
 The latest version of the library is available at its `main` branch. All development, including new features and bug fixes, take place on the `main` branch using forking and pull requests as described in contribution guidelines. The stable version is available via Golang modules.
 
@@ -69,7 +71,8 @@ type Person struct {
 
 //
 // Identity implements thing interface
-func (p Person) Identity() (string, string) { return p.Org, p.ID }
+func (p Person) HashKey() string { return p.Org }
+func (p Person) SortKey() string { return p.ID }
 
 //
 // this data type is a normal Golang struct
@@ -99,12 +102,13 @@ The following code snippet shows a typical I/O patterns
 ```go
 import (
   "github.com/fogfish/dynamo"
+  "github.com/fogfish/dynamo/keyval"
 )
 
 //
 // Create dynamodb client and bind it with the table
 // Use URI notation to specify the diver (ddb://) and the table (/my-table) 
-db := dynamo.Must(dynamo.New("ddb:///my-table"))
+db := keyval.Must(keyval.New[Person]("ddb:///my-table"))
 
 //
 // Write the struct with Put
@@ -112,14 +116,17 @@ if err := db.Put(person); err != nil {
 }
 
 //
-// Lookup the struct using Get. This function takes "empty" structure as
-// a placeholder and fill it with a data upon the completion. The only
-// requirement - ID has to be defined.
-person := Person{
-  Org: "University",
-  ID:  "8980789222",
-}
-switch err := db.Get(&person).(type) {
+// Lookup the struct using Get. This function takes input structure as key
+// and return a new copy upon the completion. The only requirement - ID has to
+// be defined.
+val, err := db.Get(
+  Person{
+    Org: "University",
+    ID:  "8980789222",
+  },
+)
+
+switch v := err.(type) {
 case nil:
   // success
 case dynamo.NotFound:
@@ -132,22 +139,26 @@ default:
 // Apply a partial update using Update function. This function takes 
 // a partially defined structure, patches the instance at storage and 
 // returns remaining attributes.
-person := Person{
-  Org:     "University",
-  ID:      "8980789222",
-  Address: "Viktoriastrasse 37, Berne, 3013",
-}
-if err := db.Update(&person); err != nil {
-}
+val, err := db.Update(
+  Person{
+    Org:     "University",
+    ID:      "8980789222",
+    Address: "Viktoriastrasse 37, Berne, 3013",
+  }
+)
+
+if err != nil { /* ... */ }
 
 //
 // Remove the struct using Remove give partially defined struct with ID
-person := Person{
-  Org: "University",
-  ID:  "8980789222",
-}
-if err := db.Remove(person); err != nil {
-}
+err := db.Remove(
+  Person{
+    Org: "University",
+    ID:  "8980789222",
+  }
+)
+
+if err != nil { /* ... */ }
 ```
 
 ### Hierarchical structures
@@ -169,13 +180,10 @@ Composite sort key is core concept to organize hierarchies. It facilitates linke
 ```go
 //
 // Match uses partition key to match DynamoDB entries. It returns a sequence of 
-// generic representations that has to be transformed into actual data types
-// FMap is an utility it takes a closure function that lifts generic to
-// the struct. 
+// data type instances. FMap is an utility it takes a closure function. 
 db.Match(Message{Thread: "thread:A"}).FMap(
-  func(gen dynamo.Gen) error {
-    m := Message{}
-    return gen.To(&m)
+  func(val *Message) error {
+    /* ... */
   }
 )
 
@@ -184,12 +192,8 @@ db.Match(Message{Thread: "thread:A"}).FMap(
 type Messages []Message
 
 // Join is a monoid to append generic element into sequence 
-func (seq *Messages) Join(gen dynamo.Gen) error {
-  val := Message{}
-  if err := gen.To(&val); err != nil {
-    return err
-  }
-  *seq = append(*seq, val)
+func (seq *Messages) Join(val *Message) error {
+  *seq = append(*seq, *val)
   return nil
 }
 
@@ -236,7 +240,7 @@ type Person struct {
 
 ### Type projections
 
-Often, there is an established system of the types in the application. It is not convenient to inject dependencies to the `dynamo` library. Then usage of secondary indexes requires multiple projections of core type. The composition of types is the solution. 
+Often, there is an established system of the types in the application. It is not convenient to inject dependencies to the `dynamo` library. Also, the usage of secondary indexes requires multiple projections of core type. The composition of types is the solution. 
 
 ```go
 // 
@@ -254,20 +258,23 @@ type Person struct {
 // e.g. this projection supports writes to DynamoDB table
 type dbPerson Person
 
-func (p dbPerson) Identity() (string, string) { return p.Org, p.ID }
+func (p dbPerson) HashKey() string { return p.Org }
+func (p dbPerson) SortKey() string { return p.ID }
 
 //
 // the core type projection that uses ⟨Org, Name⟩ as composite key
 // e.g. the projection support lookup of employer
 type dbNamedPerson Person
 
-func (p dbNamedPerson) Identity() (string, string) { return p.Org, p.Name }
+func (p dbNamedPerson) HashKey() string { return p.Org }
+func (p dbNamedPerson) SortKey() string { return p.Name }
 
 //
 // the core type projection that uses ⟨Country, Name⟩ as composite key
 type dbCitizen Person
 
-func (p dbCitizen) Identity() (string, string) { return p.Country, p.Name }
+func (p dbCitizen) HashKey() string { return p.Country }
+func (p dbCitizen) SortKey() string { return p.Name }
 ```
 
 ### Custom codecs for core domain types
@@ -288,20 +295,22 @@ type Person struct {
 type dbPerson Person
 
 // 3. custom codec for structure field is defined 
-var codec = dynamo.Struct(dbPerson{}).Codec("Org", "ID")
+var codecHashKey, codecSortKey = dynamo.Codec2[dbPerson, dynamo.IRI, dynamo.IRI]("Org", "ID")
 
 // 4. use custom codec
 func (x dbPerson) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
   type tStruct dbPerson
   return dynamo.Encode(av, tStruct(x),
-    codec.Encode(dynamo.IRI(x.Org), dynamo.IRI(x.ID)),
+    codecHashKey.Encode(dynamo.IRI(x.Org)),
+    codecSortKey.Encode(dynamo.IRI(x.ID))),
   )
 }
 
 func (x *dbPerson) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
   type tStruct *dbPerson
   return dynamo.Decode(av, tStruct(x),
-    codec.Decode((*dynamo.IRI)(&x.Org), (*dynamo.IRI)(&x.ID)),
+    codecHashKey.Decode((*dynamo.IRI)(&x.Org)),
+    codecSortKey.Decode((*dynamo.IRI)(&x.ID))),
   )
 }
 ```
@@ -339,9 +348,10 @@ type Person struct {
   ID      string `dynamodbav:"suffix,omitempty"`
   Name    string `dynamodbav:"anothername,omitempty"`
 }
-var Name = dynamo.Kind(Person{}).Field("Name")
+var Name = dynamo.Schema1[Person, string]("Name")
 
-switch err := db.Update(&person, Name.Eq("Verner Pleishner")).(type) {
+val, err := db.Update(&person, Name.Eq("Verner Pleishner"))
+switch err.(type) {
 case nil:
   // success
 case dynamo.PreConditionFailed:
@@ -385,11 +395,11 @@ The library advances its simple I/O interface to AWS S3 bucket, allowing to pers
 ```go
 //
 // Create client and bind it with DynamoDB the table
-db := dynamo.Must(dynamo.New("ddb:///my-table"))
+db := keyval.Must(keyval.New("ddb:///my-table"))
 
 //
 // Create client and bind it with S3 bucket
-s3 := dynamo.Must(dynamo.New("s3:///my-bucket"))
+s3 := keyval.Must(keyval.New("s3:///my-bucket"))
 ```
 
 There are few fundamental differences about AWS S3 bucket
