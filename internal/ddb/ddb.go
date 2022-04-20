@@ -79,7 +79,7 @@ func (db *ddb[T]) Get(ctx context.Context, key T) (*T, error) {
 	}
 
 	if val.Item == nil {
-		return nil, dynamo.NotFound{key}
+		return nil, dynamo.NotFound{Thing: key}
 	}
 
 	return db.codec.Decode(val.Item)
@@ -106,7 +106,7 @@ func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constrain[
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return dynamo.PreConditionFailed{entity}
+				return dynamo.PreConditionFailed{Thing: entity}
 			}
 			return err
 		default:
@@ -137,7 +137,7 @@ func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constrain[
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return dynamo.PreConditionFailed{key}
+				return dynamo.PreConditionFailed{Thing: key}
 			}
 			return err
 		default:
@@ -188,7 +188,7 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 		switch v := err.(type) {
 		case awserr.Error:
 			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return nil, dynamo.PreConditionFailed{entity}
+				return nil, dynamo.PreConditionFailed{Thing: entity}
 			}
 			return nil, err
 		default:

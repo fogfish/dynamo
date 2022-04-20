@@ -24,12 +24,12 @@ type person struct {
 func (p person) HashKey() string { return curie.IRI(p.Prefix).String() }
 func (p person) SortKey() string { return curie.IRI(p.Suffix).String() }
 
-func keyStruct() person {
-	return person{
-		Prefix: dynamo.NewIRI("dead:beef"),
-		Suffix: dynamo.NewIRI("1"),
-	}
-}
+// func keyStruct() person {
+// 	return person{
+// 		Prefix: dynamo.NewIRI("dead:beef"),
+// 		Suffix: dynamo.NewIRI("1"),
+// 	}
+// }
 
 func entityStruct() person {
 	return person{
@@ -41,12 +41,12 @@ func entityStruct() person {
 	}
 }
 
-func keyDynamo() map[string]*dynamodb.AttributeValue {
-	return map[string]*dynamodb.AttributeValue{
-		"prefix": {S: aws.String("dead:beef")},
-		"suffix": {S: aws.String("1")},
-	}
-}
+// func keyDynamo() map[string]*dynamodb.AttributeValue {
+// 	return map[string]*dynamodb.AttributeValue{
+// 		"prefix": {S: aws.String("dead:beef")},
+// 		"suffix": {S: aws.String("1")},
+// 	}
+// }
 
 func entityDynamo() map[string]*dynamodb.AttributeValue {
 	return map[string]*dynamodb.AttributeValue{
