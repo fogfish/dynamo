@@ -60,7 +60,7 @@ func codec(p dynamotest.Person) (dynamotest.Person, error) {
 	return p, nil
 }
 
-func TestX(t *testing.T) {
+func TestS3(t *testing.T) {
 	dynamotest.TestGet(t, codec, s3test.GetObject[dynamotest.Person])
 	dynamotest.TestPut(t, codec, s3test.PutObject[dynamotest.Person])
 	dynamotest.TestRemove(t, codec, s3test.DeleteObject[dynamotest.Person])

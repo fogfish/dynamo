@@ -62,15 +62,12 @@ func codec(p dynamotest.Person) (map[string]*dynamodb.AttributeValue, error) {
 	return dynamodbattribute.MarshalMap(p)
 }
 
-func TestX(t *testing.T) {
+func TestDynamoDB(t *testing.T) {
 	dynamotest.TestGet(t, codec, ddbtest.GetItem[dynamotest.Person])
 	dynamotest.TestPut(t, codec, ddbtest.PutItem[dynamotest.Person])
 	dynamotest.TestRemove(t, codec, ddbtest.DeleteItem[dynamotest.Person])
 	dynamotest.TestUpdate(t, codec, ddbtest.UpdateItem[dynamotest.Person])
-
-	//
 	dynamotest.TestMatch(t, codec, ddbtest.Query[dynamotest.Person])
-
 }
 
 // func TestDdbGetSuccess(t *testing.T) {
