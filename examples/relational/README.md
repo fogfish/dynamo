@@ -48,9 +48,9 @@ type Article struct {
   // ...
 }
 
-func (article Article) Identity() (string, string) {
-	return article.Author.String(), article.ID.String()
-}
+func (article Article) HashKey() string { return article.Author.String() }
+func (article Article) SortKey() string { return article.ID.String() }
+
 
 article := Article{
   Author: dynamo.NewIRI("author:%s", "neumann"),
@@ -187,10 +187,10 @@ The `dynamo` library supports both global and local secondary indexes with parti
 
 ```go
 // client to access to "main" table
-ddb := dynamo.Must(dynamo.New("ddb:///example-dynamo-relational"))
+ddb := keyval.Must(keyval.New[Article]("ddb:///example-dynamo-relational"))
 
 // client to access global secondary index
-gsi := dynamo.Must(dynamo.ReadOnly("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))
+gsi := keyval.Must(keyval.ReadOnly[Category]("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))
 ```
 
 ```go
@@ -327,10 +327,10 @@ ddb.Match(Keyword{
 The access pattern requires a global secondary index. Otherwise, the lookup is similar to other access patterns.  
 
 ```go
-gsi := dynamo.Must(dynamo.ReadOnly("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))
+gsi := keyval.Must(keyval.ReadOnly[Category]("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))
 
 var seq Articles
-gsi.Match(Article{
+gsi.Match(Category{
   Category: "Computer Science",
 }).FMap(seq.Join)
 ```
@@ -341,7 +341,7 @@ The access pattern requires a local secondary index. As it has been discussed ea
 
 ```go
 // client to access global secondary index
-lsi := dynamo.Must(dynamo.ReadOnly("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year"))
+lsi := keyval.Must(keyval.ReadOnly[Article]("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year"))
 
 var seq Articles
 lsi.Match(Article{

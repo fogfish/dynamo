@@ -15,8 +15,6 @@ package dynamo
 import (
 	"context"
 	"fmt"
-	"io"
-	"time"
 )
 
 //-----------------------------------------------------------------------------
@@ -31,31 +29,28 @@ Thing is the most generic item type used by the library to
 abstract writable/readable items into storage services.
 
 The interfaces declares anything that have a unique identifier.
-The unique identity is exposed by pair of string: prefix and suffix.
+The unique identity is exposed by pair of string: HashKey and SortKey.
 */
 type Thing interface {
-	Identity() (string, string)
+	HashKey() string
+	SortKey() string
 }
 
 /*
 
-ThingStream is an extension to Thing that provides a stream
+Things is sequence of Thing
 */
-type ThingStream interface {
-	Thing
-	// reader of thing content
-	Reader() (io.Reader, error)
-}
+type Things[T Thing] []T
 
 /*
 
-Gen is a generic representation of Thing at the storage
+Join lifts sequence of matched objects to seq of IDs
+	seq := dynamo.Things{}
+	dynamo.Match(...).FMap(seq.Join)
 */
-type Gen interface {
-	// return unique id of Thing
-	ID() (string, string)
-	// To decodes generic representation to structure
-	To(Thing) error
+func (seq *Things[T]) Join(t *T) error {
+	*seq = append(*seq, *t)
+	return nil
 }
 
 //-----------------------------------------------------------------------------
@@ -68,45 +63,42 @@ type Gen interface {
 
 SeqLazy is an interface to iterate through collection of objects at storage
 */
-type SeqLazy interface {
+type SeqLazy[T Thing] interface {
 	// Head lifts first element of sequence
-	Head(Thing) error
+	Head() (*T, error)
 	// Tail evaluates tail of sequence
 	Tail() bool
 	// Error returns error of stream evaluation
 	Error() error
 	// Cursor is the global position in the sequence
-	Cursor() (string, string)
+	Cursor() Thing
 }
 
 /*
 
 SeqConfig configures optional sequence behavior
 */
-type SeqConfig interface {
+type SeqConfig[T Thing] interface {
 	// Limit sequence size to N elements (pagination)
-	Limit(int64) Seq
+	Limit(int64) Seq[T]
 	// Continue limited sequence from the cursor
-	Continue(string, string) Seq
+	Continue(Thing) Seq[T]
 	// Reverse order of sequence
-	Reverse() Seq
+	Reverse() Seq[T]
 }
 
 /*
 
 Seq is an interface to transform collection of objects
 
-  db.Match(dynamo.NewID("users")).FMap(func(gen Gen) error {
-     val = &Person{}
-     return gen.To(val)
-  })
+  db.Match(dynamo.NewID("users")).FMap(func(x *T) error { ... })
 */
-type Seq interface {
-	SeqLazy
-	SeqConfig
+type Seq[T Thing] interface {
+	SeqLazy[T]
+	SeqConfig[T]
 
 	// Sequence transformer
-	FMap(func(Gen) error) error
+	FMap(func(*T) error) error
 }
 
 //-----------------------------------------------------------------------------
@@ -119,16 +111,16 @@ type Seq interface {
 
 KeyValGetter defines read by key notation
 */
-type KeyValGetter interface {
-	Get(context.Context, Thing) error
+type KeyValGetter[T Thing] interface {
+	Get(context.Context, T) (*T, error)
 }
 
 /*
 
 KeyValGetterNoContext defines read by key notation
 */
-type KeyValGetterNoContext interface {
-	Get(Thing) error
+type KeyValGetterNoContext[T Thing] interface {
+	Get(T) (*T, error)
 }
 
 //-----------------------------------------------------------------------------
@@ -141,16 +133,16 @@ type KeyValGetterNoContext interface {
 
 KeyValPattern defines simple pattern matching lookup I/O
 */
-type KeyValPattern interface {
-	Match(context.Context, Thing) Seq
+type KeyValPattern[T Thing] interface {
+	Match(context.Context, T) Seq[T]
 }
 
 /*
 
 KeyValPatternNoContext defines simple pattern matching lookup I/O
 */
-type KeyValPatternNoContext interface {
-	Match(Thing) Seq
+type KeyValPatternNoContext[T Thing] interface {
+	Match(T) Seq[T]
 }
 
 //-----------------------------------------------------------------------------
@@ -163,18 +155,18 @@ type KeyValPatternNoContext interface {
 
 KeyValReader a generic key-value trait to read domain objects
 */
-type KeyValReader interface {
-	KeyValGetter
-	KeyValPattern
+type KeyValReader[T Thing] interface {
+	KeyValGetter[T]
+	KeyValPattern[T]
 }
 
 /*
 
 KeyValReaderNoContext a generic key-value trait to read domain objects
 */
-type KeyValReaderNoContext interface {
-	KeyValGetterNoContext
-	KeyValPatternNoContext
+type KeyValReaderNoContext[T Thing] interface {
+	KeyValGetterNoContext[T]
+	KeyValPatternNoContext[T]
 }
 
 //-----------------------------------------------------------------------------
@@ -187,66 +179,20 @@ type KeyValReaderNoContext interface {
 
 KeyValWriter defines a generic key-value writer
 */
-type KeyValWriter interface {
-	Put(context.Context, Thing, ...Constrain) error
-	Remove(context.Context, Thing, ...Constrain) error
-	Update(context.Context, Thing, ...Constrain) error
+type KeyValWriter[T Thing] interface {
+	Put(context.Context, T, ...Constrain[T]) error
+	Remove(context.Context, T, ...Constrain[T]) error
+	Update(context.Context, T, ...Constrain[T]) (*T, error)
 }
 
 /*
 
 KeyValWriterNoContext defines a generic key-value writer
 */
-type KeyValWriterNoContext interface {
-	Put(Thing, ...Constrain) error
-	Remove(Thing, ...Constrain) error
-	Update(Thing, ...Constrain) error
-}
-
-//-----------------------------------------------------------------------------
-//
-// Stream Reader
-//
-//-----------------------------------------------------------------------------
-
-/*
-
-StreamReader is a generic reader of byte streams
-*/
-type StreamReader interface {
-	SourceURL(context.Context, Thing, time.Duration) (string, error)
-	Read(context.Context, Thing) (io.ReadCloser, error)
-}
-
-/*
-
-StreamReaderNoContext is a generic reader of byte streams
-*/
-type StreamReaderNoContext interface {
-	SourceURL(Thing, time.Duration) (string, error)
-	Read(Thing) (io.ReadCloser, error)
-}
-
-//-----------------------------------------------------------------------------
-//
-// Stream Writer
-//
-//-----------------------------------------------------------------------------
-
-/*
-
-StreamWriter is a generic writer of byte streams
-*/
-type StreamWriter interface {
-	Write(context.Context, ThingStream, ...Content) error
-}
-
-/*
-
-StreamWriterNoContext is a generic writer of byte streams
-*/
-type StreamWriterNoContext interface {
-	Write(ThingStream, ...Content) error
+type KeyValWriterNoContext[T Thing] interface {
+	Put(T, ...Constrain[T]) error
+	Remove(T, ...Constrain[T]) error
+	Update(T, ...Constrain[T]) (*T, error)
 }
 
 //-----------------------------------------------------------------------------
@@ -259,38 +205,18 @@ type StreamWriterNoContext interface {
 
 KeyVal is a generic key-value trait to access domain objects.
 */
-type KeyVal interface {
-	KeyValReader
-	KeyValWriter
+type KeyVal[T Thing] interface {
+	KeyValReader[T]
+	KeyValWriter[T]
 }
 
 /*
 
 KeyValNoContext is a generic key-value trait to access domain objects.
 */
-type KeyValNoContext interface {
-	KeyValReaderNoContext
-	KeyValWriterNoContext
-}
-
-/*
-
-Stream is a generic byte stream trait to access large binary data
-*/
-type Stream interface {
-	KeyVal
-	StreamReader
-	StreamWriter
-}
-
-/*
-
-StreamNoContext is a generic byte stream trait to access large binary data
-*/
-type StreamNoContext interface {
-	KeyValNoContext
-	StreamReaderNoContext
-	StreamWriterNoContext
+type KeyValNoContext[T Thing] interface {
+	KeyValReaderNoContext[T]
+	KeyValWriterNoContext[T]
 }
 
 //-----------------------------------------------------------------------------
@@ -303,12 +229,10 @@ type StreamNoContext interface {
 
 NotFound is an error to handle unknown elements
 */
-type NotFound struct {
-	HashKey, SortKey string
-}
+type NotFound struct{ Thing }
 
 func (e NotFound) Error() string {
-	return fmt.Sprintf("Not Found (%s, %s) ", e.HashKey, e.SortKey)
+	return fmt.Sprintf("Not Found (%s, %s) ", e.Thing.HashKey(), e.Thing.SortKey())
 }
 
 /*
@@ -316,10 +240,18 @@ func (e NotFound) Error() string {
 PreConditionFailed is an error to handler aborted I/O on
 requests with conditional expressions
 */
-type PreConditionFailed struct {
-	HashKey, SortKey string
-}
+type PreConditionFailed struct{ Thing }
 
 func (e PreConditionFailed) Error() string {
-	return fmt.Sprintf("Pre Condition Failed (%s, %s) ", e.HashKey, e.SortKey)
+	return fmt.Sprintf("Pre Condition Failed (%s, %s) ", e.Thing.HashKey(), e.Thing.SortKey())
+}
+
+/*
+
+EOS error indicates End Of Stream
+*/
+type EOS struct{}
+
+func (e EOS) Error() string {
+	return "End of Stream"
 }

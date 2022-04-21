@@ -1,6 +1,15 @@
+//
+// Copyright (C) 2022 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
 package dynamo_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -33,19 +42,22 @@ type codecStruct struct {
 	City string    `dynamodbav:"city"`
 }
 
-var lensCodecStruct = dynamo.Struct(codecStruct{}).Codec("ID", "Type")
+func (s codecStruct) HashKey() string { return s.ID.Val }
+func (s codecStruct) SortKey() string { return s.Type.Val }
+
+var lensCodecID, lensCodecType = dynamo.Codec2[codecStruct, codecTypeDB, codecTypeDB]("ID", "Type")
 
 func (x codecStruct) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct codecStruct
 	return dynamo.Encode(av, tStruct(x),
-		lensCodecStruct.Encode((*codecTypeDB)(&x.ID), (*codecTypeDB)(&x.Type)),
+		lensCodecID.Encode((codecTypeDB)(x.ID)), lensCodecType.Encode((codecTypeDB)(x.Type)),
 	)
 }
 
 func (x *codecStruct) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *codecStruct
 	return dynamo.Decode(av, tStruct(x),
-		lensCodecStruct.Decode((*codecTypeDB)(&x.ID), (*codecTypeDB)(&x.Type)),
+		lensCodecID.Decode((*codecTypeDB)(&x.ID)), lensCodecType.Decode((*codecTypeDB)(&x.Type)),
 	)
 }
 
@@ -97,19 +109,22 @@ type codecMyType struct {
 	Link *curie.String `dynamodbav:"link,omitempty"`
 }
 
-var lensCodecMyType = dynamo.Struct(codecMyType{}).Codec("HKey", "SKey")
+func (s codecMyType) HashKey() string { return s.HKey.String() }
+func (s codecMyType) SortKey() string { return s.SKey.String() }
+
+var lensCodecHKey, lensCodecSKey = dynamo.Codec2[codecMyType, dynamo.IRI, dynamo.IRI]("HKey", "SKey")
 
 func (x codecMyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct codecMyType
 	return dynamo.Encode(av, tStruct(x),
-		lensCodecMyType.Encode(dynamo.IRI(x.HKey), dynamo.IRI(x.SKey)),
+		lensCodecHKey.Encode(dynamo.IRI(x.HKey)), lensCodecSKey.Encode(dynamo.IRI(x.SKey)),
 	)
 }
 
 func (x *codecMyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *codecMyType
 	return dynamo.Decode(av, tStruct(x),
-		lensCodecMyType.Decode((*dynamo.IRI)(&x.HKey), (*dynamo.IRI)(&x.SKey)),
+		lensCodecHKey.Decode((*dynamo.IRI)(&x.HKey)), lensCodecSKey.Decode((*dynamo.IRI)(&x.SKey)),
 	)
 }
 
@@ -187,19 +202,22 @@ type codecBadType struct {
 	Link codecTypeBad `dynamodbav:"link,omitempty"`
 }
 
-var lensCodecBadType = dynamo.Struct(codecBadType{}).Codec("HKey", "SKey")
+func (s codecBadType) HashKey() string { return s.HKey.String() }
+func (s codecBadType) SortKey() string { return s.SKey.String() }
+
+var lensCodecBadHKey, lensCodecBadSKey = dynamo.Codec2[codecBadType, dynamo.IRI, dynamo.IRI]("HKey", "SKey")
 
 func (x codecBadType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct codecBadType
 	return dynamo.Encode(av, tStruct(x),
-		lensCodecBadType.Encode(dynamo.IRI(x.HKey), dynamo.IRI(x.SKey)),
+		lensCodecBadHKey.Encode(dynamo.IRI(x.HKey)), lensCodecBadSKey.Encode(dynamo.IRI(x.SKey)),
 	)
 }
 
 func (x *codecBadType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *codecBadType
 	return dynamo.Decode(av, tStruct(x),
-		lensCodecBadType.Decode((*dynamo.IRI)(&x.HKey), (*dynamo.IRI)(&x.SKey)),
+		lensCodecBadHKey.Decode((*dynamo.IRI)(&x.HKey)), lensCodecBadSKey.Decode((*dynamo.IRI)(&x.SKey)),
 	)
 }
 
@@ -234,19 +252,26 @@ type codecBadStruct struct {
 	Link codecType `dynamodbav:"link"`
 }
 
-var lensCodecBadStruct = dynamo.Struct(codecBadStruct{}).Codec("HKey", "SKey", "Link")
+func (s codecBadStruct) HashKey() string { return s.HKey.Val }
+func (s codecBadStruct) SortKey() string { return s.SKey.Val }
+
+var lensCodecBadsHKey, lensCodecBadsSKey, lensCodecBadsLink = dynamo.Codec3[codecBadType, codecTypeBad, codecTypeBad, codecTypeBad]("HKey", "SKey", "Link")
 
 func (x codecBadStruct) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct codecBadStruct
 	return dynamo.Encode(av, tStruct(x),
-		lensCodecBadStruct.Encode(codecTypeBad(x.HKey), codecTypeBad(x.SKey), codecTypeBad(x.Link)),
+		lensCodecBadsHKey.Encode(codecTypeBad(x.HKey)),
+		lensCodecBadsSKey.Encode(codecTypeBad(x.SKey)),
+		lensCodecBadsLink.Encode(codecTypeBad(x.Link)),
 	)
 }
 
 func (x *codecBadStruct) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	type tStruct *codecBadStruct
 	return dynamo.Decode(av, tStruct(x),
-		lensCodecBadStruct.Decode((*codecTypeBad)(&x.HKey), (*codecTypeBad)(&x.SKey), (*codecTypeBad)(&x.Link)),
+		lensCodecBadsHKey.Decode((*codecTypeBad)(&x.HKey)),
+		lensCodecBadsSKey.Decode((*codecTypeBad)(&x.SKey)),
+		lensCodecBadsLink.Decode((*codecTypeBad)(&x.Link)),
 	)
 }
 
@@ -273,4 +298,92 @@ func TestCodecDecodeBadStruct(t *testing.T) {
 	var val codecBadStruct
 	err := dynamodbattribute.Unmarshal(av, &val)
 	it.Ok(t).IfNotNil(err)
+}
+
+type Item struct {
+	Prefix dynamo.IRI    `json:"prefix,omitempty"  dynamodbav:"prefix,omitempty"`
+	Suffix dynamo.IRI    `json:"suffix,omitempty"  dynamodbav:"suffix,omitempty"`
+	Ref    *curie.String `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag    string        `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
+}
+
+func fixtureItem() Item {
+	return Item{
+		Prefix: dynamo.NewIRI("foo:prefix"),
+		Suffix: dynamo.NewIRI("suffix"),
+		Ref:    curie.Safe(curie.IRI(dynamo.NewIRI("foo:a/suffix"))),
+		Tag:    "tag",
+	}
+}
+
+func fixtureJson() string {
+	return "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
+}
+
+func fixtureDynamo() map[string]*dynamodb.AttributeValue {
+	return map[string]*dynamodb.AttributeValue{
+		"prefix": {S: aws.String("foo:prefix")},
+		"suffix": {S: aws.String("suffix")},
+		"ref":    {S: aws.String("[foo:a/suffix]")},
+		"tag":    {S: aws.String("tag")},
+	}
+}
+
+func fixtureEmptyItem() Item {
+	return Item{
+		Prefix: dynamo.NewIRI("foo:prefix"),
+		Suffix: dynamo.NewIRI("suffix"),
+	}
+}
+
+func fixtureEmptyJson() string {
+	return "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\"}"
+}
+
+func TestMarshalJSON(t *testing.T) {
+	bytes, err := json.Marshal(fixtureItem())
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(string(bytes)).Should().Equal(fixtureJson())
+}
+
+func TestMarshalEmptyJSON(t *testing.T) {
+	bytes, err := json.Marshal(fixtureEmptyItem())
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(string(bytes)).Should().Equal(fixtureEmptyJson())
+}
+
+func TestUnmarshalJSON(t *testing.T) {
+	var item Item
+
+	it.Ok(t).
+		If(json.Unmarshal([]byte(fixtureJson()), &item)).Should().Equal(nil).
+		If(item).Should().Equal(fixtureItem())
+}
+
+func TestUnmarshalEmptyJSON(t *testing.T) {
+	var item Item
+
+	it.Ok(t).
+		If(json.Unmarshal([]byte(fixtureEmptyJson()), &item)).Should().Equal(nil).
+		If(item).Should().Equal(fixtureEmptyItem())
+}
+
+func TestMarshalDynamo(t *testing.T) {
+	gen, err := dynamodbattribute.MarshalMap(fixtureItem())
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(gen).Should().Equal(fixtureDynamo())
+}
+
+func TestUnmarshalDynamo(t *testing.T) {
+	var item Item
+
+	it.Ok(t).
+		If(dynamodbattribute.UnmarshalMap(fixtureDynamo(), &item)).Should().Equal(nil).
+		If(item).Should().Equal(fixtureItem())
 }
