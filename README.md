@@ -19,7 +19,7 @@ between a concrete struct(s). The library uses [AWS Golang SDK](https://aws.amaz
 Essentially, the library implement a following generic key-value trait to access domain objects. 
 
 ```go
-type KeyVal[T any] {
+type KeyVal[T any] interface {
   Put(T) error
   Get(T) (*T, error)
   Remove(T) error

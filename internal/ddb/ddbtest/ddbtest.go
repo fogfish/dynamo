@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2022 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
 package ddbtest
 
 import (
@@ -29,7 +37,7 @@ func mock[T dynamo.Thing](mock dynamodbiface.DynamoDBAPI) dynamo.KeyValNoContext
 		panic("Invalid config")
 	}
 
-	return dynamo.NewKeyValContextDefault(client)
+	return keyval.NewKeyValContextDefault(client)
 }
 
 /*

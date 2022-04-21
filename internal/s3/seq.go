@@ -1,9 +1,16 @@
+//
+// Copyright (C) 2022 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
 package s3
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -16,41 +23,6 @@ type cursor struct{ hashKey, sortKey string }
 
 func (c cursor) HashKey() string { return c.hashKey }
 func (c cursor) SortKey() string { return c.sortKey }
-
-// // s3Gen is type alias for generic representation
-// type s3Gen struct {
-// 	ctx context.Context
-// 	s3  *ds3
-// 	key *string
-// }
-
-// // ID lifts generic representation to its Identity
-// func (gen s3Gen) ID() (string, string) {
-// 	if gen.key == nil {
-// 		return "", ""
-// 	}
-
-// 	seq := strings.Split(*gen.key, "/_/")
-// 	if len(seq) == 1 {
-// 		return seq[0], ""
-// 	}
-
-// 	return seq[0], seq[1]
-// }
-
-// // Lifts generic representation to Thing
-// func (gen s3Gen) To(thing Thing) error {
-// 	req := &s3.GetObjectInput{
-// 		Bucket: gen.s3.bucket,
-// 		Key:    gen.key,
-// 	}
-// 	val, err := gen.s3.db.GetObjectWithContext(gen.ctx, req)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return json.NewDecoder(val.Body).Decode(thing)
-// }
 
 // seq is an iterator over matched results
 type seq[T dynamo.Thing] struct {
@@ -82,7 +54,7 @@ func newSeq[T dynamo.Thing](
 
 func (seq *seq[T]) maybeSeed() error {
 	if !seq.stream {
-		return fmt.Errorf("End of Stream")
+		return dynamo.EOS{}
 	}
 
 	return seq.seed()
@@ -90,7 +62,7 @@ func (seq *seq[T]) maybeSeed() error {
 
 func (seq *seq[T]) seed() error {
 	if seq.items != nil && seq.q.StartAfter == nil {
-		return fmt.Errorf("End of Stream")
+		return dynamo.EOS{}
 	}
 
 	val, err := seq.db.s3.ListObjectsV2WithContext(seq.ctx, seq.q)
@@ -100,7 +72,7 @@ func (seq *seq[T]) seed() error {
 	}
 
 	if *val.KeyCount == 0 {
-		return fmt.Errorf("End of Stream")
+		return dynamo.EOS{}
 	}
 
 	items := make([]*string, 0)

@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2022 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
 package main
 
 import (
@@ -12,20 +20,20 @@ func main() {
 	//
 	// create DynamoDB clients for the main table (ddb), local secondary index (lsi),
 	// global secondary index (gsi)
-	db := dynamo.NewKeyValContextDefault(
+	db := keyval.NewKeyValContextDefault(
 		keyval.Must(keyval.New[Author]("ddb:///example-dynamo-relational")),
 	)
-	dba := dynamo.NewKeyValContextDefault(
+	dba := keyval.NewKeyValContextDefault(
 		keyval.Must(keyval.New[Article]("ddb:///example-dynamo-relational")),
 	)
-	dbk := dynamo.NewKeyValContextDefault(
+	dbk := keyval.NewKeyValContextDefault(
 		keyval.Must(keyval.New[Keyword]("ddb:///example-dynamo-relational")),
 	)
 
-	lsi := dynamo.NewKeyValContextDefault(
+	lsi := keyval.NewKeyValContextDefault(
 		keyval.Must(keyval.New[Article]("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year")),
 	)
-	gsi := dynamo.NewKeyValContextDefault(
+	gsi := keyval.NewKeyValContextDefault(
 		keyval.Must(keyval.New[Category]("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year")),
 	)
 

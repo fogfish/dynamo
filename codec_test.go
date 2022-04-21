@@ -1,6 +1,15 @@
+//
+// Copyright (C) 2022 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
 package dynamo_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -289,4 +298,92 @@ func TestCodecDecodeBadStruct(t *testing.T) {
 	var val codecBadStruct
 	err := dynamodbattribute.Unmarshal(av, &val)
 	it.Ok(t).IfNotNil(err)
+}
+
+type Item struct {
+	Prefix dynamo.IRI    `json:"prefix,omitempty"  dynamodbav:"prefix,omitempty"`
+	Suffix dynamo.IRI    `json:"suffix,omitempty"  dynamodbav:"suffix,omitempty"`
+	Ref    *curie.String `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag    string        `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
+}
+
+func fixtureItem() Item {
+	return Item{
+		Prefix: dynamo.NewIRI("foo:prefix"),
+		Suffix: dynamo.NewIRI("suffix"),
+		Ref:    curie.Safe(curie.IRI(dynamo.NewIRI("foo:a/suffix"))),
+		Tag:    "tag",
+	}
+}
+
+func fixtureJson() string {
+	return "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
+}
+
+func fixtureDynamo() map[string]*dynamodb.AttributeValue {
+	return map[string]*dynamodb.AttributeValue{
+		"prefix": {S: aws.String("foo:prefix")},
+		"suffix": {S: aws.String("suffix")},
+		"ref":    {S: aws.String("[foo:a/suffix]")},
+		"tag":    {S: aws.String("tag")},
+	}
+}
+
+func fixtureEmptyItem() Item {
+	return Item{
+		Prefix: dynamo.NewIRI("foo:prefix"),
+		Suffix: dynamo.NewIRI("suffix"),
+	}
+}
+
+func fixtureEmptyJson() string {
+	return "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\"}"
+}
+
+func TestMarshalJSON(t *testing.T) {
+	bytes, err := json.Marshal(fixtureItem())
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(string(bytes)).Should().Equal(fixtureJson())
+}
+
+func TestMarshalEmptyJSON(t *testing.T) {
+	bytes, err := json.Marshal(fixtureEmptyItem())
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(string(bytes)).Should().Equal(fixtureEmptyJson())
+}
+
+func TestUnmarshalJSON(t *testing.T) {
+	var item Item
+
+	it.Ok(t).
+		If(json.Unmarshal([]byte(fixtureJson()), &item)).Should().Equal(nil).
+		If(item).Should().Equal(fixtureItem())
+}
+
+func TestUnmarshalEmptyJSON(t *testing.T) {
+	var item Item
+
+	it.Ok(t).
+		If(json.Unmarshal([]byte(fixtureEmptyJson()), &item)).Should().Equal(nil).
+		If(item).Should().Equal(fixtureEmptyItem())
+}
+
+func TestMarshalDynamo(t *testing.T) {
+	gen, err := dynamodbattribute.MarshalMap(fixtureItem())
+
+	it.Ok(t).
+		If(err).Should().Equal(nil).
+		If(gen).Should().Equal(fixtureDynamo())
+}
+
+func TestUnmarshalDynamo(t *testing.T) {
+	var item Item
+
+	it.Ok(t).
+		If(dynamodbattribute.UnmarshalMap(fixtureDynamo(), &item)).Should().Equal(nil).
+		If(item).Should().Equal(fixtureItem())
 }

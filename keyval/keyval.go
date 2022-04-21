@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2022 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
 package keyval
 
 import (
@@ -18,7 +26,6 @@ The connection URI controls the access parameters.
 
 Supported scheme:
   s3:///my-bucket
-	s3+stream:///my-bucket
   ddb:///my-table/my-index?prefix=hashkey&suffix=sortkey
 */
 func New[T dynamo.Thing](
@@ -53,6 +60,17 @@ func Must[T dynamo.Thing](kv dynamo.KeyVal[T], err error) dynamo.KeyVal[T] {
 		panic(err)
 	}
 	return kv
+}
+
+/*
+
+ReadOnly establishes read-only connection with AWS Storage service.
+*/
+func ReadOnly[T dynamo.Thing](
+	uri string,
+	defSession ...*session.Session,
+) (dynamo.KeyValReader[T], error) {
+	return New[T](uri, defSession...)
 }
 
 /*

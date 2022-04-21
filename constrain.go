@@ -1,8 +1,15 @@
+//
+// Copyright (C) 2022 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
 package dynamo
 
 import (
 	"strings"
-	"time"
 
 	"github.com/fogfish/dynamo/internal/constrain"
 	"github.com/fogfish/golem/pure/hseq"
@@ -384,55 +391,4 @@ NotExists attribute constrain
 */
 func (eff effect[T, A]) NotExists() Constrain[T] {
 	return constrain.NotExists(eff.Key)
-}
-
-/*
-
-StreamOf declares type descriptor to express streaming I/O Constrains.
-*/
-type StreamOf[T Thing] interface {
-	CacheControl(val string) Constrain[T]
-	ContentEncoding(val string) Constrain[T]
-	ContentLanguage(val string) Constrain[T]
-	ContentType(val string) Constrain[T]
-	Expires(val time.Time) Constrain[T]
-}
-
-/*
-
-NewStreamOf builds Constrain builder for Streams
-*/
-func NewStreamOf[T Thing]() StreamOf[T] {
-	return stream[T]("StreamOf")
-}
-
-/*
-
-Internal implementation of StreamOf constrains
-*/
-type stream[T Thing] string
-
-// CacheControl header
-func (stream[T]) CacheControl(val string) Constrain[T] {
-	return constrain.CacheControl(val)
-}
-
-// ContentEncoding header
-func (stream[T]) ContentEncoding(val string) Constrain[T] {
-	return constrain.ContentEncoding(val)
-}
-
-// ContentLanguage header
-func (stream[T]) ContentLanguage(val string) Constrain[T] {
-	return constrain.ContentLanguage(val)
-}
-
-// ContentType header
-func (stream[T]) ContentType(val string) Constrain[T] {
-	return constrain.ContentType(val)
-}
-
-// Expires header
-func (stream[T]) Expires(val time.Time) Constrain[T] {
-	return constrain.Expires(val)
 }

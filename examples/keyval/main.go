@@ -60,7 +60,7 @@ type KeyVal dynamo.KeyValNoContext[Person]
 //
 //
 func main() {
-	db := dynamo.NewKeyValContextDefault(
+	db := keyval.NewKeyValContextDefault(
 		keyval.Must(keyval.New[Person](os.Args[1])),
 	)
 

@@ -1,8 +1,15 @@
+//
+// Copyright (C) 2022 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
 package ddb
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -31,7 +38,7 @@ func (slice *slice[T]) Head() (*T, error) {
 	if slice.head < len(slice.heap) {
 		return slice.db.codec.Decode(slice.heap[slice.head])
 	}
-	return nil, fmt.Errorf("End of Stream")
+	return nil, dynamo.EOS{}
 }
 
 func (slice *slice[T]) Tail() bool {
@@ -68,7 +75,7 @@ func newSeq[T dynamo.Thing](
 
 func (seq *seq[T]) maybeSeed() error {
 	if !seq.stream {
-		return fmt.Errorf("End of Stream")
+		return dynamo.EOS{}
 	}
 
 	return seq.seed()
@@ -76,7 +83,7 @@ func (seq *seq[T]) maybeSeed() error {
 
 func (seq *seq[T]) seed() error {
 	if seq.slice != nil && seq.q.ExclusiveStartKey == nil {
-		return fmt.Errorf("End of Stream")
+		return dynamo.EOS{}
 	}
 
 	val, err := seq.db.dynamo.QueryWithContext(seq.ctx, seq.q)
@@ -86,7 +93,7 @@ func (seq *seq[T]) seed() error {
 	}
 
 	if *val.Count == 0 {
-		return fmt.Errorf("End of Stream")
+		return dynamo.EOS{}
 	}
 
 	seq.slice = newSlice(seq.db, val.Items)

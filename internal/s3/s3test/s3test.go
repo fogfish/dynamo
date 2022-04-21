@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2022 Dmitry Kolesnikov
+//
+// This file may be modified and distributed under the terms
+// of the MIT license.  See the LICENSE file for details.
+// https://github.com/fogfish/dynamo
+//
+
 package s3test
 
 import (
@@ -30,7 +38,7 @@ func mock[T dynamo.Thing](mock s3iface.S3API) dynamo.KeyValNoContext[T] {
 		panic("Invalid config")
 	}
 
-	return dynamo.NewKeyValContextDefault(client)
+	return keyval.NewKeyValContextDefault(client)
 }
 
 func encodeKey(key dynamo.Thing) string {

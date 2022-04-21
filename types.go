@@ -197,52 +197,6 @@ type KeyValWriterNoContext[T Thing] interface {
 
 //-----------------------------------------------------------------------------
 //
-// Stream Reader
-//
-//-----------------------------------------------------------------------------
-
-/*
-
-StreamReader is a generic reader of byte streams
-*/
-// type StreamReader interface {
-// 	SourceURL(context.Context, Thing, time.Duration) (string, error)
-// 	Read(context.Context, Thing) (io.ReadCloser, error)
-// }
-
-/*
-
-StreamReaderNoContext is a generic reader of byte streams
-*/
-// type StreamReaderNoContext interface {
-// 	SourceURL(Thing, time.Duration) (string, error)
-// 	Read(Thing) (io.ReadCloser, error)
-// }
-
-//-----------------------------------------------------------------------------
-//
-// Stream Writer
-//
-//-----------------------------------------------------------------------------
-
-/*
-
-StreamWriter is a generic writer of byte streams
-*/
-// type StreamWriter interface {
-// 	Write(context.Context, ThingStream, ...Content) error
-// }
-
-/*
-
-StreamWriterNoContext is a generic writer of byte streams
-*/
-// type StreamWriterNoContext interface {
-// 	Write(ThingStream, ...Content) error
-// }
-
-//-----------------------------------------------------------------------------
-//
 // Storage interface
 //
 //-----------------------------------------------------------------------------
@@ -264,26 +218,6 @@ type KeyValNoContext[T Thing] interface {
 	KeyValReaderNoContext[T]
 	KeyValWriterNoContext[T]
 }
-
-/*
-
-Stream is a generic byte stream trait to access large binary data
-*/
-// type Stream interface {
-// 	KeyVal
-// 	StreamReader
-// 	StreamWriter
-// }
-
-/*
-
-StreamNoContext is a generic byte stream trait to access large binary data
-*/
-// type StreamNoContext interface {
-// 	KeyValNoContext
-// 	StreamReaderNoContext
-// 	StreamWriterNoContext
-// }
 
 //-----------------------------------------------------------------------------
 //
@@ -310,4 +244,14 @@ type PreConditionFailed struct{ Thing }
 
 func (e PreConditionFailed) Error() string {
 	return fmt.Sprintf("Pre Condition Failed (%s, %s) ", e.Thing.HashKey(), e.Thing.SortKey())
+}
+
+/*
+
+EOS error indicates End Of Stream
+*/
+type EOS struct{}
+
+func (e EOS) Error() string {
+	return "End of Stream"
 }
