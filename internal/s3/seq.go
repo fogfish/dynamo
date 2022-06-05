@@ -150,11 +150,14 @@ func (seq *seq[T]) Tail() bool {
 // Cursor is the global position in the sequence
 func (seq *seq[T]) Cursor() dynamo.Thing {
 	if seq.q.StartAfter != nil {
-		seq := strings.Split(*seq.q.StartAfter, "/_/")
-		if len(seq) == 1 {
-			return &cursor{hashKey: seq[0]}
+		key := strings.Split(*seq.q.StartAfter, "/_/")
+		if len(key) == 1 {
+			return &cursor{hashKey: seq.db.codec.DecodeIRI(key[0])}
 		}
-		return &cursor{hashKey: seq[0], sortKey: seq[1]}
+		return &cursor{
+			hashKey: seq.db.codec.DecodeIRI(key[0]),
+			sortKey: seq.db.codec.DecodeIRI(key[1]),
+		}
 	}
 	return &cursor{}
 }
@@ -173,8 +176,8 @@ func (seq *seq[T]) Limit(n int64) dynamo.Seq[T] {
 
 // Continue limited sequence from the cursor
 func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
-	prefix := key.HashKey()
-	suffix := key.SortKey()
+	prefix := seq.db.codec.EncodeIRI(key.HashKey())
+	suffix := seq.db.codec.EncodeIRI(key.SortKey())
 
 	if prefix != "" {
 		if suffix == "" {
