@@ -9,8 +9,6 @@
 package s3
 
 import (
-	"strings"
-
 	"github.com/fogfish/dynamo"
 )
 
@@ -20,18 +18,10 @@ Codec is utility to encode/decode objects to s3 representation
 */
 type Codec[T dynamo.Thing] struct{}
 
-func (codec Codec[T]) EncodeIRI(key string) string {
-	return strings.ReplaceAll(key, ":", ":/")
-}
-
-func (codec Codec[T]) DecodeIRI(key string) string {
-	return strings.ReplaceAll(key, ":/", ":")
-}
-
 //
 func (codec Codec[T]) EncodeKey(key T) string {
-	hkey := codec.EncodeIRI(key.HashKey())
-	skey := codec.EncodeIRI(key.SortKey())
+	hkey := key.HashKey()
+	skey := key.SortKey()
 
 	if skey == "" {
 		return hkey

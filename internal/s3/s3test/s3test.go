@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -43,8 +42,8 @@ func mock[T dynamo.Thing](mock s3iface.S3API) dynamo.KeyValNoContext[T] {
 }
 
 func encodeKey(key dynamo.Thing) string {
-	hkey := strings.ReplaceAll(key.HashKey(), ":", ":/")
-	skey := strings.ReplaceAll(key.SortKey(), ":", ":/")
+	hkey := key.HashKey()
+	skey := key.SortKey()
 
 	if skey == "" {
 		return hkey

@@ -152,11 +152,11 @@ func (seq *seq[T]) Cursor() dynamo.Thing {
 	if seq.q.StartAfter != nil {
 		key := strings.Split(*seq.q.StartAfter, "/_/")
 		if len(key) == 1 {
-			return &cursor{hashKey: seq.db.codec.DecodeIRI(key[0])}
+			return &cursor{hashKey: key[0]}
 		}
 		return &cursor{
-			hashKey: seq.db.codec.DecodeIRI(key[0]),
-			sortKey: seq.db.codec.DecodeIRI(key[1]),
+			hashKey: key[0],
+			sortKey: key[1],
 		}
 	}
 	return &cursor{}
@@ -176,8 +176,8 @@ func (seq *seq[T]) Limit(n int64) dynamo.Seq[T] {
 
 // Continue limited sequence from the cursor
 func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
-	prefix := seq.db.codec.EncodeIRI(key.HashKey())
-	suffix := seq.db.codec.EncodeIRI(key.SortKey())
+	prefix := key.HashKey()
+	suffix := key.SortKey()
 
 	if prefix != "" {
 		if suffix == "" {
