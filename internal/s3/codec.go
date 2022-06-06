@@ -16,7 +16,9 @@ import (
 
 Codec is utility to encode/decode objects to s3 representation
 */
-type Codec[T dynamo.Thing] struct{}
+type Codec[T dynamo.Thing] struct {
+	rootPath string
+}
 
 //
 func (codec Codec[T]) EncodeKey(key T) string {
@@ -27,5 +29,5 @@ func (codec Codec[T]) EncodeKey(key T) string {
 		return hkey
 	}
 
-	return hkey + "/_/" + skey
+	return codec.rootPath + hkey + "/_/" + skey
 }
