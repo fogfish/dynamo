@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -73,6 +74,7 @@ type s3GetObject[T dynamo.Thing] struct {
 }
 
 func (mock *s3GetObject[T]) GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
+	fmt.Printf("==> %s  %s\n", *input.Key, encodeKey(*mock.expectKey))
 	if aws.StringValue(input.Key) != encodeKey(*mock.expectKey) {
 		return nil, errors.New("Unexpected request.")
 	}

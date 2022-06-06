@@ -38,9 +38,11 @@ func New[T dynamo.Thing](io *session.Session, spec *common.URL) dynamo.KeyVal[T]
 	db := &ddb[T]{io: io, dynamo: dynamodb.New(io)}
 
 	// config table name and index name
-	seq := spec.Segments(2)
-	db.table = seq[0]
-	db.index = seq[1]
+	seq := spec.Segments()
+	db.table = &seq[0]
+	if len(seq) > 1 {
+		db.index = &seq[1]
+	}
 	db.schema = NewSchema[T]()
 
 	// config mapping of Indentity to table attributes

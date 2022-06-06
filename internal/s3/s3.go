@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"path/filepath"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -38,12 +39,17 @@ func New[T dynamo.Thing](
 	db := &ds3[T]{io: io, s3: s3.New(io)}
 
 	// config bucket name
-	seq := spec.Segments(2)
-	db.bucket = seq[0]
+
+	seq := spec.Segments()
+	db.bucket = &seq[0]
 	db.schema = NewSchema[T]()
 
 	//
-	db.codec = Codec[T]{}
+	rootPath := filepath.Join(seq[1:]...)
+	if rootPath != "" {
+		rootPath = rootPath + "/"
+	}
+	db.codec = Codec[T]{rootPath: rootPath}
 
 	return db
 }
