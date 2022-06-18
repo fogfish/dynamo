@@ -16,23 +16,27 @@ import (
 
 Unary operation, applies over the key
 */
-type Unary struct {
+type Unary[T any] struct {
 	Op  string
 	Key string
 }
+
+func (Unary[T]) TypeOf(T) {}
 
 /*
 
 Dyadic operation, applied over the key * value
 */
-type Dyadic struct {
+type Dyadic[T any] struct {
 	Op  string
 	Key string
 	Val interface{}
 }
 
+func (Dyadic[T]) TypeOf(T) {}
+
 //
-// Consrains for storage
+// Constraints for storage
 //
 
 /*
@@ -40,8 +44,8 @@ type Dyadic struct {
 Eq is equal constrain
   name.Eq(x) ⟼ Field = :value
 */
-func Eq[A any](key string, val A) *Dyadic {
-	return &Dyadic{Op: "=", Key: key, Val: val}
+func Eq[T, A any](key string, val A) *Dyadic[T] {
+	return &Dyadic[T]{Op: "=", Key: key, Val: val}
 }
 
 /*
@@ -49,8 +53,8 @@ func Eq[A any](key string, val A) *Dyadic {
 Ne is non equal constrain
   name.Ne(x) ⟼ Field <> :value
 */
-func Ne[A any](key string, val A) *Dyadic {
-	return &Dyadic{Op: "<>", Key: key, Val: val}
+func Ne[T, A any](key string, val A) *Dyadic[T] {
+	return &Dyadic[T]{Op: "<>", Key: key, Val: val}
 }
 
 /*
@@ -58,8 +62,8 @@ func Ne[A any](key string, val A) *Dyadic {
 Lt is less than constain
   name.Lt(x) ⟼ Field < :value
 */
-func Lt[A any](key string, val A) *Dyadic {
-	return &Dyadic{Op: "<", Key: key, Val: val}
+func Lt[T, A any](key string, val A) *Dyadic[T] {
+	return &Dyadic[T]{Op: "<", Key: key, Val: val}
 }
 
 /*
@@ -67,8 +71,8 @@ func Lt[A any](key string, val A) *Dyadic {
 Le is less or equal constain
   name.Le(x) ⟼ Field <= :value
 */
-func Le[A any](key string, val A) *Dyadic {
-	return &Dyadic{Op: "<=", Key: key, Val: val}
+func Le[T, A any](key string, val A) *Dyadic[T] {
+	return &Dyadic[T]{Op: "<=", Key: key, Val: val}
 }
 
 /*
@@ -76,8 +80,8 @@ func Le[A any](key string, val A) *Dyadic {
 Gt is greater than constrain
   name.Le(x) ⟼ Field > :value
 */
-func Gt[A any](key string, val A) *Dyadic {
-	return &Dyadic{Op: ">", Key: key, Val: val}
+func Gt[T, A any](key string, val A) *Dyadic[T] {
+	return &Dyadic[T]{Op: ">", Key: key, Val: val}
 }
 
 /*
@@ -85,20 +89,20 @@ func Gt[A any](key string, val A) *Dyadic {
 Ge is greater or equal constrain
   name.Le(x) ⟼ Field >= :value
 */
-func Ge[A any](key string, val A) *Dyadic {
-	return &Dyadic{Op: ">=", Key: key, Val: val}
+func Ge[T, A any](key string, val A) *Dyadic[T] {
+	return &Dyadic[T]{Op: ">=", Key: key, Val: val}
 }
 
 /*
 
 Is matches either Eq or NotExists if value is not defined
 */
-func Is(key string, val string) interface{} {
+func Is[T any](key string, val string) interface{ TypeOf(T) } {
 	if val == "_" {
-		return NotExists(key)
+		return NotExists[T](key)
 	}
 
-	return Eq(key, val)
+	return Eq[T](key, val)
 }
 
 /*
@@ -106,8 +110,8 @@ func Is(key string, val string) interface{} {
 Exists attribute constrain
   name.Exists(x) ⟼ attribute_exists(name)
 */
-func Exists(key string) *Unary {
-	return &Unary{Op: "attribute_exists", Key: key}
+func Exists[T any](key string) *Unary[T] {
+	return &Unary[T]{Op: "attribute_exists", Key: key}
 }
 
 /*
@@ -115,8 +119,8 @@ func Exists(key string) *Unary {
 NotExists attribute constrain
 	name.NotExists(x) ⟼ attribute_not_exists(name)
 */
-func NotExists(key string) *Unary {
-	return &Unary{Op: "attribute_not_exists", Key: key}
+func NotExists[T any](key string) *Unary[T] {
+	return &Unary[T]{Op: "attribute_not_exists", Key: key}
 }
 
 //
@@ -124,26 +128,26 @@ func NotExists(key string) *Unary {
 //
 
 // CacheControl header
-func CacheControl(val string) *Dyadic {
-	return &Dyadic{Op: "http", Key: "CacheControl", Val: val}
+func CacheControl[T any](val string) *Dyadic[T] {
+	return &Dyadic[T]{Op: "http", Key: "CacheControl", Val: val}
 }
 
 // ContentEncoding header
-func ContentEncoding(val string) *Dyadic {
-	return &Dyadic{Op: "http", Key: "ContentEncoding", Val: val}
+func ContentEncoding[T any](val string) *Dyadic[T] {
+	return &Dyadic[T]{Op: "http", Key: "ContentEncoding", Val: val}
 }
 
 // ContentLanguage header
-func ContentLanguage(val string) *Dyadic {
-	return &Dyadic{Op: "http", Key: "ContentLanguage", Val: val}
+func ContentLanguage[T any](val string) *Dyadic[T] {
+	return &Dyadic[T]{Op: "http", Key: "ContentLanguage", Val: val}
 }
 
 // ContentType header
-func ContentType(val string) *Dyadic {
-	return &Dyadic{Op: "http", Key: "ContentType", Val: val}
+func ContentType[T any](val string) *Dyadic[T] {
+	return &Dyadic[T]{Op: "http", Key: "ContentType", Val: val}
 }
 
 // Expires header
-func Expires(val time.Time) *Dyadic {
-	return &Dyadic{Op: "http", Key: "Expires", Val: val}
+func Expires[T any](val time.Time) *Dyadic[T] {
+	return &Dyadic[T]{Op: "http", Key: "Expires", Val: val}
 }
