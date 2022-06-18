@@ -25,6 +25,7 @@ func TestDyadic(t *testing.T) {
 		">=": constrain.Ge[any, string],
 	} {
 		d := f("key", "val")
+		d.TypeOf("x")
 		it.Ok(t).
 			If(d.Op).Equal(op).
 			If(d.Key).Equal("key").
@@ -38,6 +39,7 @@ func TestUnary(t *testing.T) {
 		"attribute_not_exists": constrain.NotExists[any],
 	} {
 		d := f("key")
+		d.TypeOf("x")
 		it.Ok(t).
 			If(d.Op).Equal(op).
 			If(d.Key).Equal("key")
