@@ -23,7 +23,7 @@ constrain protocol. The structure of the constrain is abstracted away from the c
 
 See internal/constrain package to see details about its implementation
 */
-type Constrain[T Thing] interface{}
+type Constrain[T Thing] interface{ TypeOf(T) }
 
 /*
 
@@ -319,7 +319,7 @@ Eq is equal constrain
   name.Eq(x) ⟼ Field = :value
 */
 func (eff effect[T, A]) Eq(val A) Constrain[T] {
-	return constrain.Eq(eff.Key, val)
+	return constrain.Eq[T](eff.Key, val)
 }
 
 /*
@@ -328,7 +328,7 @@ Ne is non equal constrain
   name.Ne(x) ⟼ Field <> :value
 */
 func (eff effect[T, A]) Ne(val A) Constrain[T] {
-	return constrain.Ne(eff.Key, val)
+	return constrain.Ne[T](eff.Key, val)
 }
 
 /*
@@ -337,7 +337,7 @@ Lt is less than constain
   name.Lt(x) ⟼ Field < :value
 */
 func (eff effect[T, A]) Lt(val A) Constrain[T] {
-	return constrain.Lt(eff.Key, val)
+	return constrain.Lt[T](eff.Key, val)
 }
 
 /*
@@ -346,7 +346,7 @@ Le is less or equal constain
   name.Le(x) ⟼ Field <= :value
 */
 func (eff effect[T, A]) Le(val A) Constrain[T] {
-	return constrain.Le(eff.Key, val)
+	return constrain.Le[T](eff.Key, val)
 }
 
 /*
@@ -355,7 +355,7 @@ Gt is greater than constrain
   name.Le(x) ⟼ Field > :value
 */
 func (eff effect[T, A]) Gt(val A) Constrain[T] {
-	return constrain.Gt(eff.Key, val)
+	return constrain.Gt[T](eff.Key, val)
 }
 
 /*
@@ -364,7 +364,7 @@ Ge is greater or equal constrain
   name.Le(x) ⟼ Field >= :value
 */
 func (eff effect[T, A]) Ge(val A) Constrain[T] {
-	return constrain.Ge(eff.Key, val)
+	return constrain.Ge[T](eff.Key, val)
 }
 
 /*
@@ -372,7 +372,7 @@ func (eff effect[T, A]) Ge(val A) Constrain[T] {
 Is matches either Eq or NotExists if value is not defined
 */
 func (eff effect[T, A]) Is(val string) Constrain[T] {
-	return constrain.Is(eff.Key, val)
+	return constrain.Is[T](eff.Key, val)
 }
 
 /*
@@ -381,7 +381,7 @@ Exists attribute constrain
   name.Exists(x) ⟼ attribute_exists(name)
 */
 func (eff effect[T, A]) Exists() Constrain[T] {
-	return constrain.Exists(eff.Key)
+	return constrain.Exists[T](eff.Key)
 }
 
 /*
@@ -390,5 +390,5 @@ NotExists attribute constrain
 	name.NotExists(x) ⟼ attribute_not_exists(name)
 */
 func (eff effect[T, A]) NotExists() Constrain[T] {
-	return constrain.NotExists(eff.Key)
+	return constrain.NotExists[T](eff.Key)
 }

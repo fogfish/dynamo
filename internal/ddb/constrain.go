@@ -32,13 +32,13 @@ func maybeConditionExpression[T dynamo.Thing](
 		expressionAttributeValues = map[string]*dynamodb.AttributeValue{}
 
 		switch op := config[0].(type) {
-		case *constrain.Dyadic:
+		case *constrain.Dyadic[T]:
 			dyadic(op,
 				conditionExpression,
 				expressionAttributeNames,
 				expressionAttributeValues,
 			)
-		case *constrain.Unary:
+		case *constrain.Unary[T]:
 			unary(op,
 				conditionExpression,
 				expressionAttributeNames,
@@ -70,13 +70,13 @@ func maybeUpdateConditionExpression[T dynamo.Thing](
 ) {
 	if len(config) > 0 {
 		switch op := config[0].(type) {
-		case *constrain.Dyadic:
+		case *constrain.Dyadic[T]:
 			dyadic(op,
 				conditionExpression,
 				expressionAttributeNames,
 				expressionAttributeValues,
 			)
-		case *constrain.Unary:
+		case *constrain.Unary[T]:
 			unary(op,
 				conditionExpression,
 				expressionAttributeNames,
@@ -90,8 +90,8 @@ func maybeUpdateConditionExpression[T dynamo.Thing](
 
 dyadic translate expression to dynamo format
 */
-func dyadic(
-	op *constrain.Dyadic,
+func dyadic[T dynamo.Thing](
+	op *constrain.Dyadic[T],
 	conditionExpression **string,
 	expressionAttributeNames map[string]*string,
 	expressionAttributeValues map[string]*dynamodb.AttributeValue,
@@ -117,8 +117,8 @@ func dyadic(
 
 unary translate expression to dynamo format
 */
-func unary(
-	op *constrain.Unary,
+func unary[T dynamo.Thing](
+	op *constrain.Unary[T],
 	conditionExpression **string,
 	expressionAttributeNames map[string]*string,
 	expressionAttributeValues map[string]*dynamodb.AttributeValue,
