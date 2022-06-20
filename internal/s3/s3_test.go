@@ -11,6 +11,7 @@ package s3_test
 import (
 	"testing"
 
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/internal/dynamotest"
 	"github.com/fogfish/dynamo/internal/s3/s3test"
 	"github.com/fogfish/it"
@@ -51,8 +52,8 @@ type seqType struct {
 	List []seqItem `json:"list,omitempty"`
 }
 
-func (seq seqType) HashKey() string { return seq.ID }
-func (seq seqType) SortKey() string { return "" }
+func (seq seqType) HashKey() curie.IRI { return curie.IRI(seq.ID) }
+func (seq seqType) SortKey() curie.IRI { return "" }
 
 func seqLong() seqType {
 	return seqType{

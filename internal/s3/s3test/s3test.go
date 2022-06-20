@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/keyval"
 )
@@ -31,7 +32,7 @@ type MockS3 interface {
 }
 
 func mock[T dynamo.Thing](mock s3iface.S3API) dynamo.KeyValNoContext[T] {
-	client := keyval.Must(keyval.New[T]("s3:///test"))
+	client := keyval.Must(keyval.New[T](dynamo.WithURI("s3:///test")))
 	switch v := client.(type) {
 	case MockS3:
 		v.Mock(mock)
@@ -43,14 +44,14 @@ func mock[T dynamo.Thing](mock s3iface.S3API) dynamo.KeyValNoContext[T] {
 }
 
 func encodeKey(key dynamo.Thing) string {
-	hkey := key.HashKey()
-	skey := key.SortKey()
+	hkey := curie.URI(curie.Namespaces{}, key.HashKey())
+	skey := curie.URI(curie.Namespaces{}, key.SortKey())
 
 	if skey == "" {
 		return hkey
 	}
 
-	return hkey + "/_/" + skey
+	return hkey + "/" + skey
 }
 
 /*

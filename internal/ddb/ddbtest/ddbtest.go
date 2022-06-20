@@ -29,7 +29,7 @@ type MockDynamoDB interface {
 }
 
 func mock[T dynamo.Thing](mock dynamodbiface.DynamoDBAPI) dynamo.KeyValNoContext[T] {
-	client := keyval.Must(keyval.New[T]("ddb:///test"))
+	client := keyval.Must(keyval.New[T](dynamo.WithURI("ddb:///test")))
 	switch v := client.(type) {
 	case MockDynamoDB:
 		v.Mock(mock)

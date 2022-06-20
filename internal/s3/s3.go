@@ -27,20 +27,18 @@ import (
 type ds3[T dynamo.Thing] struct {
 	io     *session.Session
 	s3     s3iface.S3API
-	codec  Codec[T]
 	bucket *string
+	codec  *Codec[T]
 	schema *Schema[T]
 }
 
-func New[T dynamo.Thing](
-	io *session.Session,
-	spec *common.URL,
-) dynamo.KeyVal[T] {
-	db := &ds3[T]{io: io, s3: s3.New(io)}
+func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
+	db := &ds3[T]{
+		io: cfg.Session,
+		s3: s3.New(cfg.Session),
+	}
 
-	// config bucket name
-
-	seq := spec.Segments()
+	seq := (*common.URL)(cfg.URI).Segments()
 	db.bucket = &seq[0]
 	db.schema = NewSchema[T]()
 
@@ -49,8 +47,7 @@ func New[T dynamo.Thing](
 	if rootPath != "" {
 		rootPath = rootPath + "/"
 	}
-	db.codec = Codec[T]{rootPath: rootPath}
-
+	db.codec = NewCodec[T](cfg.Prefixes)
 	return db
 }
 

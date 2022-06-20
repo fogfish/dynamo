@@ -40,8 +40,8 @@ func (codec Codec[T]) EncodeKey(key T) (map[string]*dynamodb.AttributeValue, err
 	}
 
 	gen := map[string]*dynamodb.AttributeValue{}
-	gen[codec.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(hashkey)}
-	gen[codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String(sortkey)}
+	gen[codec.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(string(hashkey))}
+	gen[codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String(string(sortkey))}
 
 	return gen, nil
 }

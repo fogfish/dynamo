@@ -14,6 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
 )
@@ -22,8 +23,8 @@ type tConstrain struct {
 	Name string `dynamodbav:"anothername,omitempty"`
 }
 
-func (tConstrain) HashKey() string { return "" }
-func (tConstrain) SortKey() string { return "" }
+func (tConstrain) HashKey() curie.IRI { return "" }
+func (tConstrain) SortKey() curie.IRI { return "" }
 
 var Name = dynamo.Schema1[tConstrain, string]("Name")
 

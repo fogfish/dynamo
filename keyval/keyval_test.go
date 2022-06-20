@@ -11,19 +11,24 @@ package keyval_test
 import (
 	"testing"
 
+	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/internal/dynamotest"
 	"github.com/fogfish/dynamo/keyval"
 	"github.com/fogfish/it"
 )
 
 func TestNew(t *testing.T) {
+	f := keyval.New[dynamotest.Person]
+
 	it.Ok(t).
-		If(keyval.Must(keyval.New[dynamotest.Person]("ddb:///a"))).ShouldNot().Equal(nil).
-		If(keyval.Must(keyval.New[dynamotest.Person]("s3:///a"))).ShouldNot().Equal(nil)
+		If(keyval.Must(f(dynamo.WithURI("ddb:///a")))).ShouldNot().Equal(nil).
+		If(keyval.Must(f(dynamo.WithURI("s3:///a")))).ShouldNot().Equal(nil)
 }
 
 func TestReadOnly(t *testing.T) {
+	f := keyval.New[dynamotest.Person]
+
 	it.Ok(t).
-		If(keyval.NewReadOnly(keyval.Must(keyval.New[dynamotest.Person]("ddb:///a")))).ShouldNot().Equal(nil).
-		If(keyval.NewReadOnly(keyval.Must(keyval.New[dynamotest.Person]("s3:///a")))).ShouldNot().Equal(nil)
+		If(keyval.NewReadOnly(keyval.Must(f(dynamo.WithURI("ddb:///a"))))).ShouldNot().Equal(nil).
+		If(keyval.NewReadOnly(keyval.Must(f(dynamo.WithURI("ddb:///a"))))).ShouldNot().Equal(nil)
 }

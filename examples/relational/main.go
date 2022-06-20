@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/keyval"
 )
@@ -21,20 +22,20 @@ func main() {
 	// create DynamoDB clients for the main table (ddb), local secondary index (lsi),
 	// global secondary index (gsi)
 	db := keyval.NewKeyValContextDefault(
-		keyval.Must(keyval.New[Author]("ddb:///example-dynamo-relational")),
+		keyval.Must(keyval.New[Author](dynamo.WithURI("ddb:///example-dynamo-relational"))),
 	)
 	dba := keyval.NewKeyValContextDefault(
-		keyval.Must(keyval.New[Article]("ddb:///example-dynamo-relational")),
+		keyval.Must(keyval.New[Article](dynamo.WithURI("ddb:///example-dynamo-relational"))),
 	)
 	dbk := keyval.NewKeyValContextDefault(
-		keyval.Must(keyval.New[Keyword]("ddb:///example-dynamo-relational")),
+		keyval.Must(keyval.New[Keyword](dynamo.WithURI("ddb:///example-dynamo-relational"))),
 	)
 
 	lsi := keyval.NewKeyValContextDefault(
-		keyval.Must(keyval.New[Article]("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year")),
+		keyval.Must(keyval.New[Article](dynamo.WithURI("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year"))),
 	)
 	gsi := keyval.NewKeyValContextDefault(
-		keyval.Must(keyval.New[Category]("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year")),
+		keyval.Must(keyval.New[Category](dynamo.WithURI("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))),
 	)
 
 	//
@@ -83,8 +84,8 @@ func fetchArticle(db dynamo.KeyValNoContext[Article]) error {
 
 	article, err := db.Get(
 		Article{
-			Author: dynamo.NewIRI("author:%s", "neumann"),
-			ID:     dynamo.NewIRI("article:%s", "theory_of_automata"),
+			Author: curie.New("author:%s", "neumann"),
+			ID:     curie.New("article:%s", "theory_of_automata"),
 		},
 	)
 	if err != nil {
@@ -103,8 +104,8 @@ func lookupArticlesByAuthor(db dynamo.KeyValNoContext[Article], author string) e
 
 	var seq Articles
 	err := db.Match(Article{
-		Author: dynamo.NewIRI("author:%s", author),
-		ID:     dynamo.NewIRI("article:"),
+		Author: curie.New("author:%s", author),
+		ID:     curie.New("article:"),
 	}).FMap(seq.Join)
 
 	if err != nil {
@@ -123,7 +124,7 @@ func lookupArticlesByKeyword(db dynamo.KeyValNoContext[Keyword], keyword string)
 
 	var seq Keywords
 	err := db.Match(Keyword{
-		HKey: dynamo.NewIRI("keyword:%s", keyword),
+		HKey: curie.New("keyword:%s", keyword),
 	}).FMap(seq.Join)
 
 	if err != nil {
@@ -142,8 +143,8 @@ func lookupArticlesByKeywordAuthor(db dynamo.KeyValNoContext[Keyword], keyword, 
 
 	var seq Keywords
 	err := db.Match(Keyword{
-		HKey: dynamo.NewIRI("keyword:%s", keyword),
-		SKey: dynamo.NewIRI("article:%s", author),
+		HKey: curie.New("keyword:%s", keyword),
+		SKey: curie.New("article:%s", author),
 	}).FMap(seq.Join)
 
 	if err != nil {
@@ -162,8 +163,8 @@ func fetchArticleKeywords(db dynamo.KeyValNoContext[Keyword]) error {
 
 	var seq Keywords
 	err := db.Match(Keyword{
-		HKey: dynamo.NewIRI("article:%s/%s", "neumann", "theory_of_set"),
-		SKey: dynamo.NewIRI("keyword:"),
+		HKey: curie.New("article:%s/%s", "neumann", "theory_of_set"),
+		SKey: curie.New("keyword:"),
 	}).FMap(seq.Join)
 
 	if err != nil {
@@ -201,7 +202,7 @@ func lookupByAuthor(db dynamo.KeyValNoContext[Article], author string) error {
 
 	var seq Articles
 	err := db.Match(Article{
-		Author: dynamo.NewIRI("author:%s", author),
+		Author: curie.New("author:%s", author),
 	}).FMap(seq.Join)
 
 	if err != nil {

@@ -11,18 +11,18 @@ package s3
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 )
 
 //
 type cursor struct{ hashKey, sortKey string }
 
-func (c cursor) HashKey() string { return c.hashKey }
-func (c cursor) SortKey() string { return c.sortKey }
+func (c cursor) HashKey() curie.IRI { return curie.IRI(c.hashKey) }
+func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }
 
 // seq is an iterator over matched results
 type seq[T dynamo.Thing] struct {
@@ -150,14 +150,7 @@ func (seq *seq[T]) Tail() bool {
 // Cursor is the global position in the sequence
 func (seq *seq[T]) Cursor() dynamo.Thing {
 	if seq.q.StartAfter != nil {
-		key := strings.Split(*seq.q.StartAfter, "/_/")
-		if len(key) == 1 {
-			return &cursor{hashKey: key[0]}
-		}
-		return &cursor{
-			hashKey: key[0],
-			sortKey: key[1],
-		}
+		return &cursor{hashKey: *seq.q.StartAfter}
 	}
 	return &cursor{}
 }
@@ -176,15 +169,11 @@ func (seq *seq[T]) Limit(n int64) dynamo.Seq[T] {
 
 // Continue limited sequence from the cursor
 func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
+	// Note: s3 cursor supports only HashKey
 	prefix := key.HashKey()
-	suffix := key.SortKey()
 
 	if prefix != "" {
-		if suffix == "" {
-			seq.q.StartAfter = aws.String(prefix)
-		} else {
-			seq.q.StartAfter = aws.String(prefix + "/_/" + suffix)
-		}
+		seq.q.StartAfter = aws.String(string(prefix))
 	}
 	return seq
 }
