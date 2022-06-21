@@ -16,7 +16,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 
 	// "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/fogfish/curie"
@@ -299,7 +298,7 @@ func TestCodecEncodeBadStruct(t *testing.T) {
 		Link: codecType{Val: "test:a/b/c"},
 	}
 
-	_, err := dynamodbattribute.Marshal(core)
+	_, err := attributevalue.Marshal(core)
 	it.Ok(t).IfNotNil(err)
 }
 
@@ -391,7 +390,7 @@ func TestUnmarshalEmptyJSON(t *testing.T) {
 }
 
 func TestMarshalDynamo(t *testing.T) {
-	gen, err := dynamodbattribute.MarshalMap(fixtureItem())
+	gen, err := attributevalue.MarshalMap(fixtureItem())
 
 	it.Ok(t).
 		If(err).Should().Equal(nil).
