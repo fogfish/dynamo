@@ -59,6 +59,12 @@ func main() {
 	db := keyval.NewKeyValContextDefault(
 		keyval.Must(keyval.New[Person](
 			dynamo.WithURI(os.Args[1]),
+			dynamo.WithPrefixes(
+				curie.Namespaces{
+					"test":   "t/kv",
+					"person": "person/",
+				},
+			),
 		)),
 	)
 
@@ -66,7 +72,7 @@ func main() {
 	exampleGet(db)
 	exampleUpdate(db)
 	exampleMatch(db)
-	// exampleRemove(db)
+	exampleRemove(db)
 }
 
 const n = 5

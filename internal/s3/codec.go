@@ -22,10 +22,6 @@ type Codec[T dynamo.Thing] struct {
 }
 
 func NewCodec[T dynamo.Thing](prefixes curie.Prefixes) *Codec[T] {
-	if prefixes == nil {
-		prefixes = curie.Namespaces{}
-	}
-
 	return &Codec[T]{prefixes: prefixes}
 }
 
