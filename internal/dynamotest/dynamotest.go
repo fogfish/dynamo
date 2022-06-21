@@ -9,6 +9,7 @@
 package dynamotest
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/fogfish/curie"
@@ -21,15 +22,15 @@ import (
 Person is a type used for testing
 */
 type Person struct {
-	Prefix  dynamo.IRI `dynamodbav:"prefix,omitempty"`
-	Suffix  dynamo.IRI `dynamodbav:"suffix,omitempty"`
-	Name    string     `dynamodbav:"name,omitempty"`
-	Age     int        `dynamodbav:"age,omitempty"`
-	Address string     `dynamodbav:"address,omitempty"`
+	Prefix  curie.IRI `dynamodbav:"prefix,omitempty"`
+	Suffix  curie.IRI `dynamodbav:"suffix,omitempty"`
+	Name    string    `dynamodbav:"name,omitempty"`
+	Age     int       `dynamodbav:"age,omitempty"`
+	Address string    `dynamodbav:"address,omitempty"`
 }
 
-func (p Person) HashKey() string { return curie.IRI(p.Prefix).String() }
-func (p Person) SortKey() string { return curie.IRI(p.Suffix).String() }
+func (p Person) HashKey() curie.IRI { return p.Prefix }
+func (p Person) SortKey() curie.IRI { return p.Suffix }
 
 //
 // Use type aliases and methods to implement FMap
@@ -44,8 +45,8 @@ func (seq *Persons) Join(val *Person) error {
 //
 func fixtureKey() Person {
 	return Person{
-		Prefix: dynamo.NewIRI("dead:beef"),
-		Suffix: dynamo.NewIRI("1"),
+		Prefix: curie.New("dead:beef"),
+		Suffix: curie.New("1"),
 	}
 }
 
@@ -53,7 +54,7 @@ func fixtureKey() Person {
 //
 func fixtureKeyHashOnly() Person {
 	return Person{
-		Prefix: dynamo.NewIRI("dead:beef"),
+		Prefix: curie.New("dead:beef"),
 	}
 }
 
@@ -61,8 +62,8 @@ func fixtureKeyHashOnly() Person {
 //
 func fixtureVal() Person {
 	return Person{
-		Prefix:  dynamo.NewIRI("dead:beef"),
-		Suffix:  dynamo.NewIRI("1"),
+		Prefix:  curie.New("dead:beef"),
+		Suffix:  curie.New("1"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -73,8 +74,8 @@ func fixtureVal() Person {
 //
 func fixturePatch() Person {
 	return Person{
-		Prefix: dynamo.NewIRI("dead:beef"),
-		Suffix: dynamo.NewIRI("1"),
+		Prefix: curie.New("dead:beef"),
+		Suffix: curie.New("1"),
 		Age:    64,
 	}
 }
@@ -346,15 +347,15 @@ func TestMatch[S any](
 		dbseq := ddb.Match(fixtureKeyHashOnly())
 		dbseq.Tail()
 		cursor0 := dbseq.Cursor()
+		keys0 := filepath.Join(string(cursor0.HashKey()), string(cursor0.SortKey()))
 
 		dbseq = ddb.Match(fixtureKey()).Continue(cursor0)
 		dbseq.Tail()
 		cursor1 := dbseq.Cursor()
+		keys1 := filepath.Join(string(cursor1.HashKey()), string(cursor1.SortKey()))
 
 		it.Ok(t).
-			If(cursor0.HashKey()).Equal("dead:beef").
-			If(cursor0.SortKey()).Equal("1").
-			If(cursor1.HashKey()).Equal("dead:beef").
-			If(cursor1.SortKey()).Equal("1")
+			If(string(keys0)).Equal("dead:beef/1").
+			If(string(keys1)).Equal("dead:beef/1")
 	})
 }

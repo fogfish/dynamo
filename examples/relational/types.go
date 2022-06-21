@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 )
 
@@ -22,13 +23,13 @@ dynamo.NewIRI("author:%s", "neumann")
   ⟿ author:neumann
 */
 type Author struct {
-	ID   dynamo.IRI `dynamodbav:"prefix,omitempty"`
-	Name string     `dynamodbav:"name,omitempty" json:"name,omitempty"`
+	ID   curie.IRI `dynamodbav:"prefix,omitempty"`
+	Name string    `dynamodbav:"name,omitempty" json:"name,omitempty"`
 }
 
 // Identity implements Thing interface
-func (author Author) HashKey() string { return author.ID.String() }
-func (author Author) SortKey() string { return "_" }
+func (author Author) HashKey() curie.IRI { return author.ID }
+func (author Author) SortKey() curie.IRI { return curie.IRI("_") }
 
 /*
 
@@ -36,7 +37,7 @@ NewAuthor creates instance of author
 */
 func NewAuthor(id, name string) Author {
 	return Author{
-		ID:   dynamo.NewIRI("author:%s", id),
+		ID:   curie.New("author:%s", id),
 		Name: name,
 	}
 }
@@ -64,16 +65,16 @@ dynamo.NewIRI("article:%s", "theory_of_automata")
   ⟿ article:theory_of_automata
 */
 type Article struct {
-	Author   dynamo.IRI `dynamodbav:"prefix,omitempty"`
-	ID       dynamo.IRI `dynamodbav:"suffix,omitempty"`
-	Title    string     `dynamodbav:"title,omitempty" json:"title,omitempty"`
-	Category string     `dynamodbav:"category,omitempty" json:"category,omitempty"`
-	Year     string     `dynamodbav:"year,omitempty" json:"year,omitempty"`
+	Author   curie.IRI `dynamodbav:"prefix,omitempty"`
+	ID       curie.IRI `dynamodbav:"suffix,omitempty"`
+	Title    string    `dynamodbav:"title,omitempty" json:"title,omitempty"`
+	Category string    `dynamodbav:"category,omitempty" json:"category,omitempty"`
+	Year     string    `dynamodbav:"year,omitempty" json:"year,omitempty"`
 }
 
 // Identity implements Thing interface
-func (article Article) HashKey() string { return article.Author.String() }
-func (article Article) SortKey() string { return article.ID.String() }
+func (article Article) HashKey() curie.IRI { return article.Author }
+func (article Article) SortKey() curie.IRI { return article.ID }
 
 /*
 
@@ -82,8 +83,8 @@ Category is a projection of the Article to different index
 type Category Article
 
 // Identity implements Thing interface
-func (article Category) HashKey() string { return article.Category }
-func (article Category) SortKey() string { return article.Year }
+func (article Category) HashKey() curie.IRI { return curie.IRI(article.Category) }
+func (article Category) SortKey() curie.IRI { return curie.IRI(article.Year) }
 
 /*
 
@@ -96,8 +97,8 @@ func NewArticle(author string, id, title string) Article {
 	}
 
 	return Article{
-		Author:   dynamo.NewIRI("author:%s", author),
-		ID:       dynamo.NewIRI("article:%s", id),
+		Author:   curie.New("author:%s", author),
+		ID:       curie.New("article:%s", id),
 		Title:    title,
 		Category: category,
 		Year:     fmt.Sprintf("%d", 1930+rand.Intn(40)),
@@ -153,14 +154,14 @@ SortKey is
   ⟿ keyword:theory
 */
 type Keyword struct {
-	HKey dynamo.IRI `dynamodbav:"prefix,omitempty"`
-	SKey dynamo.IRI `dynamodbav:"suffix,omitempty"`
-	Text string     `dynamodbav:"text,omitempty" json:"text,omitempty"`
+	HKey curie.IRI `dynamodbav:"prefix,omitempty"`
+	SKey curie.IRI `dynamodbav:"suffix,omitempty"`
+	Text string    `dynamodbav:"text,omitempty" json:"text,omitempty"`
 }
 
 // Identity implements Thing interface
-func (keyword Keyword) HashKey() string { return keyword.HKey.String() }
-func (keyword Keyword) SortKey() string { return keyword.SKey.String() }
+func (keyword Keyword) HashKey() curie.IRI { return keyword.HKey }
+func (keyword Keyword) SortKey() curie.IRI { return keyword.SKey }
 
 /*
 
@@ -168,8 +169,8 @@ NewKeyword explicitly creates pair of Keyword ⟼ Article and
 Article ⟼ Keyword relations.
 */
 func NewKeyword(author, article, title, keyword string) []Keyword {
-	hashKey := dynamo.NewIRI("keyword:%s", keyword)
-	sortKey := dynamo.NewIRI("article:%s/%s", author, article)
+	hashKey := curie.New("keyword:%s", keyword)
+	sortKey := curie.New("article:%s/%s", author, article)
 
 	return []Keyword{
 		{HKey: hashKey, SKey: sortKey, Text: title},

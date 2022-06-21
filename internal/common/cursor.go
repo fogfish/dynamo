@@ -9,6 +9,7 @@
 package common
 
 import (
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 )
 
@@ -21,5 +22,5 @@ func Cursor(hashKey, sortKey string) dynamo.Thing {
 
 type cursor struct{ hashKey, sortKey string }
 
-func (c cursor) HashKey() string { return c.hashKey }
-func (c cursor) SortKey() string { return c.sortKey }
+func (c cursor) HashKey() curie.IRI { return curie.IRI(c.hashKey) }
+func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }

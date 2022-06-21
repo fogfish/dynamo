@@ -10,11 +10,8 @@ package keyval
 
 import (
 	"fmt"
-	"net/url"
 
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/dynamo/internal/common"
 	"github.com/fogfish/dynamo/internal/ddb"
 	"github.com/fogfish/dynamo/internal/s3"
 )
@@ -28,21 +25,18 @@ Supported scheme:
   s3:///my-bucket
   ddb:///my-table/my-index?prefix=hashkey&suffix=sortkey
 */
-func New[T dynamo.Thing](
-	uri string,
-	defSession ...*session.Session,
-) (dynamo.KeyVal[T], error) {
-	awsSession, err := maybeNewSession(defSession)
+func New[T dynamo.Thing](opts ...dynamo.Option) (dynamo.KeyVal[T], error) {
+	cfg, err := dynamo.NewConfig(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	creator, spec, err := factory[T](uri, defSession...)
+	creator, err := factory[T](cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return creator(awsSession, spec), nil
+	return creator(cfg), nil
 }
 
 /*
@@ -66,65 +60,31 @@ func Must[T dynamo.Thing](kv dynamo.KeyVal[T], err error) dynamo.KeyVal[T] {
 
 ReadOnly establishes read-only connection with AWS Storage service.
 */
-func ReadOnly[T dynamo.Thing](
-	uri string,
-	defSession ...*session.Session,
-) (dynamo.KeyValReader[T], error) {
-	return New[T](uri, defSession...)
+func ReadOnly[T dynamo.Thing](opts ...dynamo.Option) (dynamo.KeyValReader[T], error) {
+	return New[T](opts...)
 }
 
 /*
 
 creator is a factory function
 */
-type creator[T dynamo.Thing] func(
-	io *session.Session,
-	spec *common.URL,
-) dynamo.KeyVal[T]
+type creator[T dynamo.Thing] func(*dynamo.Config) dynamo.KeyVal[T]
 
 /*
 
 parses connector url
 */
-func factory[T dynamo.Thing](
-	uri string,
-	defSession ...*session.Session,
-) (creator[T], *common.URL, error) {
-	spec, err := url.Parse(uri)
-	if err != nil {
-		return nil, nil, err
-	}
-
+func factory[T dynamo.Thing](cfg *dynamo.Config) (creator[T], error) {
 	switch {
-	case spec == nil:
-		return nil, nil, fmt.Errorf("Invalid url: %s", uri)
-	case len(spec.Path) < 2:
-		return nil, nil, fmt.Errorf("Invalid url, path to data storage is not defined: %s", uri)
-	case spec.Scheme == "s3":
-		return s3.New[T], (*common.URL)(spec), nil
-	case spec.Scheme == "ddb":
-		return ddb.New[T], (*common.URL)(spec), nil
+	case cfg.URI == nil:
+		return nil, fmt.Errorf("undefined storage endpoint")
+	case len(cfg.URI.Path) < 2:
+		return nil, fmt.Errorf("invalid storage endpoint, missing storage name: %s", cfg.URI.String())
+	case cfg.URI.Scheme == "s3":
+		return s3.New[T], nil
+	case cfg.URI.Scheme == "ddb":
+		return ddb.New[T], nil
 	default:
-		return nil, nil, fmt.Errorf("Unsupported schema: %s", uri)
+		return nil, fmt.Errorf("unsupported storage schema: %s", cfg.URI.String())
 	}
-}
-
-/*
-
-creates default session with AWS API
-*/
-func maybeNewSession(defSession []*session.Session) (*session.Session, error) {
-	if len(defSession) != 0 {
-		return defSession[0], nil
-	}
-
-	awsSession, err := session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return awsSession, nil
 }

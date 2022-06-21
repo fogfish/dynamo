@@ -4,6 +4,10 @@ github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fogfish/curie v1.6.0 h1:+3ecVoUA9Ah6eJTRSusUF0gcjOua3cBgzhc8mT9wCGc=
 github.com/fogfish/curie v1.6.0/go.mod h1:jPv7pg4hHd8Ug/USG29ZA2bAwlRfh/iinY90/30ATGg=
+github.com/fogfish/curie v1.7.0 h1:lgcrdGAZHyapOUJgJB9g+93Dy6QQ7YNCPx/RdLwL0wI=
+github.com/fogfish/curie v1.7.0/go.mod h1:jPv7pg4hHd8Ug/USG29ZA2bAwlRfh/iinY90/30ATGg=
+github.com/fogfish/curie v1.7.1 h1:A96AcFsJ7kz/Jdf/xvajEqo618sk9pzrycUrdQHB5f0=
+github.com/fogfish/curie v1.7.1/go.mod h1:jPv7pg4hHd8Ug/USG29ZA2bAwlRfh/iinY90/30ATGg=
 github.com/fogfish/golem v0.8.5 h1:ILBc28VTz2H2k18xC+1dbhrk4Y9iBCxN1o2iG8lEoBA=
 github.com/fogfish/golem v0.8.5/go.mod h1:cQDsAMsur65kwXT/X1FcGRHrQaaQ+5WA87aWjm4Fnuk=
 github.com/fogfish/it v0.9.1 h1:Pu+qgqBV2ilZDzZzPIbUIhMIkdpHgbGUsdEwVQvBxNQ=

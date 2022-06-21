@@ -15,6 +15,8 @@ package dynamo
 import (
 	"context"
 	"fmt"
+
+	"github.com/fogfish/curie"
 )
 
 //-----------------------------------------------------------------------------
@@ -32,8 +34,8 @@ The interfaces declares anything that have a unique identifier.
 The unique identity is exposed by pair of string: HashKey and SortKey.
 */
 type Thing interface {
-	HashKey() string
-	SortKey() string
+	HashKey() curie.IRI
+	SortKey() curie.IRI
 }
 
 /*

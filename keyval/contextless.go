@@ -53,12 +53,6 @@ func (db *keyvalNoContext[T]) Match(key T) dynamo.Seq[T] {
 
 //
 // NewReadOnlyContextDefault wraps
-func NewReadOnly[T dynamo.Thing](keyval dynamo.KeyVal[T]) dynamo.KeyValReader[T] {
-	return keyval
-}
-
-//
-// NewReadOnlyContextDefault wraps
 func NewReadOnlyContextDefault[T dynamo.Thing](keyval dynamo.KeyVal[T]) dynamo.KeyValReaderNoContext[T] {
 	return &keyvalNoContext[T]{keyval}
 }

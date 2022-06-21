@@ -46,7 +46,7 @@ type CodecOf[T Thing, A any] interface {
 
 /*
 
-Codec2 builds Codec for 2 attributes
+Codec1 builds Codec for 1 attributes
 */
 func Codec1[T Thing, A any](a string) CodecOf[T, A] {
 	return hseq.FMap1(

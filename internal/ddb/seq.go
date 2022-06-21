@@ -186,9 +186,9 @@ func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
 	if prefix != "" {
 		key := map[string]*dynamodb.AttributeValue{}
 
-		key[seq.db.codec.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(prefix)}
+		key[seq.db.codec.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(string(prefix))}
 		if suffix != "" {
-			key[seq.db.codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String(suffix)}
+			key[seq.db.codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String(string(suffix))}
 		} else {
 			key[seq.db.codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
 		}

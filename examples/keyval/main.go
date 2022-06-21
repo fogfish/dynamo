@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/keyval"
@@ -28,31 +27,28 @@ type Person struct {
 	Address string    `dynamodbav:"address,omitempty"`
 }
 
-func (p Person) HashKey() string { return p.Org.String() }
-func (p Person) SortKey() string { return p.ID.String() }
+func (p Person) HashKey() curie.IRI { return p.Org }
+func (p Person) SortKey() curie.IRI { return p.ID }
 
-var codecHKey, codecSKey = dynamo.Codec2[Person, dynamo.IRI, dynamo.IRI]("Org", "ID")
-
-//
-func (p Person) Identity() (string, string) { return p.Org.String(), p.ID.String() }
+// var codecHKey, codecSKey = dynamo.Codec2[Person, dynamo.IRI, dynamo.IRI]("Org", "ID")
 
 //
-func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	type tStruct Person
-	return dynamo.Encode(av, tStruct(p),
-		codecHKey.Encode(dynamo.IRI(p.Org)),
-		codecSKey.Encode(dynamo.IRI(p.ID)),
-	)
-}
+// func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+// 	type tStruct Person
+// 	return dynamo.Encode(av, tStruct(p),
+// 		codecHKey.Encode(dynamo.IRI(p.Org)),
+// 		codecSKey.Encode(dynamo.IRI(p.ID)),
+// 	)
+// }
 
 //
-func (p *Person) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	type tStruct *Person
-	return dynamo.Decode(av, tStruct(p),
-		codecHKey.Decode((*dynamo.IRI)(&p.Org)),
-		codecSKey.Decode((*dynamo.IRI)(&p.ID)),
-	)
-}
+// func (p *Person) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+// 	type tStruct *Person
+// 	return dynamo.Decode(av, tStruct(p),
+// 		codecHKey.Decode((*dynamo.IRI)(&p.Org)),
+// 		codecSKey.Decode((*dynamo.IRI)(&p.ID)),
+// 	)
+// }
 
 // KeyVal is type synonym
 type KeyVal dynamo.KeyValNoContext[Person]
@@ -61,7 +57,15 @@ type KeyVal dynamo.KeyValNoContext[Person]
 //
 func main() {
 	db := keyval.NewKeyValContextDefault(
-		keyval.Must(keyval.New[Person](os.Args[1])),
+		keyval.Must(keyval.New[Person](
+			dynamo.WithURI(os.Args[1]),
+			dynamo.WithPrefixes(
+				curie.Namespaces{
+					"test":   "t/kv",
+					"person": "person/",
+				},
+			),
+		)),
 	)
 
 	examplePut(db)

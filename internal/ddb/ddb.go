@@ -34,11 +34,14 @@ type ddb[T dynamo.Thing] struct {
 	schema *Schema[T]
 }
 
-func New[T dynamo.Thing](io *session.Session, spec *common.URL) dynamo.KeyVal[T] {
-	db := &ddb[T]{io: io, dynamo: dynamodb.New(io)}
+func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
+	db := &ddb[T]{
+		io:     cfg.Session,
+		dynamo: dynamodb.New(cfg.Session),
+	}
 
 	// config table name and index name
-	seq := spec.Segments()
+	seq := (*common.URL)(cfg.URI).Segments()
 	db.table = &seq[0]
 	if len(seq) > 1 {
 		db.index = &seq[1]
@@ -47,8 +50,8 @@ func New[T dynamo.Thing](io *session.Session, spec *common.URL) dynamo.KeyVal[T]
 
 	// config mapping of Indentity to table attributes
 	db.codec = Codec[T]{
-		pkPrefix: spec.Query("prefix", "prefix"),
-		skSuffix: spec.Query("suffix", "suffix"),
+		pkPrefix: (*common.URL)(cfg.URI).Query("prefix", "prefix"),
+		skSuffix: (*common.URL)(cfg.URI).Query("suffix", "suffix"),
 	}
 
 	return db

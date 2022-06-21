@@ -22,20 +22,20 @@ import (
 )
 
 type person struct {
-	Prefix  dynamo.IRI `dynamodbav:"prefix,omitempty"`
-	Suffix  dynamo.IRI `dynamodbav:"suffix,omitempty"`
-	Name    string     `dynamodbav:"name,omitempty"`
-	Age     int        `dynamodbav:"age,omitempty"`
-	Address string     `dynamodbav:"address,omitempty"`
+	Prefix  curie.IRI `dynamodbav:"prefix,omitempty"`
+	Suffix  curie.IRI `dynamodbav:"suffix,omitempty"`
+	Name    string    `dynamodbav:"name,omitempty"`
+	Age     int       `dynamodbav:"age,omitempty"`
+	Address string    `dynamodbav:"address,omitempty"`
 }
 
-func (p person) HashKey() string { return curie.IRI(p.Prefix).String() }
-func (p person) SortKey() string { return curie.IRI(p.Suffix).String() }
+func (p person) HashKey() curie.IRI { return p.Prefix }
+func (p person) SortKey() curie.IRI { return p.Suffix }
 
 func entityStruct() person {
 	return person{
-		Prefix:  dynamo.NewIRI("dead:beef"),
-		Suffix:  dynamo.NewIRI("1"),
+		Prefix:  curie.New("dead:beef"),
+		Suffix:  curie.New("1"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -92,8 +92,8 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 	name := dynamo.Schema1[person, string]("Name")
 	ddb := ddbtest.Constrains[person](entityDynamo())
 	patch := person{
-		Prefix: dynamo.NewIRI("dead:beef"),
-		Suffix: dynamo.NewIRI("1"),
+		Prefix: curie.New("dead:beef"),
+		Suffix: curie.New("1"),
 		Age:    65,
 	}
 
