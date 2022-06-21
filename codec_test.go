@@ -17,7 +17,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	// "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
@@ -127,22 +126,6 @@ type codecMyType struct {
 func (s codecMyType) HashKey() curie.IRI { return s.HKey }
 func (s codecMyType) SortKey() curie.IRI { return s.SKey }
 
-// var lensCodecHKey, lensCodecSKey = dynamo.Codec2[codecMyType, dynamo.IRI, dynamo.IRI]("HKey", "SKey")
-
-// func (x codecMyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-// 	type tStruct codecMyType
-// 	return dynamo.Encode(av, tStruct(x),
-// 		lensCodecHKey.Encode(dynamo.IRI(x.HKey)), lensCodecSKey.Encode(dynamo.IRI(x.SKey)),
-// 	)
-// }
-
-// func (x *codecMyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-// 	type tStruct *codecMyType
-// 	return dynamo.Decode(av, tStruct(x),
-// 		lensCodecHKey.Decode((*dynamo.IRI)(&x.HKey)), lensCodecSKey.Decode((*dynamo.IRI)(&x.SKey)),
-// 	)
-// }
-
 func TestCodecEncodeDecode(t *testing.T) {
 	link := curie.New("test:a/b/c")
 	core := codecMyType{
@@ -220,22 +203,6 @@ type codecBadType struct {
 
 func (s codecBadType) HashKey() curie.IRI { return s.HKey }
 func (s codecBadType) SortKey() curie.IRI { return s.SKey }
-
-// var lensCodecBadHKey, lensCodecBadSKey = dynamo.Codec2[codecBadType, dynamo.IRI, dynamo.IRI]("HKey", "SKey")
-
-// func (x codecBadType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-// 	type tStruct codecBadType
-// 	return dynamo.Encode(av, tStruct(x),
-// 		lensCodecBadHKey.Encode(dynamo.IRI(x.HKey)), lensCodecBadSKey.Encode(dynamo.IRI(x.SKey)),
-// 	)
-// }
-
-// func (x *codecBadType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-// 	type tStruct *codecBadType
-// 	return dynamo.Decode(av, tStruct(x),
-// 		lensCodecBadHKey.Decode((*dynamo.IRI)(&x.HKey)), lensCodecBadSKey.Decode((*dynamo.IRI)(&x.SKey)),
-// 	)
-// }
 
 func TestCodecEncodeBadType(t *testing.T) {
 	core := codecBadType{

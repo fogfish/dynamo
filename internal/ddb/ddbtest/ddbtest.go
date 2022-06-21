@@ -16,7 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	// "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/internal/ddb"
 	"github.com/fogfish/dynamo/keyval"

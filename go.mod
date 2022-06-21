@@ -3,7 +3,6 @@ module github.com/fogfish/dynamo
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.44.37
 	github.com/aws/aws-sdk-go-v2 v1.16.5
 	github.com/aws/aws-sdk-go-v2/config v1.15.11
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.9.4
