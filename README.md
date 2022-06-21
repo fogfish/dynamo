@@ -13,7 +13,7 @@ The library implements a simple key-value abstraction to store algebraic, linked
 
 ## Inspiration
 
-The library encourages developers to use Golang struct to define domain models, write correct, maintainable code. Using the library, the application can achieve the ideal data model that would require a single request to DynamoDB and model one-to-one, one-to-many and even many-to-many relations. The library uses generic programming style to implement actual storage I/O, while expose external domain object as `[T dynamo.Thing]` with implicit conversion back and forth between a concrete struct(s). The library uses [AWS Golang SDK](https://aws.amazon.com/sdk-for-go/) under the hood.
+The library encourages developers to use Golang struct to define domain models, write correct, maintainable code. Using this library, the application can achieve the ideal data model that would require a single request to DynamoDB and model one-to-one, one-to-many and even many-to-many relations. The library uses generic programming style to implement actual storage I/O, while expose external domain object as `[T dynamo.Thing]` with implicit conversion back and forth between a concrete struct(s). The library uses [AWS Golang SDK v2](https://github.com/aws/aws-sdk-go-v2) under the hood.
 
 Essentially, the library implement a following generic key-value trait to access domain objects. 
 
@@ -53,32 +53,32 @@ The latest version of the library is available at its `main` branch. All develop
 
 ### Data types definition
 
-Data types definition is an essential part of development with `dynamo` library. Golang structs declares domain of your application. Public fields are serialized into DynamoDB attributes, the field tag `dynamodbav` controls marshal/unmarshal process. 
+Data types definition is an essential part of development with `dynamo` library. Golang structs declares domain of your application. Public fields are serialized into DynamoDB attributes, the field tag `dynamodbav` controls marshal/unmarshal processes.
 
-The library demands from each structure implementation of `Thing` interface. This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied for DynamoDB I/O. Secondly, each structure defines unique "composite primary key". The library encourages definition of both partition and sort keys, which facilitates linked-data, hierarchical structures and cheap relations between data elements.
+The library demands from each structure implementation of `Thing` interface. This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied to the dynamo library. Secondly, each structure defines unique "composite primary key". The library encourages definition of both partition and sort keys using a special data type `curie.IRI`. This type is a synonym to compact Internationalized Resource Identifiers, which facilitates linked-data, hierarchical structures and cheap relations between data items. `curie.IRI` is a synonym to the built-in `string` type so that anything castable to string suite to model the keys as alternative solution.   
 
 ```go
 import "github.com/fogfish/dynamo"
 
 type Person struct {
-  Org     string `dynamodbav:"prefix,omitempty"`
-  ID      string `dynamodbav:"suffix,omitempty"`
-  Name    string `dynamodbav:"name,omitempty"`
-  Age     int    `dynamodbav:"age,omitempty"`
-  Address string `dynamodbav:"address,omitempty"`
+  Org     curie.IRI `dynamodbav:"prefix,omitempty"`
+  ID      curie.IRI `dynamodbav:"suffix,omitempty"`
+  Name    string    `dynamodbav:"name,omitempty"`
+  Age     int       `dynamodbav:"age,omitempty"`
+  Address string    `dynamodbav:"address,omitempty"`
 }
 
 //
 // Identity implements thing interface
-func (p Person) HashKey() string { return p.Org }
-func (p Person) SortKey() string { return p.ID }
+func (p Person) HashKey() curie.IRI { return p.Org }
+func (p Person) SortKey() curie.IRI { return p.ID }
 
 //
 // this data type is a normal Golang struct
 // just create an instance, fill required fields
 var person := Person{
-  Org:     "University",
-  ID:      "8980789222",
+  Org:     curie.IRI("University:Kiel"),
+  ID:      curie.IRI("Professor:8980789222"),
   Name:    "Verner Pleishner",
   Age:     64,
   Address: "Blumenstrasse 14, Berne, 3013",
@@ -90,10 +90,10 @@ This is it! Your application is ready to read/write data to/form DynamoDB tables
 
 ### DynamoDB I/O
 
-Please [see and try examples](example). Its cover all basic use-cases with runnable code snippets, check the post [How To Model Any Relational Data in DynamoDB With dynamo library](example/relational/README.md) for deep-dive into library philosophy.
+Please [see and try examples](examples). Its cover all basic use-cases with runnable code snippets, check the post [How To Model Any Relational Data in DynamoDB With dynamo library](examples/relational/README.md) for deep-dive into library philosophy.
 
 ```bash
-go run example/keyval/main.go ddb:///my-table
+go run examples/keyval/main.go ddb:///my-table
 ```
 
 The following code snippet shows a typical I/O patterns
@@ -105,9 +105,14 @@ import (
 )
 
 //
-// Create dynamodb client and bind it with the table
-// Use URI notation to specify the diver (ddb://) and the table (/my-table) 
-db := keyval.Must(keyval.New[Person]("ddb:///my-table"))
+// Create dynamodb client and bind it with the table.
+// The client is type-safe and support I/O with a single type (e.g. Person).
+// Use URI notation to specify the diver (ddb://) and the table (/my-table).
+db := keyval.Must(
+  keyval.New[Person](
+    dynamo.WithURI("ddb:///my-table"),
+  ),
+)
 
 //
 // Write the struct with Put
@@ -120,8 +125,8 @@ if err := db.Put(person); err != nil {
 // be defined.
 val, err := db.Get(
   Person{
-    Org: "University",
-    ID:  "8980789222",
+    Org: curie.IRI("University:Kiel"),
+    ID:  curie.IRI("Professor:8980789222"),
   },
 )
 
@@ -140,8 +145,8 @@ default:
 // returns remaining attributes.
 val, err := db.Update(
   Person{
-    Org:     "University",
-    ID:      "8980789222",
+    Org:     curie.IRI("University:Kiel"),
+    ID:      curie.IRI("Professor:8980789222"),
     Address: "Viktoriastrasse 37, Berne, 3013",
   }
 )
@@ -152,8 +157,8 @@ if err != nil { /* ... */ }
 // Remove the struct using Remove give partially defined struct with ID
 err := db.Remove(
   Person{
-    Org: "University",
-    ID:  "8980789222",
+    Org: curie.IRI("University:Kiel"),
+    ID:  curie.IRI("Professor:8980789222"),
   }
 )
 
@@ -162,7 +167,7 @@ if err != nil { /* ... */ }
 
 ### Hierarchical structures
 
-The library support definition of `A ⟼ B` relation for data. Message threads are a classical examples for such hierarchies:
+The library support definition of `A ⟼ B` relation for data elements. Let's consider message threads as a classical examples for such hierarchies:
 
 ```
 A
@@ -174,17 +179,18 @@ A
 └ G
 ```
 
-Composite sort key is core concept to organize hierarchies. It facilitates linked-data, hierarchical structures and cheap relations between data items. An application declares node path using composite sort key design pattern. For example, the root is `thread:A`, 2nd rank node `⟨thread:A, C⟩`, 3rd rank node `⟨thread:A, C/E⟩` and so on `⟨thread:A, C/E/F⟩`. Each `id` declares partition and sub nodes. The library implement a `Match` function, supply the node identity and it returns sequence of child elements.
+Composite sort key is core concept to organize hierarchies. It facilitates linked-data, hierarchical structures and cheap relations between data items. An application declares node path using composite sort key design pattern. For example, the root is `thread:A`, 2nd rank node `⟨thread:A, B⟩`, 3rd rank node `⟨thread:A, C/D⟩` and so on `⟨thread:A, C/E/F⟩`. Each `id` declares partition and sub nodes. The library implement a `Match` function, supply the node identity and it returns sequence of child elements.
 
 ```go
 //
 // Match uses partition key to match DynamoDB entries. It returns a sequence of 
 // data type instances. FMap is an utility it takes a closure function. 
-db.Match(Message{Thread: "thread:A"}).FMap(
-  func(val *Message) error {
-    /* ... */
-  }
-)
+db.Match(Message{Thread: "thread:A"}).FMap(/* ... */)
+
+//
+// Match uses partition key and partial sort key to match DynamoDB entries. 
+db.Match(Message{Thread: "thread:A", ID: "C"}).FMap(/* ... */)
+
 
 //
 // Type aliases is the best approach to lift generic sequence in type safe one.
@@ -228,18 +234,18 @@ Cross-linking of structured data is an essential part of type safe domain driven
 
 ```go
 type Person struct {
-  Org     string `dynamodbav:"prefix,omitempty"`
-  ID      string `dynamodbav:"suffix,omitempty"`
-  Leader  string `dynamodbav:"leader,omitempty"`
+  Org     curie.IRI  `dynamodbav:"prefix,omitempty"`
+  ID      curie.IRI  `dynamodbav:"suffix,omitempty"`
+  Leader  *curie.IRI `dynamodbav:"leader,omitempty"`
 }
 ```
 
-`ID` and `Leader` are sibling, equivalent data types. `ID` is only used as primary identity, `Leader` is a "pointer" to linked-data. Some of examples, supplied with the library, uses compact Internationalized Resource Identifiers (`curie.IRI`) for this purpose. Semantic Web publishes structured data using this type so that it can be interlinked by applications.
+`ID` and `Leader` are sibling, equivalent data types. `ID` is only used as primary identity, `Leader` is a "pointer" to linked-data. The library advices usage of compact Internationalized Resource Identifiers (`curie.IRI`) for this purpose. Semantic Web publishes structured data using this type so that it can be interlinked by applications.
 
 
 ### Type projections
 
-Often, there is an established system of the types in the application. It is not convenient to inject dependencies to the `dynamo` library. Also, the usage of secondary indexes requires multiple projections of core type. The composition of types is the solution. 
+Often, there is an established system of the types in the application. It is not convenient to inject dependencies to the `dynamo` library. Also, the usage of secondary indexes requires multiple projections of core type.  
 
 ```go
 // 
@@ -257,23 +263,23 @@ type Person struct {
 // e.g. this projection supports writes to DynamoDB table
 type dbPerson Person
 
-func (p dbPerson) HashKey() string { return p.Org }
-func (p dbPerson) SortKey() string { return p.ID }
+func (p dbPerson) HashKey() curie.IRI { return curie.IRI(p.Org) }
+func (p dbPerson) SortKey() curie.IRI { return curie.IRI(p.ID) }
 
 //
 // the core type projection that uses ⟨Org, Name⟩ as composite key
 // e.g. the projection support lookup of employer
 type dbNamedPerson Person
 
-func (p dbNamedPerson) HashKey() string { return p.Org }
-func (p dbNamedPerson) SortKey() string { return p.Name }
+func (p dbNamedPerson) HashKey() curie.IRI { return curie.IRI(p.Org) }
+func (p dbNamedPerson) SortKey() curie.IRI { return curie.IRI(p.Name) }
 
 //
 // the core type projection that uses ⟨Country, Name⟩ as composite key
 type dbCitizen Person
 
-func (p dbCitizen) HashKey() string { return p.Country }
-func (p dbCitizen) SortKey() string { return p.Name }
+func (p dbCitizen) HashKey() curie.IRI { return curie.IRI(p.Country) }
+func (p dbCitizen) SortKey() curie.IRI { return curie.IRI(p.Name) }
 ```
 
 ### Custom codecs for core domain types
@@ -281,35 +287,46 @@ func (p dbCitizen) SortKey() string { return p.Name }
 Development of complex Golang application might lead developers towards [Standard Package Layout](https://medium.com/@benbjohnson/standard-package-layout-7cdbc8391fc1). It becomes extremely difficult to isolate dependencies from core data types to this library and AWS SDK. The library support serialization of core type to dynamo using custom codecs 
 
 ```go
-// core.go
-// 1. structure with core types is defined, no deps to dynamo library
+/*** core.go ***/
+
+// 1. complex domain type is defined
+type ID struct {/* ... */}
+
+// 2. structure with core types is defined, no deps to dynamo library
 type Person struct {
-  Org      curie.IRI  `dynamodbav:"prefix,omitempty"`
-  ID       curie.IRI  `dynamodbav:"suffix,omitempty"`
-  Account *curie.Safe `dynamodbav:"account,omitempty"`
+  Org      ID  `dynamodbav:"prefix,omitempty"`
+  ID       ID  `dynamodbav:"suffix,omitempty"`
 }
+
+/*** aws/ddb/ddb.go ***/
+
+// 3. declare codecs for complex core domain type 
+type id core.ID
+
+func (id) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {/* ...*/}
+func (*id) UnmarshalDynamoDBAttributeValue(types.AttributeValue) error {/* ...*/}
 
 // aws/ddb/ddb.go
 // 2. type alias to core type implements dynamo custom codec
 type dbPerson Person
 
 // 3. custom codec for structure field is defined 
-var codecHashKey, codecSortKey = dynamo.Codec2[dbPerson, dynamo.IRI, dynamo.IRI]("Org", "ID")
+var codecHashKey, codecSortKey = dynamo.Codec2[dbPerson, id, id]("Org", "ID")
 
 // 4. use custom codec
-func (x dbPerson) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+func (p dbPerson) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
   type tStruct dbPerson
-  return dynamo.Encode(av, tStruct(x),
-    codecHashKey.Encode(dynamo.IRI(x.Org)),
-    codecSortKey.Encode(dynamo.IRI(x.ID))),
+  return dynamo.Encode(av, tStruct(p),
+    codecHashKey.Encode(id(p.Org)),
+    codecSortKey.Encode(id(p.ID))),
   )
 }
 
-func (x *dbPerson) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+func (x *dbPerson) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
   type tStruct *dbPerson
   return dynamo.Decode(av, tStruct(x),
-    codecHashKey.Decode((*dynamo.IRI)(&x.Org)),
-    codecSortKey.Decode((*dynamo.IRI)(&x.ID))),
+    codecHashKey.Decode((*id)(&x.Org)),
+    codecSortKey.Decode((*id)(&x.ID))),
   )
 }
 ```
@@ -360,7 +377,7 @@ default:
 }
 ```
 
-See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for all supported constrains.
+See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for all supported constraints.
 
 
 ### Configure DynamoDB
@@ -381,7 +398,11 @@ If table uses other names for `partitionKey` and `sortKey` then connect URI allo
 ```go
 //
 // Create client and bind it with DynamoDB the table
-db := dynamo.Must(dynamo.New("ddb:///my-table?prefix=someHashKey&suffix=someSortKey"))
+db := keyval.Must(
+  keyval.New[Person](
+    dynamo.WithURI("ddb:///my-table?prefix=someHashKey&suffix=someSortKe"),
+  ),
+)
 ```
 
 The following [post](example/relational/README.md) discusses in depth and shows example DynamoDB table configuration and covers aspect of secondary indexes. 
