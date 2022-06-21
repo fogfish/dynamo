@@ -13,9 +13,11 @@
 package dynamo
 
 import (
+	"context"
 	"net/url"
 
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/fogfish/curie"
 )
 
@@ -26,21 +28,19 @@ Config options for the connection
 type Config struct {
 	URI      *url.URL
 	Prefixes curie.Prefixes
-	Session  *session.Session
+	AWS      aws.Config
 }
 
 // NewConfig creates Config with default options
 func NewConfig(opts ...Option) (*Config, error) {
-	aws, err := session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	})
+	aws, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
 	cfg := &Config{
 		Prefixes: curie.Namespaces{},
-		Session:  aws,
+		AWS:      aws,
 	}
 
 	for _, opt := range opts {
@@ -72,9 +72,9 @@ func WithPrefixes(prefixes curie.Prefixes) Option {
 }
 
 // WithSession defines AWS I/O Session to be used in the context
-func WithSession(prefixes curie.Prefixes) Option {
+func WithAwsConfig(aws aws.Config) Option {
 	return func(cfg *Config) (err error) {
-		cfg.Prefixes = prefixes
+		cfg.AWS = aws
 		return
 	}
 }

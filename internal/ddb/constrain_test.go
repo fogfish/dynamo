@@ -12,8 +12,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
@@ -48,12 +47,12 @@ func TestConditionExpression(t *testing.T) {
 
 		expectExpr := fmt.Sprintf("#__anothername__ %s :__anothername__", op)
 		expectName := "anothername"
-		expectVals := &dynamodb.AttributeValue{S: aws.String("abc")}
+		expectVals := &types.AttributeValueMemberS{Value: "abc"}
 
 		it.Ok(t).
 			If(*expr).Should().Equal(expectExpr).
 			If(vals[":__anothername__"]).Should().Equal(expectVals).
-			If(*name["#__anothername__"]).Should().Equal(expectName)
+			If(name["#__anothername__"]).Should().Equal(expectName)
 	}
 }
 
@@ -66,7 +65,7 @@ func TestExists(t *testing.T) {
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_exists(#__anothername__)"
-	expectName := map[string]*string{"#__anothername__": aws.String("anothername")}
+	expectName := map[string]string{"#__anothername__": "anothername"}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).
@@ -83,7 +82,7 @@ func TestNotExists(t *testing.T) {
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_not_exists(#__anothername__)"
-	expectName := map[string]*string{"#__anothername__": aws.String("anothername")}
+	expectName := map[string]string{"#__anothername__": "anothername"}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).
@@ -100,7 +99,7 @@ func TestIs(t *testing.T) {
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_not_exists(#__anothername__)"
-	expectName := map[string]*string{"#__anothername__": aws.String("anothername")}
+	expectName := map[string]string{"#__anothername__": "anothername"}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).
@@ -112,7 +111,9 @@ func TestIs(t *testing.T) {
 	name, vals = maybeConditionExpression(&expr, config)
 
 	expectExpr = fmt.Sprintf("#__anothername__ = :__anothername__")
-	expectVals := map[string]*dynamodb.AttributeValue{":__anothername__": {S: aws.String("abc")}}
+	expectVals := map[string]types.AttributeValue{
+		":__anothername__": &types.AttributeValueMemberS{Value: "abc"},
+	}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).

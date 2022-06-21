@@ -11,11 +11,14 @@ package dynamo_test
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+
+	// "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
@@ -27,13 +30,20 @@ type codecType struct{ Val string }
 
 type codecTypeDB codecType
 
-func (x codecTypeDB) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	av.S = aws.String(x.Val)
-	return nil
+func (x codecTypeDB) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
+	return &types.AttributeValueMemberS{Value: x.Val}, nil
 }
 
-func (x *codecTypeDB) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	x.Val = *av.S
+func (x *codecTypeDB) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
+	tv, ok := av.(*types.AttributeValueMemberS)
+	if !ok {
+		return &attributevalue.UnmarshalTypeError{
+			Value: fmt.Sprintf("%T", av),
+			Type:  reflect.TypeOf((*codecTypeDB)(nil)),
+		}
+	}
+
+	x.Val = tv.Value
 	return nil
 }
 
@@ -49,15 +59,15 @@ func (s codecStruct) SortKey() curie.IRI { return curie.IRI(s.Type.Val) }
 
 var lensCodecID, lensCodecType = dynamo.Codec2[codecStruct, codecTypeDB, codecTypeDB]("ID", "Type")
 
-func (x codecStruct) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+func (x codecStruct) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
 	type tStruct codecStruct
-	return dynamo.Encode(av, tStruct(x),
+	return dynamo.Encode(tStruct(x),
 		lensCodecID.Encode((codecTypeDB)(x.ID)),
 		lensCodecType.Encode((codecTypeDB)(x.Type)),
 	)
 }
 
-func (x *codecStruct) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+func (x *codecStruct) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
 	type tStruct *codecStruct
 	return dynamo.Decode(av, tStruct(x),
 		lensCodecID.Decode((*codecTypeDB)(&x.ID)),
@@ -66,17 +76,17 @@ func (x *codecStruct) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValu
 }
 
 func TestCodecDecode(t *testing.T) {
-	av := &dynamodb.AttributeValue{
-		M: map[string]*dynamodb.AttributeValue{
-			"id":   {S: aws.String("myID")},
-			"type": {S: aws.String("myType")},
-			"name": {S: aws.String("myName")},
-			"city": {S: aws.String("myCity")},
+	av := &types.AttributeValueMemberM{
+		Value: map[string]types.AttributeValue{
+			"id":   &types.AttributeValueMemberS{Value: "myID"},
+			"type": &types.AttributeValueMemberS{Value: "myType"},
+			"name": &types.AttributeValueMemberS{Value: "myName"},
+			"city": &types.AttributeValueMemberS{Value: "myCity"},
 		},
 	}
 
 	var val codecStruct
-	err := dynamodbattribute.Unmarshal(av, &val)
+	err := attributevalue.Unmarshal(av, &val)
 
 	it.Ok(t).
 		IfNil(err).
@@ -94,14 +104,16 @@ func TestCodecEncode(t *testing.T) {
 		City: "myCity",
 	}
 
-	av, err := dynamodbattribute.Marshal(val)
+	av, err := attributevalue.Marshal(val)
+	tv, ok := av.(*types.AttributeValueMemberM)
 
 	it.Ok(t).
 		IfNil(err).
-		If(*av.M["id"].S).Equal("myID").
-		If(*av.M["type"].S).Equal("myType").
-		If(*av.M["name"].S).Equal("myName").
-		If(*av.M["city"].S).Equal("myCity")
+		IfTrue(ok).
+		If(tv.Value["id"].(*types.AttributeValueMemberS).Value).Equal("myID").
+		If(tv.Value["type"].(*types.AttributeValueMemberS).Value).Equal("myType").
+		If(tv.Value["name"].(*types.AttributeValueMemberS).Value).Equal("myName").
+		If(tv.Value["city"].(*types.AttributeValueMemberS).Value).Equal("myCity")
 }
 
 //
@@ -140,11 +152,11 @@ func TestCodecEncodeDecode(t *testing.T) {
 		Link: &link,
 	}
 
-	av, err := dynamodbattribute.Marshal(core)
+	av, err := attributevalue.Marshal(core)
 	it.Ok(t).IfNil(err)
 
 	var some codecMyType
-	err = dynamodbattribute.Unmarshal(av, &some)
+	err = attributevalue.Unmarshal(av, &some)
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
@@ -159,11 +171,11 @@ func TestCodecEncodeDecodeKeyOnly(t *testing.T) {
 		SKey: curie.New("c/d"),
 	}
 
-	av, err := dynamodbattribute.Marshal(core)
+	av, err := attributevalue.Marshal(core)
 	it.Ok(t).IfNil(err)
 
 	var some codecMyType
-	err = dynamodbattribute.Unmarshal(av, &some)
+	err = attributevalue.Unmarshal(av, &some)
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
@@ -176,11 +188,11 @@ func TestCodecEncodeDecodeKeyOnlyHash(t *testing.T) {
 		HKey: curie.New("test:a/b"),
 	}
 
-	av, err := dynamodbattribute.Marshal(core)
+	av, err := attributevalue.Marshal(core)
 	it.Ok(t).IfNil(err)
 
 	var some codecMyType
-	err = dynamodbattribute.Unmarshal(av, &some)
+	err = attributevalue.Unmarshal(av, &some)
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
@@ -193,11 +205,11 @@ func TestCodecEncodeDecodeKeyOnlyHash(t *testing.T) {
 //
 type codecTypeBad codecType
 
-func (x codecTypeBad) MarshalDynamoDBAttributeValue(*dynamodb.AttributeValue) error {
-	return fmt.Errorf("Encode error.")
+func (x codecTypeBad) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
+	return nil, fmt.Errorf("Encode error.")
 }
 
-func (x *codecTypeBad) UnmarshalDynamoDBAttributeValue(*dynamodb.AttributeValue) error {
+func (x *codecTypeBad) UnmarshalDynamoDBAttributeValue(types.AttributeValue) error {
 	return fmt.Errorf("Decode error.")
 }
 
@@ -233,21 +245,21 @@ func TestCodecEncodeBadType(t *testing.T) {
 		Link: codecTypeBad{Val: "test:a/b/c"},
 	}
 
-	_, err := dynamodbattribute.Marshal(core)
+	_, err := attributevalue.Marshal(core)
 	it.Ok(t).IfNotNil(err)
 }
 
 func TestCodecDecodeBadType(t *testing.T) {
-	av := &dynamodb.AttributeValue{
-		M: map[string]*dynamodb.AttributeValue{
-			"hkey": {S: aws.String("hkey")},
-			"skey": {S: aws.String("skey")},
-			"link": {S: aws.String("link")},
+	av := &types.AttributeValueMemberM{
+		Value: map[string]types.AttributeValue{
+			"hkey": &types.AttributeValueMemberS{Value: "hkey"},
+			"skey": &types.AttributeValueMemberS{Value: "skey"},
+			"link": &types.AttributeValueMemberS{Value: "link"},
 		},
 	}
 
 	var val codecBadType
-	err := dynamodbattribute.Unmarshal(av, &val)
+	err := attributevalue.Unmarshal(av, &val)
 	it.Ok(t).IfNotNil(err)
 }
 
@@ -262,16 +274,16 @@ func (s codecBadStruct) SortKey() string { return s.SKey.Val }
 
 var lensCodecBadsHKey, lensCodecBadsSKey, lensCodecBadsLink = dynamo.Codec3[codecBadType, codecTypeBad, codecTypeBad, codecTypeBad]("HKey", "SKey", "Link")
 
-func (x codecBadStruct) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+func (x codecBadStruct) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
 	type tStruct codecBadStruct
-	return dynamo.Encode(av, tStruct(x),
+	return dynamo.Encode(tStruct(x),
 		lensCodecBadsHKey.Encode(codecTypeBad(x.HKey)),
 		lensCodecBadsSKey.Encode(codecTypeBad(x.SKey)),
 		lensCodecBadsLink.Encode(codecTypeBad(x.Link)),
 	)
 }
 
-func (x *codecBadStruct) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+func (x *codecBadStruct) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
 	type tStruct *codecBadStruct
 	return dynamo.Decode(av, tStruct(x),
 		lensCodecBadsHKey.Decode((*codecTypeBad)(&x.HKey)),
@@ -292,16 +304,16 @@ func TestCodecEncodeBadStruct(t *testing.T) {
 }
 
 func TestCodecDecodeBadStruct(t *testing.T) {
-	av := &dynamodb.AttributeValue{
-		M: map[string]*dynamodb.AttributeValue{
-			"hkey": {S: aws.String("hkey")},
-			"skey": {S: aws.String("skey")},
-			"link": {S: aws.String("link")},
+	av := &types.AttributeValueMemberM{
+		Value: map[string]types.AttributeValue{
+			"hkey": &types.AttributeValueMemberS{Value: "hkey"},
+			"skey": &types.AttributeValueMemberS{Value: "skey"},
+			"link": &types.AttributeValueMemberS{Value: "link"},
 		},
 	}
 
 	var val codecBadStruct
-	err := dynamodbattribute.Unmarshal(av, &val)
+	err := attributevalue.Unmarshal(av, &val)
 	it.Ok(t).IfNotNil(err)
 }
 
@@ -326,12 +338,12 @@ func fixtureJson() string {
 	return "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
 }
 
-func fixtureDynamo() map[string]*dynamodb.AttributeValue {
-	return map[string]*dynamodb.AttributeValue{
-		"prefix": {S: aws.String("foo:prefix")},
-		"suffix": {S: aws.String("suffix")},
-		"ref":    {S: aws.String("foo:a/suffix")},
-		"tag":    {S: aws.String("tag")},
+func fixtureDynamo() map[string]types.AttributeValue {
+	return map[string]types.AttributeValue{
+		"prefix": &types.AttributeValueMemberS{Value: "foo:prefix"},
+		"suffix": &types.AttributeValueMemberS{Value: "suffix"},
+		"ref":    &types.AttributeValueMemberS{Value: "foo:a/suffix"},
+		"tag":    &types.AttributeValueMemberS{Value: "tag"},
 	}
 }
 
@@ -390,6 +402,6 @@ func TestUnmarshalDynamo(t *testing.T) {
 	var item Item
 
 	it.Ok(t).
-		If(dynamodbattribute.UnmarshalMap(fixtureDynamo(), &item)).Should().Equal(nil).
+		If(attributevalue.UnmarshalMap(fixtureDynamo(), &item)).Should().Equal(nil).
 		If(item).Should().Equal(fixtureItem())
 }

@@ -12,22 +12,34 @@ import (
 	"context"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+
+	// "github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbiface"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/internal/common"
 )
 
 /*
 
+DynamoDB declares API used by the library
+*/
+type DynamoDB interface {
+	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+	PutItem(context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
+	DeleteItem(context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
+	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
+}
+
+/*
+
 ddb internal handler for dynamo I/O
 */
 type ddb[T dynamo.Thing] struct {
-	io     *session.Session
-	dynamo dynamodbiface.DynamoDBAPI
+	// io     *session.Session
+	dynamo DynamoDB
 	codec  Codec[T]
 	table  *string
 	index  *string
@@ -36,8 +48,8 @@ type ddb[T dynamo.Thing] struct {
 
 func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
 	db := &ddb[T]{
-		io:     cfg.Session,
-		dynamo: dynamodb.New(cfg.Session),
+		// io:     cfg.Session,
+		dynamo: dynamodb.NewFromConfig(cfg.AWS),
 	}
 
 	// config table name and index name
@@ -58,7 +70,7 @@ func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
 }
 
 // Mock dynamoDB I/O channel
-func (db *ddb[T]) Mock(dynamo dynamodbiface.DynamoDBAPI) {
+func (db *ddb[T]) Mock(dynamo DynamoDB) {
 	db.dynamo = dynamo
 	db.codec = Codec[T]{
 		pkPrefix: "prefix",
@@ -86,7 +98,7 @@ func (db *ddb[T]) Get(ctx context.Context, key T) (*T, error) {
 		ExpressionAttributeNames: db.schema.ExpectedAttributeNames,
 	}
 
-	val, err := db.dynamo.GetItemWithContext(ctx, req)
+	val, err := db.dynamo.GetItem(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -114,14 +126,11 @@ func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constrain[
 	req.ExpressionAttributeValues = values
 	req.ExpressionAttributeNames = names
 
-	_, err = db.dynamo.PutItemWithContext(ctx, req)
+	_, err = db.dynamo.PutItem(ctx, req)
 	if err != nil {
-		switch v := err.(type) {
-		case awserr.Error:
-			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return dynamo.PreConditionFailed{Thing: entity}
-			}
-			return err
+		switch err.(type) {
+		case *types.ConditionalCheckFailedException:
+			return dynamo.PreConditionFailed{Thing: entity}
 		default:
 			return err
 		}
@@ -145,14 +154,11 @@ func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constrain[
 	req.ExpressionAttributeValues = values
 	req.ExpressionAttributeNames = names
 
-	_, err = db.dynamo.DeleteItemWithContext(ctx, req)
+	_, err = db.dynamo.DeleteItem(ctx, req)
 	if err != nil {
-		switch v := err.(type) {
-		case awserr.Error:
-			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return dynamo.PreConditionFailed{Thing: key}
-			}
-			return err
+		switch err.(type) {
+		case *types.ConditionalCheckFailedException:
+			return dynamo.PreConditionFailed{Thing: key}
 		default:
 			return err
 		}
@@ -168,12 +174,12 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 		return nil, err
 	}
 
-	names := map[string]*string{}
-	values := map[string]*dynamodb.AttributeValue{}
+	names := map[string]string{}
+	values := map[string]types.AttributeValue{}
 	update := make([]string, 0)
 	for k, v := range gen {
 		if k != db.codec.pkPrefix && k != db.codec.skSuffix && k != "id" {
-			names["#__"+k+"__"] = aws.String(k)
+			names["#__"+k+"__"] = k
 			values[":__"+k+"__"] = v
 			update = append(update, "#__"+k+"__="+":__"+k+"__")
 		}
@@ -186,7 +192,7 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 		ExpressionAttributeValues: values,
 		UpdateExpression:          expression,
 		TableName:                 db.table,
-		ReturnValues:              aws.String("ALL_NEW"),
+		ReturnValues:              "ALL_NEW",
 	}
 
 	maybeUpdateConditionExpression(
@@ -196,14 +202,11 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 		config,
 	)
 
-	val, err := db.dynamo.UpdateItemWithContext(ctx, req)
+	val, err := db.dynamo.UpdateItem(ctx, req)
 	if err != nil {
-		switch v := err.(type) {
-		case awserr.Error:
-			if v.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return nil, dynamo.PreConditionFailed{Thing: entity}
-			}
-			return nil, err
+		switch err.(type) {
+		case *types.ConditionalCheckFailedException:
+			return nil, dynamo.PreConditionFailed{Thing: entity}
 		default:
 			return nil, err
 		}
@@ -220,13 +223,21 @@ func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
 	}
 
 	suffix, isSuffix := gen[db.codec.skSuffix]
-	if suffix.S != nil && *suffix.S == "_" {
-		delete(gen, db.codec.skSuffix)
-		isSuffix = false
+	switch v := suffix.(type) {
+	case *types.AttributeValueMemberS:
+		if v.Value == "_" {
+			delete(gen, db.codec.skSuffix)
+			isSuffix = false
+		}
 	}
 
+	// if suffix.S != nil && *suffix.S == "_" {
+	// 	delete(gen, db.codec.skSuffix)
+	// 	isSuffix = false
+	// }
+
 	expr := db.codec.pkPrefix + " = :__" + db.codec.pkPrefix + "__"
-	if isSuffix && suffix.S != nil {
+	if isSuffix /*&& suffix.S != nil*/ {
 		expr = expr + " and begins_with(" + db.codec.skSuffix + ", :__" + db.codec.skSuffix + "__)"
 	}
 
@@ -243,12 +254,19 @@ func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
 }
 
 //
-func exprOf(gen map[string]*dynamodb.AttributeValue) (val map[string]*dynamodb.AttributeValue) {
-	val = map[string]*dynamodb.AttributeValue{}
+func exprOf(gen map[string]types.AttributeValue) (val map[string]types.AttributeValue) {
+	val = map[string]types.AttributeValue{}
 	for k, v := range gen {
-		if v.NULL == nil || !*v.NULL {
+		switch v.(type) {
+		case *types.AttributeValueMemberNULL:
+			// No Update is applied for nil attributes
+			break
+		default:
 			val[":__"+k+"__"] = v
 		}
+		// if v.NULL == nil || !*v.NULL {
+		// 	val[":__"+k+"__"] = v
+		// }
 	}
 
 	return

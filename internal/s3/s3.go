@@ -14,19 +14,28 @@ import (
 	"encoding/json"
 	"path/filepath"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/internal/common"
 )
 
+/*
+
+S3 declares AWS API used by the library
+*/
+type S3 interface {
+	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	PutObject(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+	DeleteObject(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
+	ListObjectsV2(context.Context, *s3.ListObjectsV2Input, ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
+}
+
 // ds3 is a S3 client
 type ds3[T dynamo.Thing] struct {
-	io     *session.Session
-	s3     s3iface.S3API
+	// io     *session.Session
+	s3     S3
 	bucket *string
 	codec  *Codec[T]
 	schema *Schema[T]
@@ -34,8 +43,8 @@ type ds3[T dynamo.Thing] struct {
 
 func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
 	db := &ds3[T]{
-		io: cfg.Session,
-		s3: s3.New(cfg.Session),
+		// io: cfg.Session,
+		s3: s3.NewFromConfig(cfg.AWS),
 	}
 
 	seq := (*common.URL)(cfg.URI).Segments()
@@ -52,7 +61,7 @@ func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
 }
 
 // Mock S3 I/O channel
-func (db *ds3[T]) Mock(s3 s3iface.S3API) {
+func (db *ds3[T]) Mock(s3 S3) {
 	db.s3 = s3
 }
 
@@ -68,14 +77,11 @@ func (db *ds3[T]) Get(ctx context.Context, key T) (*T, error) {
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(key)),
 	}
-	val, err := db.s3.GetObjectWithContext(ctx, req)
+	val, err := db.s3.GetObject(ctx, req)
 	if err != nil {
-		switch v := err.(type) {
-		case awserr.Error:
-			if v.Code() == s3.ErrCodeNoSuchKey {
-				return nil, dynamo.NotFound{Thing: key}
-			}
-			return nil, err
+		switch err.(type) {
+		case *types.NoSuchKey:
+			return nil, dynamo.NotFound{Thing: key}
 		default:
 			return nil, err
 		}
@@ -97,10 +103,10 @@ func (db *ds3[T]) Put(ctx context.Context, entity T, config ...dynamo.Constrain[
 	req := &s3.PutObjectInput{
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(entity)),
-		Body:   aws.ReadSeekCloser(bytes.NewReader(gen)),
+		Body:   bytes.NewReader(gen),
 	}
 
-	_, err = db.s3.PutObjectWithContext(ctx, req)
+	_, err = db.s3.PutObject(ctx, req)
 
 	return err
 }
@@ -112,7 +118,7 @@ func (db *ds3[T]) Remove(ctx context.Context, key T, config ...dynamo.Constrain[
 		Key:    aws.String(db.codec.EncodeKey(key)),
 	}
 
-	_, err := db.s3.DeleteObjectWithContext(ctx, req)
+	_, err := db.s3.DeleteObject(ctx, req)
 
 	return err
 }
@@ -124,7 +130,7 @@ func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 		Key:    aws.String(db.codec.EncodeKey(entity)),
 	}
 
-	val, err := db.s3.GetObjectWithContext(ctx, req)
+	val, err := db.s3.GetObject(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +155,7 @@ func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 func (db *ds3[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
 	req := &s3.ListObjectsV2Input{
 		Bucket:  db.bucket,
-		MaxKeys: aws.Int64(1000),
+		MaxKeys: 1000,
 		Prefix:  aws.String(db.codec.EncodeKey(key)),
 	}
 

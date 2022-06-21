@@ -12,8 +12,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 )
@@ -65,13 +65,13 @@ func (seq *seq[T]) seed() error {
 		return dynamo.EOS{}
 	}
 
-	val, err := seq.db.s3.ListObjectsV2WithContext(seq.ctx, seq.q)
+	val, err := seq.db.s3.ListObjectsV2(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
 		return err
 	}
 
-	if *val.KeyCount == 0 {
+	if val.KeyCount == 0 {
 		return dynamo.EOS{}
 	}
 
@@ -115,7 +115,7 @@ func (seq *seq[T]) Head() (*T, error) {
 		Bucket: seq.db.bucket,
 		Key:    seq.items[seq.at],
 	}
-	val, err := seq.db.s3.GetObjectWithContext(seq.ctx, req)
+	val, err := seq.db.s3.GetObject(seq.ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +161,8 @@ func (seq *seq[T]) Error() error {
 }
 
 // Limit sequence to N elements
-func (seq *seq[T]) Limit(n int64) dynamo.Seq[T] {
-	seq.q.MaxKeys = aws.Int64(n)
+func (seq *seq[T]) Limit(n int) dynamo.Seq[T] {
+	seq.q.MaxKeys = int32(n)
 	seq.stream = false
 	return seq
 }

@@ -82,7 +82,7 @@ SeqConfig configures optional sequence behavior
 */
 type SeqConfig[T Thing] interface {
 	// Limit sequence size to N elements (pagination)
-	Limit(int64) Seq[T]
+	Limit(int) Seq[T]
 	// Continue limited sequence from the cursor
 	Continue(Thing) Seq[T]
 	// Reverse order of sequence

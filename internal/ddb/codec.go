@@ -12,9 +12,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/dynamo"
 )
 
@@ -28,7 +27,7 @@ type Codec[T dynamo.Thing] struct {
 }
 
 // EncodeKey to dynamo representation
-func (codec Codec[T]) EncodeKey(key T) (map[string]*dynamodb.AttributeValue, error) {
+func (codec Codec[T]) EncodeKey(key T) (map[string]types.AttributeValue, error) {
 	hashkey := key.HashKey()
 	if hashkey == "" {
 		return nil, fmt.Errorf("invalid key of %T, hashkey cannot be empty", key)
@@ -39,16 +38,16 @@ func (codec Codec[T]) EncodeKey(key T) (map[string]*dynamodb.AttributeValue, err
 		sortkey = "_"
 	}
 
-	gen := map[string]*dynamodb.AttributeValue{}
-	gen[codec.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(string(hashkey))}
-	gen[codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String(string(sortkey))}
+	gen := map[string]types.AttributeValue{}
+	gen[codec.pkPrefix] = &types.AttributeValueMemberS{Value: string(hashkey)}
+	gen[codec.skSuffix] = &types.AttributeValueMemberS{Value: string(sortkey)}
 
 	return gen, nil
 }
 
 // KeyOnly extracts key value from generic representation
-func (codec Codec[T]) KeyOnly(gen map[string]*dynamodb.AttributeValue) map[string]*dynamodb.AttributeValue {
-	key := map[string]*dynamodb.AttributeValue{}
+func (codec Codec[T]) KeyOnly(gen map[string]types.AttributeValue) map[string]types.AttributeValue {
+	key := map[string]types.AttributeValue{}
 	key[codec.pkPrefix] = gen[codec.pkPrefix]
 	key[codec.skSuffix] = gen[codec.skSuffix]
 
@@ -56,22 +55,22 @@ func (codec Codec[T]) KeyOnly(gen map[string]*dynamodb.AttributeValue) map[strin
 }
 
 // Encode object to dynamo representation
-func (codec Codec[T]) Encode(entity T) (map[string]*dynamodb.AttributeValue, error) {
-	gen, err := dynamodbattribute.MarshalMap(entity)
+func (codec Codec[T]) Encode(entity T) (map[string]types.AttributeValue, error) {
+	gen, err := attributevalue.MarshalMap(entity)
 	if err != nil {
 		return nil, err
 	}
 
-	suffix, isSuffix := gen[codec.skSuffix]
-	if !isSuffix || suffix.S == nil {
-		gen[codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
+	_ /*suffix*/, isSuffix := gen[codec.skSuffix]
+	if !isSuffix /*|| suffix.Value == nil*/ {
+		gen[codec.skSuffix] = &types.AttributeValueMemberS{Value: "_"}
 	}
 
 	return gen, nil
 }
 
 // Decode dynamo representation to object
-func (codec Codec[T]) Decode(gen map[string]*dynamodb.AttributeValue) (*T, error) {
+func (codec Codec[T]) Decode(gen map[string]types.AttributeValue) (*T, error) {
 	_, isPrefix := gen[codec.pkPrefix]
 	_, isSuffix := gen[codec.skSuffix]
 	if !isPrefix || !isSuffix {
@@ -79,7 +78,7 @@ func (codec Codec[T]) Decode(gen map[string]*dynamodb.AttributeValue) (*T, error
 	}
 
 	var entity T
-	if err := dynamodbattribute.UnmarshalMap(gen, &entity); err != nil {
+	if err := attributevalue.UnmarshalMap(gen, &entity); err != nil {
 		return nil, err
 	}
 

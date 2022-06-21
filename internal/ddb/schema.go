@@ -11,7 +11,7 @@ package ddb
 import (
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/golem/pure/hseq"
 )
@@ -21,7 +21,7 @@ import (
 Schema is utility that decodes type into projection expression
 */
 type Schema[T dynamo.Thing] struct {
-	ExpectedAttributeNames map[string]*string
+	ExpectedAttributeNames map[string]string
 	Projection             *string
 }
 
@@ -34,12 +34,12 @@ func NewSchema[T dynamo.Thing]() *Schema[T] {
 		},
 	)
 
-	names := make(map[string]*string, len(seq))
+	names := make(map[string]string, len(seq))
 	schema := make([]string, len(seq))
 
 	for i, x := range seq {
 		name := "#__" + x + "__"
-		names[name] = aws.String(x)
+		names[name] = x
 		schema[i] = name
 	}
 

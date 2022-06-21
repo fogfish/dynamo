@@ -9,9 +9,9 @@
 package ddb
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/internal/constrain"
 )
@@ -24,12 +24,12 @@ func maybeConditionExpression[T dynamo.Thing](
 	conditionExpression **string,
 	config []dynamo.Constrain[T],
 ) (
-	expressionAttributeNames map[string]*string,
-	expressionAttributeValues map[string]*dynamodb.AttributeValue,
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
 ) {
 	if len(config) > 0 {
-		expressionAttributeNames = map[string]*string{}
-		expressionAttributeValues = map[string]*dynamodb.AttributeValue{}
+		expressionAttributeNames = map[string]string{}
+		expressionAttributeValues = map[string]types.AttributeValue{}
 
 		switch op := config[0].(type) {
 		case *constrain.Dyadic[T]:
@@ -64,8 +64,8 @@ update.
 */
 func maybeUpdateConditionExpression[T dynamo.Thing](
 	conditionExpression **string,
-	expressionAttributeNames map[string]*string,
-	expressionAttributeValues map[string]*dynamodb.AttributeValue,
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
 	config []dynamo.Constrain[T],
 ) {
 	if len(config) > 0 {
@@ -93,14 +93,14 @@ dyadic translate expression to dynamo format
 func dyadic[T dynamo.Thing](
 	op *constrain.Dyadic[T],
 	conditionExpression **string,
-	expressionAttributeNames map[string]*string,
-	expressionAttributeValues map[string]*dynamodb.AttributeValue,
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
 ) {
 	if op.Key == "" {
 		return
 	}
 
-	lit, err := dynamodbattribute.Marshal(op.Val)
+	lit, err := attributevalue.Marshal(op.Val)
 	if err != nil {
 		return
 	}
@@ -108,7 +108,7 @@ func dyadic[T dynamo.Thing](
 	key := "#__" + op.Key + "__"
 	let := ":__" + op.Key + "__"
 	expressionAttributeValues[let] = lit
-	expressionAttributeNames[key] = &op.Key
+	expressionAttributeNames[key] = op.Key
 	*conditionExpression = aws.String(key + " " + op.Op + " " + let)
 	return
 }
@@ -120,15 +120,15 @@ unary translate expression to dynamo format
 func unary[T dynamo.Thing](
 	op *constrain.Unary[T],
 	conditionExpression **string,
-	expressionAttributeNames map[string]*string,
-	expressionAttributeValues map[string]*dynamodb.AttributeValue,
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
 ) {
 	if op.Key == "" {
 		return
 	}
 
 	key := "#__" + op.Key + "__"
-	expressionAttributeNames[key] = aws.String(op.Key)
+	expressionAttributeNames[key] = op.Key
 
 	*conditionExpression = aws.String(op.Op + "(" + key + ")")
 	return

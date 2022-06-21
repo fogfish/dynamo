@@ -11,8 +11,9 @@ package ddb
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/internal/common"
 )
@@ -21,10 +22,10 @@ import (
 type slice[T dynamo.Thing] struct {
 	db   *ddb[T]
 	head int
-	heap []map[string]*dynamodb.AttributeValue
+	heap []map[string]types.AttributeValue
 }
 
-func newSlice[T dynamo.Thing](db *ddb[T], heap []map[string]*dynamodb.AttributeValue) *slice[T] {
+func newSlice[T dynamo.Thing](db *ddb[T], heap []map[string]types.AttributeValue) *slice[T] {
 	return &slice[T]{
 		db:   db,
 		head: 0,
@@ -86,13 +87,13 @@ func (seq *seq[T]) seed() error {
 		return dynamo.EOS{}
 	}
 
-	val, err := seq.db.dynamo.QueryWithContext(seq.ctx, seq.q)
+	val, err := seq.db.dynamo.Query(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
 		return err
 	}
 
-	if *val.Count == 0 {
+	if val.Count == 0 {
 		return dynamo.EOS{}
 	}
 
@@ -151,14 +152,26 @@ func (seq *seq[T]) Cursor() dynamo.Thing {
 		var hkey, skey string
 		val := seq.q.ExclusiveStartKey
 		prefix, isPrefix := val[seq.db.codec.pkPrefix]
-		if isPrefix && prefix.S != nil {
-			hkey = aws.StringValue(prefix.S)
+		if isPrefix {
+			switch v := prefix.(type) {
+			case *types.AttributeValueMemberS:
+				hkey = v.Value
+			}
 		}
+		// if isPrefix && prefix.S != nil {
+		// 	hkey = aws.StringValue(prefix.S)
+		// }
 
 		suffix, isSuffix := val[seq.db.codec.skSuffix]
-		if isSuffix && suffix.S != nil {
-			skey = aws.StringValue(suffix.S)
+		if isSuffix {
+			switch v := suffix.(type) {
+			case *types.AttributeValueMemberS:
+				skey = v.Value
+			}
 		}
+		// if isSuffix && suffix.S != nil {
+		// 	skey = aws.StringValue(suffix.S)
+		// }
 
 		return common.Cursor(hkey, skey)
 	}
@@ -172,8 +185,8 @@ func (seq *seq[T]) Error() error {
 }
 
 // Limit sequence size to N elements, fetch a page of sequence
-func (seq *seq[T]) Limit(n int64) dynamo.Seq[T] {
-	seq.q.Limit = aws.Int64(n)
+func (seq *seq[T]) Limit(n int) dynamo.Seq[T] {
+	seq.q.Limit = aws.Int32(int32(n))
 	seq.stream = false
 	return seq
 }
@@ -184,13 +197,13 @@ func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
 	suffix := key.SortKey()
 
 	if prefix != "" {
-		key := map[string]*dynamodb.AttributeValue{}
+		key := map[string]types.AttributeValue{}
 
-		key[seq.db.codec.pkPrefix] = &dynamodb.AttributeValue{S: aws.String(string(prefix))}
+		key[seq.db.codec.pkPrefix] = &types.AttributeValueMemberS{Value: string(prefix)}
 		if suffix != "" {
-			key[seq.db.codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String(string(suffix))}
+			key[seq.db.codec.skSuffix] = &types.AttributeValueMemberS{Value: string(suffix)}
 		} else {
-			key[seq.db.codec.skSuffix] = &dynamodb.AttributeValue{S: aws.String("_")}
+			key[seq.db.codec.skSuffix] = &types.AttributeValueMemberS{Value: "_"}
 		}
 		seq.q.ExclusiveStartKey = key
 	}
