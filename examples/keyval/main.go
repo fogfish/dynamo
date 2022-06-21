@@ -30,26 +30,6 @@ type Person struct {
 func (p Person) HashKey() curie.IRI { return p.Org }
 func (p Person) SortKey() curie.IRI { return p.ID }
 
-// var codecHKey, codecSKey = dynamo.Codec2[Person, dynamo.IRI, dynamo.IRI]("Org", "ID")
-
-//
-// func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-// 	type tStruct Person
-// 	return dynamo.Encode(av, tStruct(p),
-// 		codecHKey.Encode(dynamo.IRI(p.Org)),
-// 		codecSKey.Encode(dynamo.IRI(p.ID)),
-// 	)
-// }
-
-//
-// func (p *Person) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-// 	type tStruct *Person
-// 	return dynamo.Decode(av, tStruct(p),
-// 		codecHKey.Decode((*dynamo.IRI)(&p.Org)),
-// 		codecSKey.Decode((*dynamo.IRI)(&p.ID)),
-// 	)
-// }
-
 // KeyVal is type synonym
 type KeyVal dynamo.KeyValNoContext[Person]
 
@@ -72,6 +52,7 @@ func main() {
 	exampleGet(db)
 	exampleUpdate(db)
 	exampleMatch(db)
+	exampleMatchWithCursor(db)
 	exampleRemove(db)
 }
 
@@ -131,6 +112,31 @@ func exampleMatch(db KeyVal) {
 	} else {
 		fmt.Printf("=[ match ]=> %v\n", err)
 	}
+}
+
+func exampleMatchWithCursor(db KeyVal) {
+	// first batch
+	persons := dynamo.Things[Person]{}
+	seq := db.Match(Person{Org: curie.New("test:")}).Limit(2)
+	err := seq.FMap(persons.Join)
+	cur := seq.Cursor()
+
+	if err != nil {
+		fmt.Printf("=[ match 1st ]=> %v\n", err)
+		return
+	}
+	fmt.Printf("=[ match 1st ]=> %+v\n", persons)
+
+	// second batch
+	persons = dynamo.Things[Person]{}
+	seq = db.Match(Person{Org: curie.New("test:")}).Continue(cur)
+	err = seq.FMap(persons.Join)
+
+	if err != nil {
+		fmt.Printf("=[ match 2nd ]=> %v\n", err)
+		return
+	}
+	fmt.Printf("=[ match 2nd ]=> %+v\n", persons)
 }
 
 func exampleRemove(db KeyVal) {

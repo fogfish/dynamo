@@ -6,6 +6,11 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares test suite for Key/Value interfaces
+// Each Key/Value interface MUST pass the defined test suite
+//
+
 package dynamotest
 
 import (

@@ -7,7 +7,7 @@
 //
 
 //
-// The file declares NoContext wrappers
+// The file declares NoContext wrappers for Key/Value interfaces
 //
 
 package keyval

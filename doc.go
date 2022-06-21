@@ -21,8 +21,8 @@ models, write correct, maintainable code. Using the library, the application
 can achieve the ideal data model that would require a single request to
 DynamoDB and model one-to-one, one-to-many and even many-to-many relations.
 The library uses generic programming style to implement actual storage I/O,
-while expose external domain object as interface{} with implicit conversion
-back and forth between a concrete struct(s).
+while expose external domain object as `[T dynamo.Thing]` with implicit
+conversion back and forth between a concrete struct(s).
 
 Essentially, it implement a following generic key-value trait to access
 domain objects. The library AWS Go SDK under the hood
@@ -41,35 +41,39 @@ Define an application domain model using product types, which are
 strongly expressed by struct in Go.
 
   type Person struct {
-    Org     string `dynamodbav:"prefix,omitempty"`
-    ID      string `dynamodbav:"suffix,omitempty"`
-    Name    string `dynamodbav:"name,omitempty"`
-    Age     int    `dynamodbav:"age,omitempty"`
-    Address string `dynamodbav:"address,omitempty"`
+    Org     curie.IRI `dynamodbav:"prefix,omitempty"`
+    ID      curie.IRI `dynamodbav:"suffix,omitempty"`
+    Name    string    `dynamodbav:"name,omitempty"`
+    Age     int       `dynamodbav:"age,omitempty"`
+    Address string    `dynamodbav:"address,omitempty"`
   }
+
+Make sure that defined type implements dynamo.Thing interface for identity
+  func (p Person) HashKey() curie.IRI { return p.Org }
+  func (p Person) SortKey() curie.IRI { return p.ID }
 
 Use DynamoDB attributes from AWS Go SDK to specify marshalling rules
 https://docs.aws.amazon.com/sdk-for-go/api/service/dynamodb/dynamodbattribute.
 
 Create an implicit I/O endpoint to Dynamo DB table
-  db := keyval.New[Person]("ddb:///my-table")
+  db := keyval.New[Person](dynamo.WithURI("ddb:///my-table"))
 
 Creates a new entity, or replaces an old entity with a new value.
   err := db.Put(
     Person{
-      Org:      "test",
-      ID:       "8980789222",
+      Org:      curie.IRI("test"),
+      ID:       curie.IRI("8980789222"),
       Name:     "Verner Pleishner",
       Age:      64,
       Address:  "Blumenstrasse 14, Berne, 3013",
     }
   )
 
-Lookup the struct using Get. This function takes "empty" structure as
-a placeholder and fill it with a data upon the completion. The only
-requirement - ID has to be defined.
+Lookup the struct using Get. This function takes input structure as key
+and return a new copy upon the completion. The only requirement - ID has to
+be defined.
 
-  val, err := db.Get(Person{Org: "test", ID: "8980789222"})
+  val, err := db.Get(Person{Org: curie.IRI("test"), ID: curie.IRI("8980789222")})
   switch err.(type) {
   case nil:
     // success
@@ -80,7 +84,7 @@ requirement - ID has to be defined.
   }
 
 Remove the entity
-  err := db.Remove(Person{Org: "test", ID: "8980789222"})
+  err := db.Remove(Person{Org: curie.IRI("test"), ID: curie.IRI("8980789222")})
 
 Apply a partial update using Update function. This function takes
 a partially defined structure, patches the instance at storage and
@@ -90,7 +94,7 @@ returns remaining attributes.
     ID:      "8980789222"
     Address: "Viktoriastrasse 37, Berne, 3013",
   }
-  val, err := db.Update(&person)
+  val, err := db.Update(person)
   if err != nil { ... }
 
 Use following DynamoDB schema:

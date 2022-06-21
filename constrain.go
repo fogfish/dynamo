@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares public types to perform I/O with conditional expression
+//
+
 package dynamo
 
 import (

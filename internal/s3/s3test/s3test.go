@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file mocks AWS S3
+//
+
 package s3test
 
 import (

@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file implements dynamodb specific constraints
+//
+
 package ddb
 
 import (

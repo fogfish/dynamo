@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file implements type-safe constraint library
+//
+
 package constrain
 
 import (
@@ -124,7 +128,7 @@ func NotExists[T any](key string) *Unary[T] {
 }
 
 //
-// Consrains for protocol
+// Constraints for protocol
 //
 
 // CacheControl header

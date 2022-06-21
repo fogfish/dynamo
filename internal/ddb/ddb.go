@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares key/value interface for dynamodb
+//
+
 package ddb
 
 import (
@@ -16,7 +20,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/dynamo/internal/common"
 )
 
 /*
@@ -36,7 +39,6 @@ type DynamoDB interface {
 ddb internal handler for dynamo I/O
 */
 type ddb[T dynamo.Thing] struct {
-	// io     *session.Session
 	dynamo DynamoDB
 	codec  Codec[T]
 	table  *string
@@ -46,12 +48,11 @@ type ddb[T dynamo.Thing] struct {
 
 func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
 	db := &ddb[T]{
-		// io:     cfg.Session,
 		dynamo: dynamodb.NewFromConfig(cfg.AWS),
 	}
 
 	// config table name and index name
-	seq := (*common.URL)(cfg.URI).Segments()
+	seq := cfg.URI.Segments()
 	db.table = &seq[0]
 	if len(seq) > 1 {
 		db.index = &seq[1]
@@ -60,8 +61,8 @@ func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
 
 	// config mapping of Indentity to table attributes
 	db.codec = Codec[T]{
-		pkPrefix: (*common.URL)(cfg.URI).Query("prefix", "prefix"),
-		skSuffix: (*common.URL)(cfg.URI).Query("suffix", "suffix"),
+		pkPrefix: cfg.URI.Query("prefix", "prefix"),
+		skSuffix: cfg.URI.Query("suffix", "suffix"),
 	}
 
 	return db
@@ -229,13 +230,8 @@ func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
 		}
 	}
 
-	// if suffix.S != nil && *suffix.S == "_" {
-	// 	delete(gen, db.codec.skSuffix)
-	// 	isSuffix = false
-	// }
-
 	expr := db.codec.pkPrefix + " = :__" + db.codec.pkPrefix + "__"
-	if isSuffix /*&& suffix.S != nil*/ {
+	if isSuffix {
 		expr = expr + " and begins_with(" + db.codec.skSuffix + ", :__" + db.codec.skSuffix + "__)"
 	}
 
@@ -262,9 +258,6 @@ func exprOf(gen map[string]types.AttributeValue) (val map[string]types.Attribute
 		default:
 			val[":__"+k+"__"] = v
 		}
-		// if v.NULL == nil || !*v.NULL {
-		// 	val[":__"+k+"__"] = v
-		// }
 	}
 
 	return

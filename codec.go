@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares public types to implement custom codecs
+//
+
 package dynamo
 
 import (
@@ -24,19 +28,21 @@ Codec helps to implement semi-automated encoding/decoding algebraic data type
 into the format compatible with storage.
 
 Let's consider scenario were application uses complex types that skips
-implementation of marshal/unmarshal protocols. Here the type curie.IRI needs to
-be casted to dynamo.IRI that knows how to marshal/unmarshal the type.
+implementation of marshal/unmarshal protocols. Here the type MyComplexType
+needs to be casted to MyDynamoType that knows how to marshal/unmarshal the type.
 
   type MyType struct {
-    ID   curie.IRI
-    Name curie.IRI
+    ID   MyComplexType
+    Name MyComplexType
   }
-  var ID, Name = dynamo.Codec2[MyType, dynamo.IRI, dynamo.IRI]("ID", "Name")
+  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
 
-  func (t MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-    type tStruct Person
-    return dynamo.Encode(av, tStruct(p),
-      ID.Encode(dynamo.IRI(t.ID)), Name.Encode(dynamo.IRI(t.Name)))
+  func (t MyType) MarshalDynamoDBAttributeValue() (*dynamodb.AttributeValue, error) {
+    type tStruct MyType
+    return dynamo.Encode(tStruct(p),
+      ID.Encode(MyDynamoType(t.ID)),
+      Name.Encode(MyDynamoType(t.Name)),
+    )
   }
 
 */
@@ -320,15 +326,16 @@ Decode is a helper function to decode core domain types from Dynamo DB format.
 The helper ensures compact URI de-serialization from DynamoDB schema.
 
   type MyType struct {
-    ID   curie.IRI
-    Name curie.IRI
+    ID   MyComplexType
+    Name MyComplexType
   }
-  var ID, Name = dynamo.Codec2[MyType, dynamo.IRI, dynamo.IRI]("ID", "Name")
+  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
 
-  func (x *MyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+  func (x *MyType) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
     type tStruct *MyType
     return dynamo.Decode(av, tStruct(x),
-      ID.Decode((*dynamo.IRI)(&x.HashKey)), Name.Decode((*dynamo.IRI)(&x.SortKey)),
+      ID.Decode((*MyDynamoType)(&x.ID)),
+			Name.Decode((*MyDynamoType)(&x.Name)),
     )
   }
 
@@ -338,7 +345,7 @@ func Decode(av types.AttributeValue, val interface{}, coder ...Coder) (err error
 	if !ok {
 		return &attributevalue.UnmarshalTypeError{
 			Value: fmt.Sprintf("%T", av),
-			Err:   fmt.Errorf("M-Type is required"),
+			Err:   fmt.Errorf("Only struct type is supported"),
 		}
 	}
 
@@ -347,11 +354,6 @@ func Decode(av types.AttributeValue, val interface{}, coder ...Coder) (err error
 		if err != nil {
 			return err
 		}
-
-		// av.M, err = fcoder(av.M)
-		// if err != nil {
-		// 	return err
-		// }
 	}
 
 	return attributevalue.Unmarshal(tv, val)
@@ -363,15 +365,16 @@ Encode is a helper function to encode core domain types into struct.
 The helper ensures compact URI serialization into DynamoDB schema.
 
   type MyType struct {
-    ID   curie.IRI
-    Name curie.IRI
+    ID   MyComplexType
+    Name MyComplexType
   }
-  var ID, Name = dynamo.Codec2[MyType, dynamo.IRI, dynamo.IRI]("ID", "Name")
+  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
 
-  func (x MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+  func (x MyType) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
     type tStruct MyType
     return dynamo.Encode(av, tStruct(x),
-      ID.Encode(x.HashKey), Name.Encode(x.SortKey),
+      ID.Encode(MyDynamoType(x.ID)),
+			Name.Encode(MyDynamoType(x.Name)),
     )
   }
 
@@ -392,11 +395,6 @@ func Encode(val interface{}, coder ...Coder) (types.AttributeValue, error) {
 			Value: make(map[string]types.AttributeValue),
 		}
 	}
-
-	// if gen.M == nil {
-	// 	gen.NULL = nil
-	// 	gen.M = make(map[string]types.AttributeValue)
-	// }
 
 	for _, fcoder := range coder {
 		gem.Value, err = fcoder(gem.Value)

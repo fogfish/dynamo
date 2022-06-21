@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares sequence type (traversal) for dynamodb
+//
+
 package ddb
 
 import (
@@ -16,7 +20,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/dynamo/internal/common"
 )
 
 //
@@ -39,8 +42,6 @@ func newSlice[T dynamo.Thing](db *ddb[T], heap []map[string]types.AttributeValue
 		heap: heap,
 	}
 }
-
-// TODO: error fmt.Errorf("End of Stream")
 
 func (slice *slice[T]) Head() (*T, error) {
 	if slice.head < len(slice.heap) {
@@ -157,6 +158,7 @@ func (seq *seq[T]) Cursor() dynamo.Thing {
 	// Note: q.ExclusiveStartKey is set by sequence seeding
 	if seq.q.ExclusiveStartKey != nil {
 		var hkey, skey string
+
 		val := seq.q.ExclusiveStartKey
 		prefix, isPrefix := val[seq.db.codec.pkPrefix]
 		if isPrefix {
@@ -165,9 +167,6 @@ func (seq *seq[T]) Cursor() dynamo.Thing {
 				hkey = v.Value
 			}
 		}
-		// if isPrefix && prefix.S != nil {
-		// 	hkey = aws.StringValue(prefix.S)
-		// }
 
 		suffix, isSuffix := val[seq.db.codec.skSuffix]
 		if isSuffix {
@@ -176,14 +175,11 @@ func (seq *seq[T]) Cursor() dynamo.Thing {
 				skey = v.Value
 			}
 		}
-		// if isSuffix && suffix.S != nil {
-		// 	skey = aws.StringValue(suffix.S)
-		// }
 
-		return common.Cursor(hkey, skey)
+		return &cursor{hashKey: hkey, sortKey: skey}
 	}
 
-	return common.Cursor("", "")
+	return &cursor{}
 }
 
 // Error indicates if any error appears during I/O

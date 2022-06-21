@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares sequence type (traversal) for s3
+//
+
 package s3
 
 import (
@@ -85,6 +89,11 @@ func (seq *seq[T]) seed() error {
 	if len(items) > 0 && val.NextContinuationToken != nil {
 		seq.q.StartAfter = items[len(items)-1]
 	}
+
+	if val.NextContinuationToken == nil {
+		seq.q.StartAfter = nil
+	}
+
 	return nil
 }
 
@@ -175,6 +184,7 @@ func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
 	if prefix != "" {
 		seq.q.StartAfter = aws.String(string(prefix))
 	}
+
 	return seq
 }
 

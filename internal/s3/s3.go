@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares key/value interface for s3
+//
+
 package s3
 
 import (
@@ -18,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/dynamo/internal/common"
 )
 
 /*
@@ -34,7 +37,6 @@ type S3 interface {
 
 // ds3 is a S3 client
 type ds3[T dynamo.Thing] struct {
-	// io     *session.Session
 	s3     S3
 	bucket *string
 	codec  *Codec[T]
@@ -43,11 +45,10 @@ type ds3[T dynamo.Thing] struct {
 
 func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
 	db := &ds3[T]{
-		// io: cfg.Session,
 		s3: s3.NewFromConfig(cfg.AWS),
 	}
 
-	seq := (*common.URL)(cfg.URI).Segments()
+	seq := cfg.URI.Segments()
 	db.bucket = &seq[0]
 	db.schema = NewSchema[T]()
 
