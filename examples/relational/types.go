@@ -19,7 +19,7 @@ The author unique identity is a candidate for partition key,
 sharding suffix can also be employed if needed.
 
 HashKey is
-dynamo.NewIRI("author:%s", "neumann")
+curie.New("author:%s", "neumann")
   ⟿ author:neumann
 */
 type Author struct {
@@ -57,11 +57,11 @@ The composed sort key is a pattern to build the relation. Author is
 the partition key, article id is a sort key
 
 HashKey is
-dynamo.NewIRI("author:%s", "neumann")
+curie.New("author:%s", "neumann")
   ⟿ author:neumann
 
 SortKey is
-dynamo.NewIRI("article:%s", "theory_of_automata")
+curie.New("article:%s", "theory_of_automata")
   ⟿ article:theory_of_automata
 */
 type Article struct {
@@ -138,11 +138,11 @@ an inverse keyword-to-article. It is possible to craft these lists
 explicitly. The composed sort key builds for this lists:
 
 HashKey is
-dynamo.NewIRI("keyword:%s", "theory")
+curie.New("keyword:%s", "theory")
   ⟿ keyword:theory
 
 SortKey is
-dynamo.NewIRI("article:%s/%s", "neumann", "theory_of_automata")
+curie.New("article:%s/%s", "neumann", "theory_of_automata")
   ⟿ article:neumann/theory_of_automata
 
 and inverse

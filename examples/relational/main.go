@@ -72,7 +72,7 @@ func main() {
 
 	//
 	// As a reader I want to list all articles written by the author in chronological order ...
-	assert(lookupByAuthor(lsi, "neumann"))
+	assert(lookupByAuthorOrderedByTime(lsi, "neumann"))
 }
 
 /*
@@ -197,8 +197,8 @@ func lookupArticlesByCategory(db dynamo.KeyValNoContext[Category], category stri
 
 As a reader I want to list all articles written by the author in chronological order ...
 */
-func lookupByAuthor(db dynamo.KeyValNoContext[Article], author string) error {
-	log.Printf("==> lookup articles: %s", author)
+func lookupByAuthorOrderedByTime(db dynamo.KeyValNoContext[Article], author string) error {
+	log.Printf("==> lookup articles in chronological order: %s", author)
 
 	var seq Articles
 	err := db.Match(Article{
