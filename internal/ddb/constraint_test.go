@@ -12,8 +12,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/it"
@@ -33,7 +32,7 @@ func TestConditionExpression(t *testing.T) {
 		expr *string = nil
 	)
 
-	spec := map[string]func(string) dynamo.Constrain[tConstrain]{
+	spec := map[string]func(string) dynamo.Constraint[tConstrain]{
 		"=":  Name.Eq,
 		"<>": Name.Ne,
 		"<":  Name.Lt,
@@ -43,17 +42,17 @@ func TestConditionExpression(t *testing.T) {
 	}
 
 	for op, fn := range spec {
-		config := []dynamo.Constrain[tConstrain]{fn("abc")}
+		config := []dynamo.Constraint[tConstrain]{fn("abc")}
 		name, vals := maybeConditionExpression(&expr, config)
 
 		expectExpr := fmt.Sprintf("#__anothername__ %s :__anothername__", op)
 		expectName := "anothername"
-		expectVals := &dynamodb.AttributeValue{S: aws.String("abc")}
+		expectVals := &types.AttributeValueMemberS{Value: "abc"}
 
 		it.Ok(t).
 			If(*expr).Should().Equal(expectExpr).
 			If(vals[":__anothername__"]).Should().Equal(expectVals).
-			If(*name["#__anothername__"]).Should().Equal(expectName)
+			If(name["#__anothername__"]).Should().Equal(expectName)
 	}
 }
 
@@ -62,11 +61,11 @@ func TestExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []dynamo.Constrain[tConstrain]{Name.Exists()}
+	config := []dynamo.Constraint[tConstrain]{Name.Exists()}
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_exists(#__anothername__)"
-	expectName := map[string]*string{"#__anothername__": aws.String("anothername")}
+	expectName := map[string]string{"#__anothername__": "anothername"}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).
@@ -79,11 +78,11 @@ func TestNotExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []dynamo.Constrain[tConstrain]{Name.NotExists()}
+	config := []dynamo.Constraint[tConstrain]{Name.NotExists()}
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_not_exists(#__anothername__)"
-	expectName := map[string]*string{"#__anothername__": aws.String("anothername")}
+	expectName := map[string]string{"#__anothername__": "anothername"}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).
@@ -96,11 +95,11 @@ func TestIs(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []dynamo.Constrain[tConstrain]{Name.Is("_")}
+	config := []dynamo.Constraint[tConstrain]{Name.Is("_")}
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_not_exists(#__anothername__)"
-	expectName := map[string]*string{"#__anothername__": aws.String("anothername")}
+	expectName := map[string]string{"#__anothername__": "anothername"}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).
@@ -108,11 +107,13 @@ func TestIs(t *testing.T) {
 		If(name).Should().Equal(expectName)
 
 	//
-	config = []dynamo.Constrain[tConstrain]{Name.Is("abc")}
+	config = []dynamo.Constraint[tConstrain]{Name.Is("abc")}
 	name, vals = maybeConditionExpression(&expr, config)
 
 	expectExpr = fmt.Sprintf("#__anothername__ = :__anothername__")
-	expectVals := map[string]*dynamodb.AttributeValue{":__anothername__": {S: aws.String("abc")}}
+	expectVals := map[string]types.AttributeValue{
+		":__anothername__": &types.AttributeValueMemberS{Value: "abc"},
+	}
 
 	it.Ok(t).
 		If(*expr).Should().Equal(expectExpr).

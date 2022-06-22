@@ -6,6 +6,10 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares constructors for Key/Value clients
+//
+
 package keyval
 
 import (

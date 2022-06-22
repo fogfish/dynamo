@@ -86,5 +86,5 @@ func TestSeqS3Update(t *testing.T) {
 
 	it.Ok(t).
 		If(err).Should().Equal(nil).
-		If(*val).Should().Equal(valS)
+		If(val).Should().Equal(valS)
 }

@@ -9,6 +9,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -30,34 +31,14 @@ type Person struct {
 func (p Person) HashKey() curie.IRI { return p.Org }
 func (p Person) SortKey() curie.IRI { return p.ID }
 
-// var codecHKey, codecSKey = dynamo.Codec2[Person, dynamo.IRI, dynamo.IRI]("Org", "ID")
-
-//
-// func (p Person) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-// 	type tStruct Person
-// 	return dynamo.Encode(av, tStruct(p),
-// 		codecHKey.Encode(dynamo.IRI(p.Org)),
-// 		codecSKey.Encode(dynamo.IRI(p.ID)),
-// 	)
-// }
-
-//
-// func (p *Person) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-// 	type tStruct *Person
-// 	return dynamo.Decode(av, tStruct(p),
-// 		codecHKey.Decode((*dynamo.IRI)(&p.Org)),
-// 		codecSKey.Decode((*dynamo.IRI)(&p.ID)),
-// 	)
-// }
-
 // KeyVal is type synonym
-type KeyVal dynamo.KeyValNoContext[Person]
+type KeyVal dynamo.KeyVal[*Person]
 
 //
 //
 func main() {
-	db := keyval.NewKeyValContextDefault(
-		keyval.Must(keyval.New[Person](
+	db := keyval.Must(
+		keyval.New[*Person](
 			dynamo.WithURI(os.Args[1]),
 			dynamo.WithPrefixes(
 				curie.Namespaces{
@@ -65,13 +46,14 @@ func main() {
 					"person": "person/",
 				},
 			),
-		)),
+		),
 	)
 
 	examplePut(db)
 	exampleGet(db)
 	exampleUpdate(db)
 	exampleMatch(db)
+	exampleMatchWithCursor(db)
 	exampleRemove(db)
 }
 
@@ -86,7 +68,7 @@ func examplePut(db KeyVal) {
 			Age:     64,
 			Address: "Blumenstrasse 14, Berne, 3013",
 		}
-		err := db.Put(val)
+		err := db.Put(context.Background(), &val)
 
 		fmt.Println("=[ put ]=> ", either(err, val))
 	}
@@ -94,10 +76,11 @@ func examplePut(db KeyVal) {
 
 func exampleGet(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val, err := db.Get(Person{
+		key := Person{
 			Org: curie.New("test:"),
 			ID:  curie.New("person:%d", i),
-		})
+		}
+		val, err := db.Get(context.Background(), &key)
 
 		switch v := err.(type) {
 		case nil:
@@ -112,33 +95,72 @@ func exampleGet(db KeyVal) {
 
 func exampleUpdate(db KeyVal) {
 	for i := 0; i < n; i++ {
-		val, err := db.Update(Person{
+		patch := Person{
 			Org:     curie.New("test:"),
 			ID:      curie.New("person:%d", i),
 			Address: "Viktoriastrasse 37, Berne, 3013",
-		})
+		}
+		val, err := db.Update(context.Background(), &patch)
 
 		fmt.Printf("=[ update ]=> %+v\n", either(err, val))
 	}
 }
 
 func exampleMatch(db KeyVal) {
-	seq := dynamo.Things[Person]{}
-	err := db.Match(Person{Org: curie.New("test:")}).FMap(seq.Join)
+	seq := dynamo.Things[*Person]{}
+	key := Person{Org: curie.New("test:")}
+	err := db.Match(context.Background(), &key).FMap(seq.Join)
 
 	if err == nil {
-		fmt.Printf("=[ match ]=> %+v\n", seq)
+		fmt.Println("=[ match ]=>")
+		for _, x := range seq {
+			fmt.Printf("\t%+v\n", x)
+		}
 	} else {
 		fmt.Printf("=[ match ]=> %v\n", err)
 	}
 }
 
+func exampleMatchWithCursor(db KeyVal) {
+	// first batch
+	persons := dynamo.Things[*Person]{}
+	key := Person{Org: curie.New("test:")}
+	seq := db.Match(context.Background(), &key).Limit(2)
+	err := seq.FMap(persons.Join)
+	cur := seq.Cursor()
+
+	if err != nil {
+		fmt.Printf("=[ match 1st ]=> %v\n", err)
+		return
+	}
+	fmt.Println("=[ match 1st ]=>")
+	for _, x := range persons {
+		fmt.Printf("\t%+v\n", x)
+	}
+
+	// second batch
+	persons = dynamo.Things[*Person]{}
+	seq = db.Match(context.Background(), &key).Continue(cur)
+	err = seq.FMap(persons.Join)
+
+	if err != nil {
+		fmt.Printf("=[ match 2nd ]=> %v\n", err)
+		return
+	}
+	fmt.Println("=[ match 2nd ]=>")
+	for _, x := range persons {
+		fmt.Printf("\t%+v\n", x)
+	}
+
+}
+
 func exampleRemove(db KeyVal) {
 	for i := 0; i < n; i++ {
-		err := db.Remove(Person{
+		key := Person{
 			Org: curie.New("test:"),
 			ID:  curie.New("person:%d", i),
-		})
+		}
+		err := db.Remove(context.Background(), &key)
 
 		fmt.Println("=[ remove ]=> ", err)
 	}

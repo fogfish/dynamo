@@ -7,15 +7,18 @@
 //
 
 //
-// The file declares configuration options for instances of KeyVal storage
+// The file declares configuration options for KeyVal storages
 //
 
 package dynamo
 
 import (
+	"context"
 	"net/url"
+	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/fogfish/curie"
 )
 
@@ -24,23 +27,21 @@ import (
 Config options for the connection
 */
 type Config struct {
-	URI      *url.URL
+	URI      *URL
 	Prefixes curie.Prefixes
-	Session  *session.Session
+	AWS      aws.Config
 }
 
 // NewConfig creates Config with default options
 func NewConfig(opts ...Option) (*Config, error) {
-	aws, err := session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	})
+	aws, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
 	cfg := &Config{
 		Prefixes: curie.Namespaces{},
-		Session:  aws,
+		AWS:      aws,
 	}
 
 	for _, opt := range opts {
@@ -58,7 +59,12 @@ type Option func(cfg *Config) error
 // WithURI defines destination URI
 func WithURI(uri string) Option {
 	return func(cfg *Config) (err error) {
-		cfg.URI, err = url.Parse(uri)
+		uri, err := url.Parse(uri)
+		if err != nil {
+			return
+		}
+
+		cfg.URI = (*URL)(uri)
 		return
 	}
 }
@@ -72,9 +78,35 @@ func WithPrefixes(prefixes curie.Prefixes) Option {
 }
 
 // WithSession defines AWS I/O Session to be used in the context
-func WithSession(prefixes curie.Prefixes) Option {
+func WithAwsConfig(aws aws.Config) Option {
 	return func(cfg *Config) (err error) {
-		cfg.Prefixes = prefixes
+		cfg.AWS = aws
 		return
 	}
+}
+
+/*
+
+URL custom type with helper functions
+*/
+type URL url.URL
+
+func (uri *URL) String() string {
+	return (*url.URL)(uri).String()
+}
+
+// query parameters
+func (uri *URL) Query(key, def string) string {
+	val := (*url.URL)(uri).Query().Get(key)
+
+	if val == "" {
+		return def
+	}
+
+	return val
+}
+
+// path segments of length
+func (uri *URL) Segments() []string {
+	return strings.Split((*url.URL)(uri).Path, "/")[1:]
 }

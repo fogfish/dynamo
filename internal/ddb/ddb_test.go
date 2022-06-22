@@ -11,9 +11,8 @@ package ddb_test
 import (
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/internal/ddb/ddbtest"
@@ -42,18 +41,18 @@ func entityStruct() person {
 	}
 }
 
-func entityDynamo() map[string]*dynamodb.AttributeValue {
-	return map[string]*dynamodb.AttributeValue{
-		"prefix":  {S: aws.String("dead:beef")},
-		"suffix":  {S: aws.String("1")},
-		"address": {S: aws.String("Blumenstrasse 14, Berne, 3013")},
-		"name":    {S: aws.String("Verner Pleishner")},
-		"age":     {N: aws.String("64")},
+func entityDynamo() map[string]types.AttributeValue {
+	return map[string]types.AttributeValue{
+		"prefix":  &types.AttributeValueMemberS{Value: "dead:beef"},
+		"suffix":  &types.AttributeValueMemberS{Value: "1"},
+		"address": &types.AttributeValueMemberS{Value: "Blumenstrasse 14, Berne, 3013"},
+		"name":    &types.AttributeValueMemberS{Value: "Verner Pleishner"},
+		"age":     &types.AttributeValueMemberN{Value: "64"},
 	}
 }
 
-func codec(p dynamotest.Person) (map[string]*dynamodb.AttributeValue, error) {
-	return dynamodbattribute.MarshalMap(p)
+func codec(p dynamotest.Person) (map[string]types.AttributeValue, error) {
+	return attributevalue.MarshalMap(p)
 }
 
 func TestDynamoDB(t *testing.T) {

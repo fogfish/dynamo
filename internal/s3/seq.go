@@ -6,14 +6,18 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares sequence type (traversal) for s3
+//
+
 package s3
 
 import (
 	"context"
 	"encoding/json"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
 )
@@ -65,13 +69,13 @@ func (seq *seq[T]) seed() error {
 		return dynamo.EOS{}
 	}
 
-	val, err := seq.db.s3.ListObjectsV2WithContext(seq.ctx, seq.q)
+	val, err := seq.db.s3.ListObjectsV2(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
 		return err
 	}
 
-	if *val.KeyCount == 0 {
+	if val.KeyCount == 0 {
 		return dynamo.EOS{}
 	}
 
@@ -85,11 +89,16 @@ func (seq *seq[T]) seed() error {
 	if len(items) > 0 && val.NextContinuationToken != nil {
 		seq.q.StartAfter = items[len(items)-1]
 	}
+
+	if val.NextContinuationToken == nil {
+		seq.q.StartAfter = nil
+	}
+
 	return nil
 }
 
 // FMap transforms sequence
-func (seq *seq[T]) FMap(f func(*T) error) error {
+func (seq *seq[T]) FMap(f func(T) error) error {
 	for seq.Tail() {
 		head, err := seq.Head()
 		if err != nil {
@@ -104,10 +113,10 @@ func (seq *seq[T]) FMap(f func(*T) error) error {
 }
 
 // Head selects the first element of matched collection.
-func (seq *seq[T]) Head() (*T, error) {
+func (seq *seq[T]) Head() (T, error) {
 	if seq.items == nil {
 		if err := seq.seed(); err != nil {
-			return nil, err
+			return seq.db.undefined, err
 		}
 	}
 
@@ -115,18 +124,18 @@ func (seq *seq[T]) Head() (*T, error) {
 		Bucket: seq.db.bucket,
 		Key:    seq.items[seq.at],
 	}
-	val, err := seq.db.s3.GetObjectWithContext(seq.ctx, req)
+	val, err := seq.db.s3.GetObject(seq.ctx, req)
 	if err != nil {
-		return nil, err
+		return seq.db.undefined, err
 	}
 
 	var head T
 	err = json.NewDecoder(val.Body).Decode(&head)
 	if err != nil {
-		return nil, err
+		return seq.db.undefined, err
 	}
 
-	return &head, nil
+	return head, nil
 }
 
 // Tail selects the all elements except the first one
@@ -161,8 +170,8 @@ func (seq *seq[T]) Error() error {
 }
 
 // Limit sequence to N elements
-func (seq *seq[T]) Limit(n int64) dynamo.Seq[T] {
-	seq.q.MaxKeys = aws.Int64(n)
+func (seq *seq[T]) Limit(n int) dynamo.Seq[T] {
+	seq.q.MaxKeys = int32(n)
 	seq.stream = false
 	return seq
 }
@@ -175,6 +184,7 @@ func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
 	if prefix != "" {
 		seq.q.StartAfter = aws.String(string(prefix))
 	}
+
 	return seq
 }
 

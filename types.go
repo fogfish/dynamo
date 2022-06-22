@@ -50,8 +50,8 @@ Join lifts sequence of matched objects to seq of IDs
 	seq := dynamo.Things{}
 	dynamo.Match(...).FMap(seq.Join)
 */
-func (seq *Things[T]) Join(t *T) error {
-	*seq = append(*seq, *t)
+func (seq *Things[T]) Join(t T) error {
+	*seq = append(*seq, t)
 	return nil
 }
 
@@ -67,7 +67,7 @@ SeqLazy is an interface to iterate through collection of objects at storage
 */
 type SeqLazy[T Thing] interface {
 	// Head lifts first element of sequence
-	Head() (*T, error)
+	Head() (T, error)
 	// Tail evaluates tail of sequence
 	Tail() bool
 	// Error returns error of stream evaluation
@@ -82,7 +82,7 @@ SeqConfig configures optional sequence behavior
 */
 type SeqConfig[T Thing] interface {
 	// Limit sequence size to N elements (pagination)
-	Limit(int64) Seq[T]
+	Limit(int) Seq[T]
 	// Continue limited sequence from the cursor
 	Continue(Thing) Seq[T]
 	// Reverse order of sequence
@@ -100,7 +100,7 @@ type Seq[T Thing] interface {
 	SeqConfig[T]
 
 	// Sequence transformer
-	FMap(func(*T) error) error
+	FMap(func(T) error) error
 }
 
 //-----------------------------------------------------------------------------
@@ -114,7 +114,7 @@ type Seq[T Thing] interface {
 KeyValGetter defines read by key notation
 */
 type KeyValGetter[T Thing] interface {
-	Get(context.Context, T) (*T, error)
+	Get(context.Context, T) (T, error)
 }
 
 /*
@@ -122,7 +122,7 @@ type KeyValGetter[T Thing] interface {
 KeyValGetterNoContext defines read by key notation
 */
 type KeyValGetterNoContext[T Thing] interface {
-	Get(T) (*T, error)
+	Get(T) (T, error)
 }
 
 //-----------------------------------------------------------------------------
@@ -182,9 +182,9 @@ type KeyValReaderNoContext[T Thing] interface {
 KeyValWriter defines a generic key-value writer
 */
 type KeyValWriter[T Thing] interface {
-	Put(context.Context, T, ...Constrain[T]) error
-	Remove(context.Context, T, ...Constrain[T]) error
-	Update(context.Context, T, ...Constrain[T]) (*T, error)
+	Put(context.Context, T, ...Constraint[T]) error
+	Remove(context.Context, T, ...Constraint[T]) error
+	Update(context.Context, T, ...Constraint[T]) (T, error)
 }
 
 /*
@@ -192,9 +192,9 @@ type KeyValWriter[T Thing] interface {
 KeyValWriterNoContext defines a generic key-value writer
 */
 type KeyValWriterNoContext[T Thing] interface {
-	Put(T, ...Constrain[T]) error
-	Remove(T, ...Constrain[T]) error
-	Update(T, ...Constrain[T]) (*T, error)
+	Put(T, ...Constraint[T]) error
+	Remove(T, ...Constraint[T]) error
+	Update(T, ...Constraint[T]) (T, error)
 }
 
 //-----------------------------------------------------------------------------

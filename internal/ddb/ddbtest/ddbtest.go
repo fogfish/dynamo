@@ -6,17 +6,22 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file mocks AWS DynamoDB
+//
+
 package ddbtest
 
 import (
+	"context"
 	"errors"
 	"reflect"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+
 	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/internal/ddb"
 	"github.com/fogfish/dynamo/keyval"
 )
 
@@ -25,10 +30,10 @@ import (
 mock factory
 */
 type MockDynamoDB interface {
-	Mock(db dynamodbiface.DynamoDBAPI)
+	Mock(db ddb.DynamoDB)
 }
 
-func mock[T dynamo.Thing](mock dynamodbiface.DynamoDBAPI) dynamo.KeyValNoContext[T] {
+func mock[T dynamo.Thing](mock ddb.DynamoDB) dynamo.KeyValNoContext[T] {
 	client := keyval.Must(keyval.New[T](dynamo.WithURI("ddb:///test")))
 	switch v := client.(type) {
 	case MockDynamoDB:
@@ -45,19 +50,19 @@ func mock[T dynamo.Thing](mock dynamodbiface.DynamoDBAPI) dynamo.KeyValNoContext
 GetItem mocks
 */
 func GetItem[T dynamo.Thing](
-	expectKey *map[string]*dynamodb.AttributeValue,
-	returnVal *map[string]*dynamodb.AttributeValue,
+	expectKey *map[string]types.AttributeValue,
+	returnVal *map[string]types.AttributeValue,
 ) dynamo.KeyValNoContext[T] {
 	return mock[T](&ddbGetItem{expectKey: expectKey, returnVal: returnVal})
 }
 
 type ddbGetItem struct {
-	dynamodbiface.DynamoDBAPI
-	expectKey *map[string]*dynamodb.AttributeValue
-	returnVal *map[string]*dynamodb.AttributeValue
+	ddb.DynamoDB
+	expectKey *map[string]types.AttributeValue
+	returnVal *map[string]types.AttributeValue
 }
 
-func (mock *ddbGetItem) GetItemWithContext(ctx aws.Context, input *dynamodb.GetItemInput, opts ...request.Option) (*dynamodb.GetItemOutput, error) {
+func (mock *ddbGetItem) GetItem(ctx context.Context, input *dynamodb.GetItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 	if !reflect.DeepEqual(*mock.expectKey, input.Key) {
 		return nil, errors.New("Unexpected entity.")
 	}
@@ -74,7 +79,7 @@ func (mock *ddbGetItem) GetItemWithContext(ctx aws.Context, input *dynamodb.GetI
 PutItem mock
 */
 func PutItem[T dynamo.Thing](
-	expectVal *map[string]*dynamodb.AttributeValue,
+	expectVal *map[string]types.AttributeValue,
 ) dynamo.KeyValNoContext[T] {
 	return mock[T](&ddbPutItem{
 		expectVal: expectVal,
@@ -82,11 +87,11 @@ func PutItem[T dynamo.Thing](
 }
 
 type ddbPutItem struct {
-	dynamodbiface.DynamoDBAPI
-	expectVal *map[string]*dynamodb.AttributeValue
+	ddb.DynamoDB
+	expectVal *map[string]types.AttributeValue
 }
 
-func (mock *ddbPutItem) PutItemWithContext(ctx aws.Context, input *dynamodb.PutItemInput, opts ...request.Option) (*dynamodb.PutItemOutput, error) {
+func (mock *ddbPutItem) PutItem(ctx context.Context, input *dynamodb.PutItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 	if !reflect.DeepEqual(*mock.expectVal, input.Item) {
 		return nil, errors.New("Unexpected entity.")
 	}
@@ -98,17 +103,17 @@ func (mock *ddbPutItem) PutItemWithContext(ctx aws.Context, input *dynamodb.PutI
 DeleteItem mock
 */
 func DeleteItem[T dynamo.Thing](
-	expectKey *map[string]*dynamodb.AttributeValue,
+	expectKey *map[string]types.AttributeValue,
 ) dynamo.KeyValNoContext[T] {
 	return mock[T](&ddbDeleteItem{expectKey: expectKey})
 }
 
 type ddbDeleteItem struct {
-	dynamodbiface.DynamoDBAPI
-	expectKey *map[string]*dynamodb.AttributeValue
+	ddb.DynamoDB
+	expectKey *map[string]types.AttributeValue
 }
 
-func (mock *ddbDeleteItem) DeleteItemWithContext(ctx aws.Context, input *dynamodb.DeleteItemInput, opts ...request.Option) (*dynamodb.DeleteItemOutput, error) {
+func (mock *ddbDeleteItem) DeleteItem(ctx context.Context, input *dynamodb.DeleteItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
 	if !reflect.DeepEqual(*mock.expectKey, input.Key) {
 		return nil, errors.New("Unexpected entity.")
 	}
@@ -121,9 +126,9 @@ func (mock *ddbDeleteItem) DeleteItemWithContext(ctx aws.Context, input *dynamod
 UpdateItem mock
 */
 func UpdateItem[T dynamo.Thing](
-	expectKey *map[string]*dynamodb.AttributeValue,
-	expectVal *map[string]*dynamodb.AttributeValue,
-	returnVal *map[string]*dynamodb.AttributeValue,
+	expectKey *map[string]types.AttributeValue,
+	expectVal *map[string]types.AttributeValue,
+	returnVal *map[string]types.AttributeValue,
 ) dynamo.KeyValNoContext[T] {
 	return mock[T](&ddbUpdateItem{
 		expectKey: expectKey,
@@ -133,13 +138,13 @@ func UpdateItem[T dynamo.Thing](
 }
 
 type ddbUpdateItem struct {
-	dynamodbiface.DynamoDBAPI
-	expectKey *map[string]*dynamodb.AttributeValue
-	expectVal *map[string]*dynamodb.AttributeValue
-	retrunVal *map[string]*dynamodb.AttributeValue
+	ddb.DynamoDB
+	expectKey *map[string]types.AttributeValue
+	expectVal *map[string]types.AttributeValue
+	retrunVal *map[string]types.AttributeValue
 }
 
-func (mock *ddbUpdateItem) UpdateItemWithContext(ctx aws.Context, input *dynamodb.UpdateItemInput, opts ...request.Option) (*dynamodb.UpdateItemOutput, error) {
+func (mock *ddbUpdateItem) UpdateItem(ctx context.Context, input *dynamodb.UpdateItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
 	if !reflect.DeepEqual(*mock.expectKey, input.Key) {
 		return nil, errors.New("Unexpected entity key.")
 	}
@@ -160,10 +165,10 @@ func (mock *ddbUpdateItem) UpdateItemWithContext(ctx aws.Context, input *dynamod
 Query mock
 */
 func Query[T dynamo.Thing](
-	expectKey *map[string]*dynamodb.AttributeValue,
+	expectKey *map[string]types.AttributeValue,
 	returnLen int,
-	returnVal *map[string]*dynamodb.AttributeValue,
-	returnLastKey *map[string]*dynamodb.AttributeValue,
+	returnVal *map[string]types.AttributeValue,
+	returnLastKey *map[string]types.AttributeValue,
 ) dynamo.KeyValNoContext[T] {
 	return mock[T](&ddbQuery{
 		expectKey:     expectKey,
@@ -174,40 +179,40 @@ func Query[T dynamo.Thing](
 }
 
 type ddbQuery struct {
-	dynamodbiface.DynamoDBAPI
-	expectKey     *map[string]*dynamodb.AttributeValue
+	ddb.DynamoDB
+	expectKey     *map[string]types.AttributeValue
 	returnLen     int
-	returnVal     *map[string]*dynamodb.AttributeValue
-	returnLastKey *map[string]*dynamodb.AttributeValue
+	returnVal     *map[string]types.AttributeValue
+	returnLastKey *map[string]types.AttributeValue
 }
 
-func (mock *ddbQuery) QueryWithContext(ctx aws.Context, input *dynamodb.QueryInput, opts ...request.Option) (*dynamodb.QueryOutput, error) {
+func (mock *ddbQuery) Query(ctx context.Context, input *dynamodb.QueryInput, opts ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 	for k, v := range *mock.expectKey {
 		if !reflect.DeepEqual(v, input.ExpressionAttributeValues[":__"+k+"__"]) {
 			return nil, errors.New("Unexpected entity.")
 		}
 	}
 
-	seq := []map[string]*dynamodb.AttributeValue{}
+	seq := []map[string]types.AttributeValue{}
 	for i := 0; i < mock.returnLen; i++ {
 		seq = append(seq, *mock.returnVal)
 	}
 
-	var lastEvaluatedKey map[string]*dynamodb.AttributeValue
+	var lastEvaluatedKey map[string]types.AttributeValue
 	if mock.returnLastKey != nil {
 		lastEvaluatedKey = *mock.returnLastKey
 	}
 
 	return &dynamodb.QueryOutput{
-		ScannedCount:     aws.Int64(int64(mock.returnLen)),
-		Count:            aws.Int64(int64(mock.returnLen)),
+		ScannedCount:     int32(mock.returnLen),
+		Count:            int32(mock.returnLen),
 		Items:            seq,
 		LastEvaluatedKey: lastEvaluatedKey,
 	}, nil
 }
 
 func Constrains[T dynamo.Thing](
-	returnVal map[string]*dynamodb.AttributeValue,
+	returnVal map[string]types.AttributeValue,
 ) dynamo.KeyValNoContext[T] {
 	return mock[T](&ddbConstrains{
 		returnVal: returnVal,
@@ -217,29 +222,47 @@ func Constrains[T dynamo.Thing](
 //
 //
 type ddbConstrains struct {
-	dynamodbiface.DynamoDBAPI
-	returnVal map[string]*dynamodb.AttributeValue
+	ddb.DynamoDB
+	returnVal map[string]types.AttributeValue
 }
 
-func (ddbConstrains) PutItemWithContext(ctx aws.Context, input *dynamodb.PutItemInput, opts ...request.Option) (*dynamodb.PutItemOutput, error) {
-	if *(input.ExpressionAttributeValues[":__name__"].S) != "xxx" {
-		return nil, &dynamodb.ConditionalCheckFailedException{}
+func (ddbConstrains) assert(values map[string]types.AttributeValue) error {
+	value, exists := values[":__name__"]
+	if !exists {
+		return &types.ConditionalCheckFailedException{}
+	}
+
+	switch v := value.(type) {
+	case *types.AttributeValueMemberS:
+		if v.Value != "xxx" {
+			return &types.ConditionalCheckFailedException{}
+		}
+	default:
+		return &types.ConditionalCheckFailedException{}
+	}
+
+	return nil
+}
+
+func (mock ddbConstrains) PutItem(ctx context.Context, input *dynamodb.PutItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+	if err := mock.assert(input.ExpressionAttributeValues); err != nil {
+		return nil, err
 	}
 
 	return &dynamodb.PutItemOutput{}, nil
 }
 
-func (ddbConstrains) DeleteItemWithContext(ctx aws.Context, input *dynamodb.DeleteItemInput, opts ...request.Option) (*dynamodb.DeleteItemOutput, error) {
-	if *(input.ExpressionAttributeValues[":__name__"].S) != "xxx" {
-		return nil, &dynamodb.ConditionalCheckFailedException{}
+func (mock ddbConstrains) DeleteItem(ctx context.Context, input *dynamodb.DeleteItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+	if err := mock.assert(input.ExpressionAttributeValues); err != nil {
+		return nil, err
 	}
 
 	return &dynamodb.DeleteItemOutput{}, nil
 }
 
-func (mock ddbConstrains) UpdateItemWithContext(ctx aws.Context, input *dynamodb.UpdateItemInput, opts ...request.Option) (*dynamodb.UpdateItemOutput, error) {
-	if *(input.ExpressionAttributeValues[":__name__"].S) != "xxx" {
-		return nil, &dynamodb.ConditionalCheckFailedException{}
+func (mock ddbConstrains) UpdateItem(ctx context.Context, input *dynamodb.UpdateItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+	if err := mock.assert(input.ExpressionAttributeValues); err != nil {
+		return nil, err
 	}
 
 	return &dynamodb.UpdateItemOutput{

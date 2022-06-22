@@ -6,13 +6,18 @@
 // https://github.com/fogfish/dynamo
 //
 
+//
+// The file declares public types to implement custom codecs
+//
+
 package dynamo
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/golem/pure/hseq"
 )
 
@@ -23,19 +28,21 @@ Codec helps to implement semi-automated encoding/decoding algebraic data type
 into the format compatible with storage.
 
 Let's consider scenario were application uses complex types that skips
-implementation of marshal/unmarshal protocols. Here the type curie.IRI needs to
-be casted to dynamo.IRI that knows how to marshal/unmarshal the type.
+implementation of marshal/unmarshal protocols. Here the type MyComplexType
+needs to be casted to MyDynamoType that knows how to marshal/unmarshal the type.
 
   type MyType struct {
-    ID   curie.IRI
-    Name curie.IRI
+    ID   MyComplexType
+    Name MyComplexType
   }
-  var ID, Name = dynamo.Codec2[MyType, dynamo.IRI, dynamo.IRI]("ID", "Name")
+  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
 
-  func (t MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-    type tStruct Person
-    return dynamo.Encode(av, tStruct(p),
-      ID.Encode(dynamo.IRI(t.ID)), Name.Encode(dynamo.IRI(t.Name)))
+  func (t MyType) MarshalDynamoDBAttributeValue() (*dynamodb.AttributeValue, error) {
+    type tStruct MyType
+    return dynamo.Encode(tStruct(p),
+      ID.Encode(MyDynamoType(t.ID)),
+      Name.Encode(MyDynamoType(t.Name)),
+    )
   }
 
 */
@@ -280,9 +287,9 @@ type codec[T Thing, A any] string
 Decode generic DynamoDB attribute values into struct fields behind pointers
 */
 func (key codec[T, A]) Decode(val *A) Coder {
-	return func(gen map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
+	return func(gen map[string]types.AttributeValue) (map[string]types.AttributeValue, error) {
 		if gval, exists := gen[string(key)]; exists {
-			if err := dynamodbattribute.Unmarshal(gval, val); err != nil {
+			if err := attributevalue.Unmarshal(gval, val); err != nil {
 				return nil, err
 			}
 			delete(gen, string(key))
@@ -296,8 +303,8 @@ func (key codec[T, A]) Decode(val *A) Coder {
 Encode encode struct field into DynamoDB attribute values
 */
 func (key codec[T, A]) Encode(val A) Coder {
-	return func(gen map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error) {
-		gval, err := dynamodbattribute.Marshal(val)
+	return func(gen map[string]types.AttributeValue) (map[string]types.AttributeValue, error) {
+		gval, err := attributevalue.Marshal(val)
 		if err != nil {
 			return nil, err
 		}
@@ -309,9 +316,9 @@ func (key codec[T, A]) Encode(val A) Coder {
 
 /*
 
-Coder is a function, applies tranformation of generic dynamodb AttributeValue
+Coder is a function, applies transformation of generic dynamodb AttributeValue
 */
-type Coder func(map[string]*dynamodb.AttributeValue) (map[string]*dynamodb.AttributeValue, error)
+type Coder func(map[string]types.AttributeValue) (map[string]types.AttributeValue, error)
 
 /*
 
@@ -319,28 +326,37 @@ Decode is a helper function to decode core domain types from Dynamo DB format.
 The helper ensures compact URI de-serialization from DynamoDB schema.
 
   type MyType struct {
-    ID   curie.IRI
-    Name curie.IRI
+    ID   MyComplexType
+    Name MyComplexType
   }
-  var ID, Name = dynamo.Codec2[MyType, dynamo.IRI, dynamo.IRI]("ID", "Name")
+  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
 
-  func (x *MyType) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+  func (x *MyType) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
     type tStruct *MyType
     return dynamo.Decode(av, tStruct(x),
-      ID.Decode((*dynamo.IRI)(&x.HashKey)), Name.Decode((*dynamo.IRI)(&x.SortKey)),
+      ID.Decode((*MyDynamoType)(&x.ID)),
+			Name.Decode((*MyDynamoType)(&x.Name)),
     )
   }
 
 */
-func Decode(av *dynamodb.AttributeValue, val interface{}, coder ...Coder) (err error) {
+func Decode(av types.AttributeValue, val interface{}, coder ...Coder) (err error) {
+	tv, ok := av.(*types.AttributeValueMemberM)
+	if !ok {
+		return &attributevalue.UnmarshalTypeError{
+			Value: fmt.Sprintf("%T", av),
+			Err:   fmt.Errorf("Only struct type is supported"),
+		}
+	}
+
 	for _, fcoder := range coder {
-		av.M, err = fcoder(av.M)
+		tv.Value, err = fcoder(tv.Value)
 		if err != nil {
 			return err
 		}
 	}
 
-	return dynamodbattribute.Unmarshal(av, val)
+	return attributevalue.Unmarshal(tv, val)
 }
 
 /*
@@ -349,37 +365,43 @@ Encode is a helper function to encode core domain types into struct.
 The helper ensures compact URI serialization into DynamoDB schema.
 
   type MyType struct {
-    ID   curie.IRI
-    Name curie.IRI
+    ID   MyComplexType
+    Name MyComplexType
   }
-  var ID, Name = dynamo.Codec2[MyType, dynamo.IRI, dynamo.IRI]("ID", "Name")
+  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
 
-  func (x MyType) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+  func (x MyType) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
     type tStruct MyType
     return dynamo.Encode(av, tStruct(x),
-      ID.Encode(x.HashKey), Name.Encode(x.SortKey),
+      ID.Encode(MyDynamoType(x.ID)),
+			Name.Encode(MyDynamoType(x.Name)),
     )
   }
 
 */
-func Encode(av *dynamodb.AttributeValue, val interface{}, coder ...Coder) (err error) {
-	gen, err := dynamodbattribute.Marshal(val)
+func Encode(val interface{}, coder ...Coder) (types.AttributeValue, error) {
+	gen, err := attributevalue.Marshal(val)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if gen.M == nil {
-		gen.NULL = nil
-		gen.M = make(map[string]*dynamodb.AttributeValue)
-	}
+	var gem *types.AttributeValueMemberM
 
-	for _, fcoder := range coder {
-		gen.M, err = fcoder(gen.M)
-		if err != nil {
-			return err
+	switch v := gen.(type) {
+	case *types.AttributeValueMemberM:
+		gem = v
+	case *types.AttributeValueMemberNULL:
+		gem = &types.AttributeValueMemberM{
+			Value: make(map[string]types.AttributeValue),
 		}
 	}
 
-	*av = *gen
-	return nil
+	for _, fcoder := range coder {
+		gem.Value, err = fcoder(gem.Value)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return gem, nil
 }
