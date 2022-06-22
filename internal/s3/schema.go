@@ -27,8 +27,26 @@ func NewSchema[T dynamo.Thing]() *Schema[T] {
 
 func (schema Schema[T]) Merge(a, b T) (c T) {
 	va := reflect.ValueOf(a)
+	if va.Kind() == reflect.Pointer {
+		va = va.Elem()
+	}
+
 	vb := reflect.ValueOf(b)
+	if vb.Kind() == reflect.Pointer {
+		vb = vb.Elem()
+	}
+
+	// pointer to c makes reflect.ValueOf settable
+	// see The third law of reflection
+	// https://go.dev/blog/laws-of-reflection
 	vc := reflect.ValueOf(&c).Elem()
+	if vc.Kind() == reflect.Pointer {
+		// T is a pointer type, therefore c is nil
+		// it has to be filled with empty value before merging
+		empty := reflect.New(vc.Type().Elem())
+		vc.Set(empty)
+		vc = vc.Elem()
+	}
 
 	for _, f := range schema.Seq {
 		fa := va.FieldByIndex(f.Index)
