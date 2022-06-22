@@ -31,7 +31,7 @@ func NewKeyValContextDefault[T dynamo.Thing](keyval dynamo.KeyVal[T]) dynamo.Key
 	return &keyvalNoContext[T]{keyval}
 }
 
-func (db *keyvalNoContext[T]) Get(key T) (*T, error) {
+func (db *keyvalNoContext[T]) Get(key T) (T, error) {
 	return db.KeyVal.Get(context.Background(), key)
 }
 
@@ -43,7 +43,7 @@ func (db *keyvalNoContext[T]) Remove(key T, config ...dynamo.Constraint[T]) erro
 	return db.KeyVal.Remove(context.Background(), key, config...)
 }
 
-func (db *keyvalNoContext[T]) Update(entity T, config ...dynamo.Constraint[T]) (*T, error) {
+func (db *keyvalNoContext[T]) Update(entity T, config ...dynamo.Constraint[T]) (T, error) {
 	return db.KeyVal.Update(context.Background(), entity, config...)
 }
 

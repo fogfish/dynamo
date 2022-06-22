@@ -115,8 +115,8 @@ items into the sequence of articles. The pattern uses concept of monoid.
 type Articles dynamo.Things[Article]
 
 // Join generic element into sequence
-func (seq *Articles) Join(val *Article) error {
-	*seq = append(*seq, *val)
+func (seq *Articles) Join(val Article) error {
+	*seq = append(*seq, val)
 	return nil
 }
 
@@ -185,7 +185,7 @@ Keywords is a sequence of Keywords
 type Keywords []Keyword
 
 // Join generic element into sequence
-func (seq *Keywords) Join(val *Keyword) error {
-	*seq = append(*seq, *val)
+func (seq *Keywords) Join(val Keyword) error {
+	*seq = append(*seq, val)
 	return nil
 }

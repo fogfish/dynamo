@@ -39,11 +39,12 @@ type DynamoDB interface {
 ddb internal handler for dynamo I/O
 */
 type ddb[T dynamo.Thing] struct {
-	dynamo DynamoDB
-	codec  Codec[T]
-	table  *string
-	index  *string
-	schema *Schema[T]
+	dynamo    DynamoDB
+	codec     Codec[T]
+	table     *string
+	index     *string
+	schema    *Schema[T]
+	undefined T
 }
 
 func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
@@ -84,10 +85,10 @@ func (db *ddb[T]) Mock(dynamo DynamoDB) {
 //-----------------------------------------------------------------------------
 
 // Get item from storage
-func (db *ddb[T]) Get(ctx context.Context, key T) (*T, error) {
+func (db *ddb[T]) Get(ctx context.Context, key T) (T, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
-		return nil, err
+		return db.undefined, err
 	}
 
 	req := &dynamodb.GetItemInput{
@@ -99,11 +100,11 @@ func (db *ddb[T]) Get(ctx context.Context, key T) (*T, error) {
 
 	val, err := db.dynamo.GetItem(ctx, req)
 	if err != nil {
-		return nil, err
+		return db.undefined, err
 	}
 
 	if val.Item == nil {
-		return nil, dynamo.NotFound{Thing: key}
+		return db.undefined, dynamo.NotFound{Thing: key}
 	}
 
 	return db.codec.Decode(val.Item)
@@ -167,10 +168,10 @@ func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (*T, error) {
+func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (T, error) {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
-		return nil, err
+		return db.undefined, err
 	}
 
 	names := map[string]string{}
@@ -205,9 +206,9 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 	if err != nil {
 		switch err.(type) {
 		case *types.ConditionalCheckFailedException:
-			return nil, dynamo.PreConditionFailed{Thing: entity}
+			return db.undefined, dynamo.PreConditionFailed{Thing: entity}
 		default:
-			return nil, err
+			return db.undefined, err
 		}
 	}
 

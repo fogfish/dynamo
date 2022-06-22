@@ -41,8 +41,8 @@ func (p Person) SortKey() curie.IRI { return p.Suffix }
 // Use type aliases and methods to implement FMap
 type Persons []Person
 
-func (seq *Persons) Join(val *Person) error {
-	*seq = append(*seq, *val)
+func (seq *Persons) Join(val Person) error {
+	*seq = append(*seq, val)
 	return nil
 }
 
@@ -113,7 +113,7 @@ func TestGet[S any](
 		val, err := ddb.Get(fixtureKey())
 		it.Ok(t).
 			If(err).Should().Equal(nil).
-			If(*val).Should().Equal(fixtureVal())
+			If(val).Should().Equal(fixtureVal())
 	})
 
 	//
@@ -122,7 +122,7 @@ func TestGet[S any](
 
 		val, err := ddb.Get(fixtureKey())
 		it.Ok(t).
-			If(val).Should().Equal(nil).
+			If(val).Should().Equal(Person{}).
 			If(err).ShouldNot().Equal(nil).
 			If(err).Should().Be().Like(dynamo.NotFound{})
 	})
@@ -133,7 +133,7 @@ func TestGet[S any](
 
 		val, err := ddb.Get(fixtureKey())
 		it.Ok(t).
-			If(val).Should().Equal(nil).
+			If(val).Should().Equal(Person{}).
 			If(err).ShouldNot().Equal(nil)
 	})
 }
@@ -226,7 +226,7 @@ func TestUpdate[S any](
 		val, err := ddb.Update(fixturePatch())
 		it.Ok(t).
 			If(err).Should().Equal(nil).
-			If(*val).Should().Equal(fixtureVal())
+			If(val).Should().Equal(fixtureVal())
 	})
 }
 
@@ -267,7 +267,7 @@ func TestMatch[S any](
 			IfFalse(seq.Tail()).
 			If(seq.Error()).Should().Equal(nil).
 			If(err).Should().Equal(nil).
-			If(*val).Should().Equal(fixtureVal())
+			If(val).Should().Equal(fixtureVal())
 	})
 
 	//
@@ -283,7 +283,7 @@ func TestMatch[S any](
 			val, err := seq.Head()
 			it.Ok(t).
 				If(err).Should().Equal(nil).
-				If(*val).Should().Equal(fixtureVal())
+				If(val).Should().Equal(fixtureVal())
 		}
 
 		it.Ok(t).

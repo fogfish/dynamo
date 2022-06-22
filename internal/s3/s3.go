@@ -37,10 +37,11 @@ type S3 interface {
 
 // ds3 is a S3 client
 type ds3[T dynamo.Thing] struct {
-	s3     S3
-	bucket *string
-	codec  *Codec[T]
-	schema *Schema[T]
+	s3        S3
+	bucket    *string
+	codec     *Codec[T]
+	schema    *Schema[T]
+	undefined T
 }
 
 func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
@@ -73,7 +74,7 @@ func (db *ds3[T]) Mock(s3 S3) {
 //-----------------------------------------------------------------------------
 
 // Get item from storage
-func (db *ds3[T]) Get(ctx context.Context, key T) (*T, error) {
+func (db *ds3[T]) Get(ctx context.Context, key T) (T, error) {
 	req := &s3.GetObjectInput{
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(key)),
@@ -82,16 +83,15 @@ func (db *ds3[T]) Get(ctx context.Context, key T) (*T, error) {
 	if err != nil {
 		switch err.(type) {
 		case *types.NoSuchKey:
-			return nil, dynamo.NotFound{Thing: key}
+			return db.undefined, dynamo.NotFound{Thing: key}
 		default:
-			return nil, err
+			return db.undefined, err
 		}
 	}
 
 	var entity T
 	err = json.NewDecoder(val.Body).Decode(&entity)
-
-	return &entity, err
+	return entity, err
 }
 
 // Put writes entity
@@ -125,7 +125,7 @@ func (db *ds3[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (*T, error) {
+func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (T, error) {
 	req := &s3.GetObjectInput{
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(entity)),
@@ -133,23 +133,23 @@ func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 
 	val, err := db.s3.GetObject(ctx, req)
 	if err != nil {
-		return nil, err
+		return db.undefined, err
 	}
 
 	var existing T
 	err = json.NewDecoder(val.Body).Decode(&existing)
 	if err != nil {
-		return nil, err
+		return db.undefined, err
 	}
 
 	updated := db.schema.Merge(entity, existing)
 
 	err = db.Put(ctx, updated)
 	if err != nil {
-		return nil, err
+		return db.undefined, err
 	}
 
-	return &updated, nil
+	return updated, nil
 }
 
 // Match applies a pattern matching to elements in the bucket

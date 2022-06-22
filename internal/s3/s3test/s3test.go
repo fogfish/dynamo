@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"reflect"
 
@@ -81,7 +80,6 @@ type s3GetObject[T dynamo.Thing] struct {
 }
 
 func (mock *s3GetObject[T]) GetObject(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
-	fmt.Printf("==> %s  %s\n", *input.Key, encodeKey(*mock.expectKey))
 	if *input.Key != encodeKey(*mock.expectKey) {
 		return nil, errors.New("Unexpected request.")
 	}

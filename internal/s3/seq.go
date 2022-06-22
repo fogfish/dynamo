@@ -98,7 +98,7 @@ func (seq *seq[T]) seed() error {
 }
 
 // FMap transforms sequence
-func (seq *seq[T]) FMap(f func(*T) error) error {
+func (seq *seq[T]) FMap(f func(T) error) error {
 	for seq.Tail() {
 		head, err := seq.Head()
 		if err != nil {
@@ -113,10 +113,10 @@ func (seq *seq[T]) FMap(f func(*T) error) error {
 }
 
 // Head selects the first element of matched collection.
-func (seq *seq[T]) Head() (*T, error) {
+func (seq *seq[T]) Head() (T, error) {
 	if seq.items == nil {
 		if err := seq.seed(); err != nil {
-			return nil, err
+			return seq.db.undefined, err
 		}
 	}
 
@@ -126,16 +126,16 @@ func (seq *seq[T]) Head() (*T, error) {
 	}
 	val, err := seq.db.s3.GetObject(seq.ctx, req)
 	if err != nil {
-		return nil, err
+		return seq.db.undefined, err
 	}
 
 	var head T
 	err = json.NewDecoder(val.Body).Decode(&head)
 	if err != nil {
-		return nil, err
+		return seq.db.undefined, err
 	}
 
-	return &head, nil
+	return head, nil
 }
 
 // Tail selects the all elements except the first one

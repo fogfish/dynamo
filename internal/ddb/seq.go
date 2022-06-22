@@ -43,11 +43,11 @@ func newSlice[T dynamo.Thing](db *ddb[T], heap []map[string]types.AttributeValue
 	}
 }
 
-func (slice *slice[T]) Head() (*T, error) {
+func (slice *slice[T]) Head() (T, error) {
 	if slice.head < len(slice.heap) {
 		return slice.db.codec.Decode(slice.heap[slice.head])
 	}
-	return nil, dynamo.EOS{}
+	return slice.db.undefined, dynamo.EOS{}
 }
 
 func (slice *slice[T]) Tail() bool {
@@ -112,7 +112,7 @@ func (seq *seq[T]) seed() error {
 }
 
 // FMap transforms sequence
-func (seq *seq[T]) FMap(f func(*T) error) error {
+func (seq *seq[T]) FMap(f func(T) error) error {
 	for seq.Tail() {
 		head, err := seq.slice.Head()
 		if err != nil {
@@ -127,10 +127,10 @@ func (seq *seq[T]) FMap(f func(*T) error) error {
 }
 
 // Head selects the first element of matched collection.
-func (seq *seq[T]) Head() (*T, error) {
+func (seq *seq[T]) Head() (T, error) {
 	if seq.slice == nil {
 		if err := seq.seed(); err != nil {
-			return nil, err
+			return seq.db.undefined, err
 		}
 	}
 

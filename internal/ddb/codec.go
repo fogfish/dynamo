@@ -22,8 +22,9 @@ import (
 Codec is utility to encode/decode objects to dynamo representation
 */
 type Codec[T dynamo.Thing] struct {
-	pkPrefix string
-	skSuffix string
+	pkPrefix  string
+	skSuffix  string
+	undefined T
 }
 
 // EncodeKey to dynamo representation
@@ -70,17 +71,17 @@ func (codec Codec[T]) Encode(entity T) (map[string]types.AttributeValue, error) 
 }
 
 // Decode dynamo representation to object
-func (codec Codec[T]) Decode(gen map[string]types.AttributeValue) (*T, error) {
+func (codec Codec[T]) Decode(gen map[string]types.AttributeValue) (T, error) {
 	_, isPrefix := gen[codec.pkPrefix]
 	_, isSuffix := gen[codec.skSuffix]
 	if !isPrefix || !isSuffix {
-		return nil, errors.New("Invalid DDB schema")
+		return codec.undefined, errors.New("Invalid DDB schema")
 	}
 
 	var entity T
 	if err := attributevalue.UnmarshalMap(gen, &entity); err != nil {
-		return nil, err
+		return codec.undefined, err
 	}
 
-	return &entity, nil
+	return entity, nil
 }
