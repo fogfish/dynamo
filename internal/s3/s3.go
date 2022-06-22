@@ -95,7 +95,7 @@ func (db *ds3[T]) Get(ctx context.Context, key T) (*T, error) {
 }
 
 // Put writes entity
-func (db *ds3[T]) Put(ctx context.Context, entity T, config ...dynamo.Constrain[T]) error {
+func (db *ds3[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint[T]) error {
 	gen, err := json.Marshal(entity)
 	if err != nil {
 		return err
@@ -113,7 +113,7 @@ func (db *ds3[T]) Put(ctx context.Context, entity T, config ...dynamo.Constrain[
 }
 
 // Remove discards the entity from the table
-func (db *ds3[T]) Remove(ctx context.Context, key T, config ...dynamo.Constrain[T]) error {
+func (db *ds3[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint[T]) error {
 	req := &s3.DeleteObjectInput{
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(key)),
@@ -125,7 +125,7 @@ func (db *ds3[T]) Remove(ctx context.Context, key T, config ...dynamo.Constrain[
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constrain[T]) (*T, error) {
+func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (*T, error) {
 	req := &s3.GetObjectInput{
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(entity)),

@@ -182,9 +182,9 @@ type KeyValReaderNoContext[T Thing] interface {
 KeyValWriter defines a generic key-value writer
 */
 type KeyValWriter[T Thing] interface {
-	Put(context.Context, T, ...Constrain[T]) error
-	Remove(context.Context, T, ...Constrain[T]) error
-	Update(context.Context, T, ...Constrain[T]) (*T, error)
+	Put(context.Context, T, ...Constraint[T]) error
+	Remove(context.Context, T, ...Constraint[T]) error
+	Update(context.Context, T, ...Constraint[T]) (*T, error)
 }
 
 /*
@@ -192,9 +192,9 @@ type KeyValWriter[T Thing] interface {
 KeyValWriterNoContext defines a generic key-value writer
 */
 type KeyValWriterNoContext[T Thing] interface {
-	Put(T, ...Constrain[T]) error
-	Remove(T, ...Constrain[T]) error
-	Update(T, ...Constrain[T]) (*T, error)
+	Put(T, ...Constraint[T]) error
+	Remove(T, ...Constraint[T]) error
+	Update(T, ...Constraint[T]) (*T, error)
 }
 
 //-----------------------------------------------------------------------------

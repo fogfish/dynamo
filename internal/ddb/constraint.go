@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/dynamo/internal/constrain"
+	constrain "github.com/fogfish/dynamo/internal/constraint"
 )
 
 /*
@@ -26,7 +26,7 @@ Internal implementation of conditional expressions for dynamo db
 */
 func maybeConditionExpression[T dynamo.Thing](
 	conditionExpression **string,
-	config []dynamo.Constrain[T],
+	config []dynamo.Constraint[T],
 ) (
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
@@ -70,7 +70,7 @@ func maybeUpdateConditionExpression[T dynamo.Thing](
 	conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
-	config []dynamo.Constrain[T],
+	config []dynamo.Constraint[T],
 ) {
 	if len(config) > 0 {
 		switch op := config[0].(type) {

@@ -15,19 +15,19 @@ package dynamo
 import (
 	"strings"
 
-	"github.com/fogfish/dynamo/internal/constrain"
+	"github.com/fogfish/dynamo/internal/constraint"
 	"github.com/fogfish/golem/pure/hseq"
 )
 
 /*
 
-Constrain is a function that applies conditional expression to storage request.
+Constraint is a function that applies conditional expression to storage request.
 Each storage implements own constrains protocols. The module here defines a few
 constrain protocol. The structure of the constrain is abstracted away from the client.
 
 See internal/constrain package to see details about its implementation
 */
-type Constrain[T Thing] interface{ TypeOf(T) }
+type Constraint[T Thing] interface{ TypeOf(T) }
 
 /*
 
@@ -59,15 +59,15 @@ use them across the application.
 
 */
 type TypeOf[T Thing, A any] interface {
-	Eq(A) Constrain[T]
-	Ne(A) Constrain[T]
-	Lt(A) Constrain[T]
-	Le(A) Constrain[T]
-	Gt(A) Constrain[T]
-	Ge(A) Constrain[T]
-	Is(string) Constrain[T]
-	Exists() Constrain[T]
-	NotExists() Constrain[T]
+	Eq(A) Constraint[T]
+	Ne(A) Constraint[T]
+	Lt(A) Constraint[T]
+	Le(A) Constraint[T]
+	Gt(A) Constraint[T]
+	Ge(A) Constraint[T]
+	Is(string) Constraint[T]
+	Exists() Constraint[T]
+	NotExists() Constraint[T]
 }
 
 /*
@@ -322,8 +322,8 @@ type effect[T Thing, A any] struct{ Key string }
 Eq is equal constrain
   name.Eq(x) ⟼ Field = :value
 */
-func (eff effect[T, A]) Eq(val A) Constrain[T] {
-	return constrain.Eq[T](eff.Key, val)
+func (eff effect[T, A]) Eq(val A) Constraint[T] {
+	return constraint.Eq[T](eff.Key, val)
 }
 
 /*
@@ -331,8 +331,8 @@ func (eff effect[T, A]) Eq(val A) Constrain[T] {
 Ne is non equal constrain
   name.Ne(x) ⟼ Field <> :value
 */
-func (eff effect[T, A]) Ne(val A) Constrain[T] {
-	return constrain.Ne[T](eff.Key, val)
+func (eff effect[T, A]) Ne(val A) Constraint[T] {
+	return constraint.Ne[T](eff.Key, val)
 }
 
 /*
@@ -340,8 +340,8 @@ func (eff effect[T, A]) Ne(val A) Constrain[T] {
 Lt is less than constain
   name.Lt(x) ⟼ Field < :value
 */
-func (eff effect[T, A]) Lt(val A) Constrain[T] {
-	return constrain.Lt[T](eff.Key, val)
+func (eff effect[T, A]) Lt(val A) Constraint[T] {
+	return constraint.Lt[T](eff.Key, val)
 }
 
 /*
@@ -349,8 +349,8 @@ func (eff effect[T, A]) Lt(val A) Constrain[T] {
 Le is less or equal constain
   name.Le(x) ⟼ Field <= :value
 */
-func (eff effect[T, A]) Le(val A) Constrain[T] {
-	return constrain.Le[T](eff.Key, val)
+func (eff effect[T, A]) Le(val A) Constraint[T] {
+	return constraint.Le[T](eff.Key, val)
 }
 
 /*
@@ -358,8 +358,8 @@ func (eff effect[T, A]) Le(val A) Constrain[T] {
 Gt is greater than constrain
   name.Le(x) ⟼ Field > :value
 */
-func (eff effect[T, A]) Gt(val A) Constrain[T] {
-	return constrain.Gt[T](eff.Key, val)
+func (eff effect[T, A]) Gt(val A) Constraint[T] {
+	return constraint.Gt[T](eff.Key, val)
 }
 
 /*
@@ -367,16 +367,16 @@ func (eff effect[T, A]) Gt(val A) Constrain[T] {
 Ge is greater or equal constrain
   name.Le(x) ⟼ Field >= :value
 */
-func (eff effect[T, A]) Ge(val A) Constrain[T] {
-	return constrain.Ge[T](eff.Key, val)
+func (eff effect[T, A]) Ge(val A) Constraint[T] {
+	return constraint.Ge[T](eff.Key, val)
 }
 
 /*
 
 Is matches either Eq or NotExists if value is not defined
 */
-func (eff effect[T, A]) Is(val string) Constrain[T] {
-	return constrain.Is[T](eff.Key, val)
+func (eff effect[T, A]) Is(val string) Constraint[T] {
+	return constraint.Is[T](eff.Key, val)
 }
 
 /*
@@ -384,8 +384,8 @@ func (eff effect[T, A]) Is(val string) Constrain[T] {
 Exists attribute constrain
   name.Exists(x) ⟼ attribute_exists(name)
 */
-func (eff effect[T, A]) Exists() Constrain[T] {
-	return constrain.Exists[T](eff.Key)
+func (eff effect[T, A]) Exists() Constraint[T] {
+	return constraint.Exists[T](eff.Key)
 }
 
 /*
@@ -393,6 +393,6 @@ func (eff effect[T, A]) Exists() Constrain[T] {
 NotExists attribute constrain
 	name.NotExists(x) ⟼ attribute_not_exists(name)
 */
-func (eff effect[T, A]) NotExists() Constrain[T] {
-	return constrain.NotExists[T](eff.Key)
+func (eff effect[T, A]) NotExists() Constraint[T] {
+	return constraint.NotExists[T](eff.Key)
 }

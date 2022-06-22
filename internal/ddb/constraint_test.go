@@ -32,7 +32,7 @@ func TestConditionExpression(t *testing.T) {
 		expr *string = nil
 	)
 
-	spec := map[string]func(string) dynamo.Constrain[tConstrain]{
+	spec := map[string]func(string) dynamo.Constraint[tConstrain]{
 		"=":  Name.Eq,
 		"<>": Name.Ne,
 		"<":  Name.Lt,
@@ -42,7 +42,7 @@ func TestConditionExpression(t *testing.T) {
 	}
 
 	for op, fn := range spec {
-		config := []dynamo.Constrain[tConstrain]{fn("abc")}
+		config := []dynamo.Constraint[tConstrain]{fn("abc")}
 		name, vals := maybeConditionExpression(&expr, config)
 
 		expectExpr := fmt.Sprintf("#__anothername__ %s :__anothername__", op)
@@ -61,7 +61,7 @@ func TestExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []dynamo.Constrain[tConstrain]{Name.Exists()}
+	config := []dynamo.Constraint[tConstrain]{Name.Exists()}
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_exists(#__anothername__)"
@@ -78,7 +78,7 @@ func TestNotExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []dynamo.Constrain[tConstrain]{Name.NotExists()}
+	config := []dynamo.Constraint[tConstrain]{Name.NotExists()}
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_not_exists(#__anothername__)"
@@ -95,7 +95,7 @@ func TestIs(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []dynamo.Constrain[tConstrain]{Name.Is("_")}
+	config := []dynamo.Constraint[tConstrain]{Name.Is("_")}
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_not_exists(#__anothername__)"
@@ -107,7 +107,7 @@ func TestIs(t *testing.T) {
 		If(name).Should().Equal(expectName)
 
 	//
-	config = []dynamo.Constrain[tConstrain]{Name.Is("abc")}
+	config = []dynamo.Constraint[tConstrain]{Name.Is("abc")}
 	name, vals = maybeConditionExpression(&expr, config)
 
 	expectExpr = fmt.Sprintf("#__anothername__ = :__anothername__")

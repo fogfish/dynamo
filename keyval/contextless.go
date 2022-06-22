@@ -35,15 +35,15 @@ func (db *keyvalNoContext[T]) Get(key T) (*T, error) {
 	return db.KeyVal.Get(context.Background(), key)
 }
 
-func (db *keyvalNoContext[T]) Put(entity T, config ...dynamo.Constrain[T]) error {
+func (db *keyvalNoContext[T]) Put(entity T, config ...dynamo.Constraint[T]) error {
 	return db.KeyVal.Put(context.Background(), entity, config...)
 }
 
-func (db *keyvalNoContext[T]) Remove(key T, config ...dynamo.Constrain[T]) error {
+func (db *keyvalNoContext[T]) Remove(key T, config ...dynamo.Constraint[T]) error {
 	return db.KeyVal.Remove(context.Background(), key, config...)
 }
 
-func (db *keyvalNoContext[T]) Update(entity T, config ...dynamo.Constrain[T]) (*T, error) {
+func (db *keyvalNoContext[T]) Update(entity T, config ...dynamo.Constraint[T]) (*T, error) {
 	return db.KeyVal.Update(context.Background(), entity, config...)
 }
 

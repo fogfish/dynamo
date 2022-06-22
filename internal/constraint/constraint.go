@@ -10,7 +10,7 @@
 // The file implements type-safe constraint library
 //
 
-package constrain
+package constraint
 
 import (
 	"time"

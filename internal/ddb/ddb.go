@@ -110,7 +110,7 @@ func (db *ddb[T]) Get(ctx context.Context, key T) (*T, error) {
 }
 
 // Put writes entity
-func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constrain[T]) error {
+func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint[T]) error {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
 		return err
@@ -139,7 +139,7 @@ func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constrain[
 }
 
 // Remove discards the entity from the table
-func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constrain[T]) error {
+func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint[T]) error {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
 		return err
@@ -167,7 +167,7 @@ func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constrain[
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constrain[T]) (*T, error) {
+func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (*T, error) {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
 		return nil, err
