@@ -110,7 +110,7 @@ func TestIs(t *testing.T) {
 	config = []dynamo.Constraint[tConstrain]{Name.Is("abc")}
 	name, vals = maybeConditionExpression(&expr, config)
 
-	expectExpr = fmt.Sprintf("#__anothername__ = :__anothername__")
+	expectExpr = "#__anothername__ = :__anothername__"
 	expectVals := map[string]types.AttributeValue{
 		":__anothername__": &types.AttributeValueMemberS{Value: "abc"},
 	}

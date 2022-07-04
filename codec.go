@@ -345,7 +345,7 @@ func Decode(av types.AttributeValue, val interface{}, coder ...Coder) (err error
 	if !ok {
 		return &attributevalue.UnmarshalTypeError{
 			Value: fmt.Sprintf("%T", av),
-			Err:   fmt.Errorf("Only struct type is supported"),
+			Err:   fmt.Errorf("only struct type is supported"),
 		}
 	}
 

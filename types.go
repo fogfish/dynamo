@@ -279,5 +279,5 @@ func (e *PreConditionFailed) Conflict() bool { return e.conflict }
 EOS error indicates End Of Stream
 */
 func ErrEndOfStream() error {
-	return errors.New("End Of Stream")
+	return errors.New("end of stream")
 }

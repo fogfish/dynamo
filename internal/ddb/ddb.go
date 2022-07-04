@@ -226,7 +226,7 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
-		return newSeq[T](nil, nil, nil, errInvalidKey(err, "Match"))
+		return newSeq[T](ctx, nil, nil, errInvalidKey(err, "Match"))
 	}
 
 	suffix, isSuffix := gen[db.codec.skSuffix]

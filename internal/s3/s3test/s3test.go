@@ -81,7 +81,7 @@ type s3GetObject[T dynamo.Thing] struct {
 
 func (mock *s3GetObject[T]) GetObject(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 	if *input.Key != encodeKey(*mock.expectKey) {
-		return nil, errors.New("Unexpected request.")
+		return nil, errors.New("unexpected request")
 	}
 
 	if mock.returnVal == nil {
@@ -113,14 +113,14 @@ type s3PutObject[T dynamo.Thing] struct {
 
 func (mock *s3PutObject[T]) PutObject(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 	if *input.Key != encodeKey(*mock.expectVal) {
-		return nil, errors.New("Unexpected request.")
+		return nil, errors.New("unexpected request")
 	}
 
 	var val T
 	err := json.NewDecoder(input.Body).Decode(&val)
 
 	if err != nil && !reflect.DeepEqual(val, mock.expectVal) {
-		return nil, errors.New("Unexpected request.")
+		return nil, errors.New("unexpected request")
 	}
 
 	return &s3.PutObjectOutput{}, nil
@@ -143,7 +143,7 @@ type s3DeleteObject[T dynamo.Thing] struct {
 
 func (mock *s3DeleteObject[T]) DeleteObject(ctx context.Context, input *s3.DeleteObjectInput, opts ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
 	if *input.Key != encodeKey(*mock.expectKey) {
-		return nil, errors.New("Unexpected entity. ")
+		return nil, errors.New("unexpected entity")
 	}
 
 	return &s3.DeleteObjectOutput{}, nil
@@ -206,7 +206,7 @@ type s3GetListObjects[T dynamo.Thing] struct {
 
 func (mock *s3GetListObjects[T]) GetObject(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 	if *input.Key != encodeKey(*mock.returnVal) {
-		return nil, errors.New("Unexpected request.")
+		return nil, errors.New("unexpected request")
 	}
 
 	val, _ := json.Marshal(mock.returnVal)

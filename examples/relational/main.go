@@ -318,11 +318,6 @@ func publishArticle(
 	return nil
 }
 
-func publishKeywords(author, id, title string, keywords []string) error {
-
-	return nil
-}
-
 // stdio outputs query result
 func stdio(data interface{}) error {
 	b, err := json.MarshalIndent(data, "|", "  ")
@@ -330,7 +325,7 @@ func stdio(data interface{}) error {
 		return err
 	}
 
-	log.Printf(string(b))
+	log.Println(string(b))
 	return nil
 }
 
