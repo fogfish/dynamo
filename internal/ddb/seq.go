@@ -14,6 +14,7 @@ package ddb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -45,9 +46,14 @@ func newSlice[T dynamo.Thing](db *ddb[T], heap []map[string]types.AttributeValue
 
 func (slice *slice[T]) Head() (T, error) {
 	if slice.head < len(slice.heap) {
-		return slice.db.codec.Decode(slice.heap[slice.head])
+		head, err := slice.db.codec.Decode(slice.heap[slice.head])
+		if err != nil {
+			return slice.db.undefined, errInvalidEntity(err, "Seq.Head")
+		}
+
+		return head, nil
 	}
-	return slice.db.undefined, dynamo.EOS{}
+	return slice.db.undefined, dynamo.ErrEndOfStream()
 }
 
 func (slice *slice[T]) Tail() bool {
@@ -84,7 +90,7 @@ func newSeq[T dynamo.Thing](
 
 func (seq *seq[T]) maybeSeed() error {
 	if !seq.stream {
-		return dynamo.EOS{}
+		return dynamo.ErrEndOfStream()
 	}
 
 	return seq.seed()
@@ -92,17 +98,17 @@ func (seq *seq[T]) maybeSeed() error {
 
 func (seq *seq[T]) seed() error {
 	if seq.slice != nil && seq.q.ExclusiveStartKey == nil {
-		return dynamo.EOS{}
+		return dynamo.ErrEndOfStream()
 	}
 
 	val, err := seq.db.dynamo.Query(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
-		return err
+		return errServiceIO(err, "Seq")
 	}
 
 	if val.Count == 0 {
-		return dynamo.EOS{}
+		return dynamo.ErrEndOfStream()
 	}
 
 	seq.slice = newSlice(seq.db, val.Items)
@@ -120,7 +126,7 @@ func (seq *seq[T]) FMap(f func(T) error) error {
 		}
 
 		if err := f(head); err != nil {
-			return err
+			return errProcessEntity(err, "Seq.FMap", head)
 		}
 	}
 	return seq.err
@@ -130,7 +136,8 @@ func (seq *seq[T]) FMap(f func(T) error) error {
 func (seq *seq[T]) Head() (T, error) {
 	if seq.slice == nil {
 		if err := seq.seed(); err != nil {
-			return seq.db.undefined, err
+			return seq.db.undefined,
+				fmt.Errorf("can't seed head of stream: %w", err)
 		}
 	}
 

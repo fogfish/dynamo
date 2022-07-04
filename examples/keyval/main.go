@@ -69,8 +69,12 @@ func examplePut(db KeyVal) {
 			Address: "Blumenstrasse 14, Berne, 3013",
 		}
 		err := db.Put(context.Background(), &val)
-
-		fmt.Println("=[ put ]=> ", either(err, val))
+		switch {
+		case err == nil:
+			fmt.Printf("=[ put ]=> %+v\n", val)
+		default:
+			fmt.Printf("=[ put ]=> Fail: %v\n", err)
+		}
 	}
 }
 
@@ -80,15 +84,15 @@ func exampleGet(db KeyVal) {
 			Org: curie.New("test:"),
 			ID:  curie.New("person:%d", i),
 		}
-		val, err := db.Get(context.Background(), &key)
 
-		switch v := err.(type) {
-		case nil:
+		val, err := db.Get(context.Background(), &key)
+		switch {
+		case err == nil:
 			fmt.Printf("=[ get ]=> %+v\n", val)
-		case dynamo.NotFound:
+		case recoverNotFound(err):
 			fmt.Printf("=[ get ]=> Not found: (%v, %v)\n", val.Org, val.ID)
 		default:
-			fmt.Printf("=[ get ]=> Fail: %v\n", v)
+			fmt.Printf("=[ get ]=> Fail: %v\n", err)
 		}
 	}
 }
@@ -101,8 +105,12 @@ func exampleUpdate(db KeyVal) {
 			Address: "Viktoriastrasse 37, Berne, 3013",
 		}
 		val, err := db.Update(context.Background(), &patch)
-
-		fmt.Printf("=[ update ]=> %+v\n", either(err, val))
+		switch {
+		case err == nil:
+			fmt.Printf("=[ update ]=> %+v\n", val)
+		default:
+			fmt.Printf("=[ update ]=> Fail: %v\n", err)
+		}
 	}
 }
 
@@ -111,13 +119,14 @@ func exampleMatch(db KeyVal) {
 	key := Person{Org: curie.New("test:")}
 	err := db.Match(context.Background(), &key).FMap(seq.Join)
 
-	if err == nil {
-		fmt.Println("=[ match ]=>")
-		for _, x := range seq {
-			fmt.Printf("\t%+v\n", x)
-		}
-	} else {
+	if err != nil {
 		fmt.Printf("=[ match ]=> %v\n", err)
+		return
+	}
+
+	fmt.Println("=[ match ]=>")
+	for _, x := range seq {
+		fmt.Printf("\t%+v\n", x)
 	}
 }
 
@@ -133,6 +142,7 @@ func exampleMatchWithCursor(db KeyVal) {
 		fmt.Printf("=[ match 1st ]=> %v\n", err)
 		return
 	}
+
 	fmt.Println("=[ match 1st ]=>")
 	for _, x := range persons {
 		fmt.Printf("\t%+v\n", x)
@@ -147,6 +157,7 @@ func exampleMatchWithCursor(db KeyVal) {
 		fmt.Printf("=[ match 2nd ]=> %v\n", err)
 		return
 	}
+
 	fmt.Println("=[ match 2nd ]=>")
 	for _, x := range persons {
 		fmt.Printf("\t%+v\n", x)
@@ -166,9 +177,9 @@ func exampleRemove(db KeyVal) {
 	}
 }
 
-func either(e error, x interface{}) interface{} {
-	if e != nil {
-		return e
-	}
-	return x
+func recoverNotFound(err error) bool {
+	type notfound interface{ NotFound() bool }
+
+	terr, ok := err.(notfound)
+	return ok && terr.NotFound()
 }

@@ -15,6 +15,7 @@ package s3
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -58,7 +59,7 @@ func newSeq[T dynamo.Thing](
 
 func (seq *seq[T]) maybeSeed() error {
 	if !seq.stream {
-		return dynamo.EOS{}
+		return dynamo.ErrEndOfStream()
 	}
 
 	return seq.seed()
@@ -66,7 +67,7 @@ func (seq *seq[T]) maybeSeed() error {
 
 func (seq *seq[T]) seed() error {
 	if seq.items != nil && seq.q.StartAfter == nil {
-		return dynamo.EOS{}
+		return dynamo.ErrEndOfStream()
 	}
 
 	val, err := seq.db.s3.ListObjectsV2(seq.ctx, seq.q)
@@ -76,7 +77,7 @@ func (seq *seq[T]) seed() error {
 	}
 
 	if val.KeyCount == 0 {
-		return dynamo.EOS{}
+		return dynamo.ErrEndOfStream()
 	}
 
 	items := make([]*string, 0)
@@ -106,7 +107,7 @@ func (seq *seq[T]) FMap(f func(T) error) error {
 		}
 
 		if err := f(head); err != nil {
-			return err
+			return errProcessEntity(err, "Seq.FMap", head)
 		}
 	}
 	return seq.err
@@ -116,7 +117,8 @@ func (seq *seq[T]) FMap(f func(T) error) error {
 func (seq *seq[T]) Head() (T, error) {
 	if seq.items == nil {
 		if err := seq.seed(); err != nil {
-			return seq.db.undefined, err
+			return seq.db.undefined,
+				fmt.Errorf("can't seed head of stream: %w", err)
 		}
 	}
 
@@ -126,13 +128,13 @@ func (seq *seq[T]) Head() (T, error) {
 	}
 	val, err := seq.db.s3.GetObject(seq.ctx, req)
 	if err != nil {
-		return seq.db.undefined, err
+		return seq.db.undefined, errServiceIO(err, "Seq.Head")
 	}
 
 	var head T
 	err = json.NewDecoder(val.Body).Decode(&head)
 	if err != nil {
-		return seq.db.undefined, err
+		return seq.db.undefined, errInvalidEntity(err, "Seq.Head")
 	}
 
 	return head, nil
