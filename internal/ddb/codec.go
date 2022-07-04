@@ -75,7 +75,7 @@ func (codec Codec[T]) Decode(gen map[string]types.AttributeValue) (T, error) {
 	_, isPrefix := gen[codec.pkPrefix]
 	_, isSuffix := gen[codec.skSuffix]
 	if !isPrefix || !isSuffix {
-		return codec.undefined, errors.New("Invalid DDB schema")
+		return codec.undefined, errors.New("invalid DDB schema")
 	}
 
 	var entity T

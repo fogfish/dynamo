@@ -1,31 +1,39 @@
-name: build
+##
+## Unit Tests & Coverage
+##
+name: test
 on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
   push:
     branches:
       - main
       - /refs/heads/main
 
 jobs:
-  build:
+
+  unit:
     runs-on: ubuntu-latest
     steps:
 
-      - name: golang
-        uses: actions/setup-go@v2
+      - uses: actions/setup-go@v2
         with:
           go-version: 1.18.1
 
-      - name: checkout
-        uses: actions/checkout@v2
-
+      - uses: actions/checkout@v2
+     
       - name: go build
         run: |
           go build ./...
     
       - name: go test
         run: |
-          go test -coverpkg=./... -v -coverprofile=profile.cov $(go list ./... | grep -v /examples/)
+          go test -v -coverprofile=profile.cov $(go list ./... | grep -v /examples/)
 
       - uses: shogo82148/actions-goveralls@v1
+        continue-on-error: true
         with:
           path-to-profile: profile.cov

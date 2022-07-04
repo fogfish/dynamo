@@ -114,7 +114,6 @@ func dyadic[T dynamo.Thing](
 	expressionAttributeValues[let] = lit
 	expressionAttributeNames[key] = op.Key
 	*conditionExpression = aws.String(key + " " + op.Op + " " + let)
-	return
 }
 
 /*
@@ -135,5 +134,4 @@ func unary[T dynamo.Thing](
 	expressionAttributeNames[key] = op.Key
 
 	*conditionExpression = aws.String(op.Op + "(" + key + ")")
-	return
 }

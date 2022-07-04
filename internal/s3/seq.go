@@ -73,7 +73,7 @@ func (seq *seq[T]) seed() error {
 	val, err := seq.db.s3.ListObjectsV2(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
-		return err
+		return errServiceIO(err, "Seq.seed")
 	}
 
 	if val.KeyCount == 0 {

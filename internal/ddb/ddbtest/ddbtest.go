@@ -39,7 +39,7 @@ func mock[T dynamo.Thing](mock ddb.DynamoDB) dynamo.KeyValNoContext[T] {
 	case MockDynamoDB:
 		v.Mock(mock)
 	default:
-		panic("Invalid config")
+		panic("invalid config")
 	}
 
 	return keyval.NewKeyValContextDefault(client)
@@ -64,7 +64,7 @@ type ddbGetItem struct {
 
 func (mock *ddbGetItem) GetItem(ctx context.Context, input *dynamodb.GetItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 	if !reflect.DeepEqual(*mock.expectKey, input.Key) {
-		return nil, errors.New("Unexpected entity.")
+		return nil, errors.New("unexpected entity")
 	}
 
 	if mock.returnVal == nil {
@@ -93,7 +93,7 @@ type ddbPutItem struct {
 
 func (mock *ddbPutItem) PutItem(ctx context.Context, input *dynamodb.PutItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 	if !reflect.DeepEqual(*mock.expectVal, input.Item) {
-		return nil, errors.New("Unexpected entity.")
+		return nil, errors.New("unexpected entity")
 	}
 	return &dynamodb.PutItemOutput{}, nil
 }
@@ -115,7 +115,7 @@ type ddbDeleteItem struct {
 
 func (mock *ddbDeleteItem) DeleteItem(ctx context.Context, input *dynamodb.DeleteItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
 	if !reflect.DeepEqual(*mock.expectKey, input.Key) {
-		return nil, errors.New("Unexpected entity.")
+		return nil, errors.New("unexpected entity")
 	}
 
 	return &dynamodb.DeleteItemOutput{}, nil
@@ -146,13 +146,13 @@ type ddbUpdateItem struct {
 
 func (mock *ddbUpdateItem) UpdateItem(ctx context.Context, input *dynamodb.UpdateItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
 	if !reflect.DeepEqual(*mock.expectKey, input.Key) {
-		return nil, errors.New("Unexpected entity key.")
+		return nil, errors.New("unexpected entity key")
 	}
 
 	for k, v := range *mock.expectVal {
 		if k != "prefix" && k != "suffix" {
 			if !reflect.DeepEqual(v, input.ExpressionAttributeValues[":__"+k+"__"]) {
-				return nil, errors.New("Unexpected entity.")
+				return nil, errors.New("unexpected entity")
 			}
 		}
 	}
@@ -189,7 +189,7 @@ type ddbQuery struct {
 func (mock *ddbQuery) Query(ctx context.Context, input *dynamodb.QueryInput, opts ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 	for k, v := range *mock.expectKey {
 		if !reflect.DeepEqual(v, input.ExpressionAttributeValues[":__"+k+"__"]) {
-			return nil, errors.New("Unexpected entity.")
+			return nil, errors.New("unexpected entity")
 		}
 	}
 
