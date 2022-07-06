@@ -118,7 +118,7 @@ func errEndOfStream() error {
 		name = runtime.FuncForPC(pc).Name()
 	}
 
-	return fmt.Errorf("[%s] end of stream: %w", name)
+	return fmt.Errorf("[%s] end of stream", name)
 }
 
 //

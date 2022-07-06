@@ -67,7 +67,7 @@ func (e *notFound) Error() string {
 		name = runtime.FuncForPC(pc).Name()
 	}
 
-	return fmt.Sprintf("[%] Not Found (%s, %s): %s", name, e.HashKey(), e.SortKey(), e.err)
+	return fmt.Sprintf("[%s] Not Found (%s, %s): %s", name, e.HashKey(), e.SortKey(), e.err)
 }
 
 func (e *notFound) Unwrap() error { return e.err }
@@ -84,7 +84,7 @@ func errEndOfStream() error {
 		name = runtime.FuncForPC(pc).Name()
 	}
 
-	return fmt.Errorf("[%s] end of stream: %w", name)
+	return fmt.Errorf("[%s] end of stream", name)
 }
 
 //
