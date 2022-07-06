@@ -69,10 +69,11 @@ func TestDdbPutWithConstrain(t *testing.T) {
 
 	success := ddb.Put(entityStruct(), name.Eq("xxx"))
 	failure := ddb.Put(entityStruct(), name.Eq("yyy"))
+	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
 	it.Ok(t).
 		If(success).Should().Equal(nil).
-		If(failure).Should().Be().Like(dynamo.PreConditionFailed{})
+		IfTrue(ispcf)
 }
 
 func TestDdbRemoveWithConstrain(t *testing.T) {
@@ -81,10 +82,11 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 
 	success := ddb.Remove(entityStruct(), name.Eq("xxx"))
 	failure := ddb.Remove(entityStruct(), name.Eq("yyy"))
+	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
 	it.Ok(t).
 		If(success).Should().Equal(nil).
-		If(failure).Should().Be().Like(dynamo.PreConditionFailed{})
+		IfTrue(ispcf)
 }
 
 func TestDdbUpdateWithConstrain(t *testing.T) {
@@ -98,8 +100,9 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 
 	_, success := ddb.Update(patch, name.Eq("xxx"))
 	_, failure := ddb.Update(patch, name.Eq("yyy"))
+	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
 	it.Ok(t).
 		If(success).Should().Equal(nil).
-		If(failure).Should().Be().Like(dynamo.PreConditionFailed{})
+		IfTrue(ispcf)
 }

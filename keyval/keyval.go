@@ -13,8 +13,6 @@
 package keyval
 
 import (
-	"fmt"
-
 	"github.com/fogfish/dynamo"
 	"github.com/fogfish/dynamo/internal/ddb"
 	"github.com/fogfish/dynamo/internal/s3"
@@ -81,14 +79,14 @@ parses connector url
 func factory[T dynamo.Thing](cfg *dynamo.Config) (creator[T], error) {
 	switch {
 	case cfg.URI == nil:
-		return nil, fmt.Errorf("undefined storage endpoint")
+		return nil, errUndefinedEndpoint()
 	case len(cfg.URI.Path) < 2:
-		return nil, fmt.Errorf("invalid storage endpoint, missing storage name: %s", cfg.URI.String())
+		return nil, errInvalidEndpoint(cfg.URI.String())
 	case cfg.URI.Scheme == "s3":
 		return s3.New[T], nil
 	case cfg.URI.Scheme == "ddb":
 		return ddb.New[T], nil
 	default:
-		return nil, fmt.Errorf("unsupported storage schema: %s", cfg.URI.String())
+		return nil, errUnsupportedEndpoint(cfg.URI.String())
 	}
 }

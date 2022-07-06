@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -78,18 +77,18 @@ func (db *ds3[T]) Get(ctx context.Context, key T) (T, error) {
 
 	val, err := db.s3.GetObject(ctx, req)
 	if err != nil {
-		var nsk *types.NoSuchKey
-		if errors.As(err, &nsk) {
-			return db.undefined, dynamo.ErrNotFound(nil, key)
+		switch {
+		case recoverNoSuchKey(err):
+			return db.undefined, errNotFound(err, key)
+		default:
+			return db.undefined, errServiceIO(err)
 		}
-
-		return db.undefined, errServiceIO(err, "Get")
 	}
 
 	var entity T
 	err = json.NewDecoder(val.Body).Decode(&entity)
 	if err != nil {
-		return db.undefined, errInvalidEntity(err, "Get")
+		return db.undefined, errInvalidEntity(err)
 	}
 
 	return entity, nil
@@ -99,7 +98,7 @@ func (db *ds3[T]) Get(ctx context.Context, key T) (T, error) {
 func (db *ds3[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint[T]) error {
 	gen, err := json.Marshal(entity)
 	if err != nil {
-		return errInvalidEntity(err, "Put")
+		return errInvalidEntity(err)
 	}
 
 	req := &s3.PutObjectInput{
@@ -110,7 +109,7 @@ func (db *ds3[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint
 
 	_, err = db.s3.PutObject(ctx, req)
 	if err != nil {
-		return errServiceIO(err, "Put")
+		return errServiceIO(err)
 	}
 
 	return nil
@@ -125,7 +124,7 @@ func (db *ds3[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint
 
 	_, err := db.s3.DeleteObject(ctx, req)
 	if err != nil {
-		return errServiceIO(err, "Remove")
+		return errServiceIO(err)
 	}
 
 	return nil
@@ -149,13 +148,13 @@ func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 			return entity, nil
 		}
 
-		return db.undefined, errServiceIO(err, "Update")
+		return db.undefined, errServiceIO(err)
 	}
 
 	var existing T
 	err = json.NewDecoder(val.Body).Decode(&existing)
 	if err != nil {
-		return db.undefined, errInvalidEntity(err, "Update")
+		return db.undefined, errInvalidEntity(err)
 	}
 
 	updated := db.schema.Merge(entity, existing)
@@ -177,20 +176,4 @@ func (db *ds3[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
 	}
 
 	return newSeq(ctx, db, req, nil)
-}
-
-//
-// Error types
-//
-
-func errServiceIO(err error, op string) error {
-	return fmt.Errorf("[dynamo.s3.%s] service i/o failed: %w", op, err)
-}
-
-func errInvalidEntity(err error, op string) error {
-	return fmt.Errorf("[dynamo.s3.%s] invalid entity: %w", op, err)
-}
-
-func errProcessEntity(err error, op string, thing dynamo.Thing) error {
-	return fmt.Errorf("[dynamo.s3.%s] can't process (%s, %s) : %w", op, thing.HashKey(), thing.SortKey(), err)
 }

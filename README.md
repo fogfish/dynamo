@@ -41,6 +41,7 @@ The latest version of the library is available at its `main` branch. All develop
 - [Getting Started](#getting-started)
   - [Data types definition](#data-types-definition)
   - [DynamoDB IO](#dynamodb-io)
+  - [Error Handling](#error-handling)
   - [Hierarchical structures](#hierarchical-structures)
   - [Sequences and Pagination](#sequences-and-pagination)
   - [Linked data](#linked-data)
@@ -130,10 +131,10 @@ val, err := db.Get(
   },
 )
 
-switch v := err.(type) {
+switch {
 case nil:
   // success
-case dynamo.NotFound:
+case recoverNotFound(err):
   // not found
 default:
   // other i/o error
@@ -164,6 +165,25 @@ err := db.Remove(
 
 if err != nil { /* ... */ }
 ```
+
+### Error Handling
+
+The library enforces for "assert errors for behavior, not type" as the error handling strategy, see [the post](https://tech.fog.fish/2022/07/05/assert-golang-errors-for-behavior.html) for details. 
+
+Use following behaviors to recover from errors:
+
+```go
+type ErrorCode interface{ ErrorCode() string }
+
+type NotFound interface { NotFound() string }
+
+type PreConditionFailed interface { PreConditionFailed() bool }
+
+type Conflict interface { Conflict() bool }
+
+type Gone interface { Gone() bool }
+```
+
 
 ### Hierarchical structures
 

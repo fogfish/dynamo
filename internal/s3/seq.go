@@ -59,7 +59,7 @@ func newSeq[T dynamo.Thing](
 
 func (seq *seq[T]) maybeSeed() error {
 	if !seq.stream {
-		return dynamo.ErrEndOfStream()
+		return errEndOfStream()
 	}
 
 	return seq.seed()
@@ -67,17 +67,17 @@ func (seq *seq[T]) maybeSeed() error {
 
 func (seq *seq[T]) seed() error {
 	if seq.items != nil && seq.q.StartAfter == nil {
-		return dynamo.ErrEndOfStream()
+		return errEndOfStream()
 	}
 
 	val, err := seq.db.s3.ListObjectsV2(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
-		return errServiceIO(err, "Seq.seed")
+		return errServiceIO(err)
 	}
 
 	if val.KeyCount == 0 {
-		return dynamo.ErrEndOfStream()
+		return errEndOfStream()
 	}
 
 	items := make([]*string, 0)
@@ -107,7 +107,7 @@ func (seq *seq[T]) FMap(f func(T) error) error {
 		}
 
 		if err := f(head); err != nil {
-			return errProcessEntity(err, "Seq.FMap", head)
+			return errProcessEntity(err, head)
 		}
 	}
 	return seq.err
@@ -128,13 +128,13 @@ func (seq *seq[T]) Head() (T, error) {
 	}
 	val, err := seq.db.s3.GetObject(seq.ctx, req)
 	if err != nil {
-		return seq.db.undefined, errServiceIO(err, "Seq.Head")
+		return seq.db.undefined, errServiceIO(err)
 	}
 
 	var head T
 	err = json.NewDecoder(val.Body).Decode(&head)
 	if err != nil {
-		return seq.db.undefined, errInvalidEntity(err, "Seq.Head")
+		return seq.db.undefined, errInvalidEntity(err)
 	}
 
 	return head, nil
