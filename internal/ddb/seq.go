@@ -48,12 +48,12 @@ func (slice *slice[T]) Head() (T, error) {
 	if slice.head < len(slice.heap) {
 		head, err := slice.db.codec.Decode(slice.heap[slice.head])
 		if err != nil {
-			return slice.db.undefined, errInvalidEntity(err, "Seq.Head")
+			return slice.db.undefined, errInvalidEntity(err)
 		}
 
 		return head, nil
 	}
-	return slice.db.undefined, dynamo.ErrEndOfStream()
+	return slice.db.undefined, errEndOfStream()
 }
 
 func (slice *slice[T]) Tail() bool {
@@ -90,7 +90,7 @@ func newSeq[T dynamo.Thing](
 
 func (seq *seq[T]) maybeSeed() error {
 	if !seq.stream {
-		return dynamo.ErrEndOfStream()
+		return errEndOfStream()
 	}
 
 	return seq.seed()
@@ -98,17 +98,17 @@ func (seq *seq[T]) maybeSeed() error {
 
 func (seq *seq[T]) seed() error {
 	if seq.slice != nil && seq.q.ExclusiveStartKey == nil {
-		return dynamo.ErrEndOfStream()
+		return errEndOfStream()
 	}
 
 	val, err := seq.db.dynamo.Query(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
-		return errServiceIO(err, "Seq")
+		return errServiceIO(err)
 	}
 
 	if val.Count == 0 {
-		return dynamo.ErrEndOfStream()
+		return errEndOfStream()
 	}
 
 	seq.slice = newSlice(seq.db, val.Items)
@@ -126,7 +126,7 @@ func (seq *seq[T]) FMap(f func(T) error) error {
 		}
 
 		if err := f(head); err != nil {
-			return errProcessEntity(err, "Seq.FMap", head)
+			return errProcessEntity(err, head)
 		}
 	}
 	return seq.err

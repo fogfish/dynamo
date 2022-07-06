@@ -14,8 +14,6 @@ package dynamo
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/fogfish/curie"
 )
@@ -220,64 +218,4 @@ KeyValNoContext is a generic key-value trait to access domain objects.
 type KeyValNoContext[T Thing] interface {
 	KeyValReaderNoContext[T]
 	KeyValWriterNoContext[T]
-}
-
-//-----------------------------------------------------------------------------
-//
-// Errors
-//
-//-----------------------------------------------------------------------------
-
-/*
-
-NotFound is an error to handle unknown elements
-*/
-type NotFound struct {
-	Thing
-	err error
-}
-
-func ErrNotFound(err error, thing Thing) error {
-	return &NotFound{Thing: thing, err: err}
-}
-
-func (e *NotFound) Error() string {
-	return fmt.Sprintf("Not Found (%s, %s): %s", e.Thing.HashKey(), e.Thing.SortKey(), e.err)
-}
-
-func (e *NotFound) Unwrap() error { return e.err }
-
-func (e *NotFound) NotFound() bool { return true }
-
-/*
-
-PreConditionFailed is an error to handler aborted I/O on
-requests with conditional expressions
-*/
-type PreConditionFailed struct {
-	Thing
-	conflict bool
-	err      error
-}
-
-func ErrPreConditionFailed(err error, thing Thing, conflict bool) error {
-	return &PreConditionFailed{Thing: thing, conflict: conflict, err: err}
-}
-
-func (e *PreConditionFailed) Error() string {
-	return fmt.Sprintf("Pre Condition Failed (%s, %s): %s", e.Thing.HashKey(), e.Thing.SortKey(), e.err)
-}
-
-func (e *PreConditionFailed) Unwrap() error { return e.err }
-
-func (e *PreConditionFailed) PreConditionFailed() bool { return true }
-
-func (e *PreConditionFailed) Conflict() bool { return e.conflict }
-
-/*
-
-EOS error indicates End Of Stream
-*/
-func ErrEndOfStream() error {
-	return errors.New("end of stream")
 }

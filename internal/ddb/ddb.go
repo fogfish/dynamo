@@ -14,8 +14,6 @@ package ddb
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -90,7 +88,7 @@ func (db *ddb[T]) Mock(dynamo DynamoDB) {
 func (db *ddb[T]) Get(ctx context.Context, key T) (T, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
-		return db.undefined, errInvalidKey(err, "Get")
+		return db.undefined, errInvalidKey(err)
 	}
 
 	req := &dynamodb.GetItemInput{
@@ -102,16 +100,16 @@ func (db *ddb[T]) Get(ctx context.Context, key T) (T, error) {
 
 	val, err := db.dynamo.GetItem(ctx, req)
 	if err != nil {
-		return db.undefined, errServiceIO(err, "Get")
+		return db.undefined, errServiceIO(err)
 	}
 
 	if val.Item == nil {
-		return db.undefined, dynamo.ErrNotFound(nil, key)
+		return db.undefined, errNotFound(nil, key)
 	}
 
 	obj, err := db.codec.Decode(val.Item)
 	if err != nil {
-		return db.undefined, errInvalidEntity(err, "Get")
+		return db.undefined, errInvalidEntity(err)
 	}
 
 	return obj, nil
@@ -121,7 +119,7 @@ func (db *ddb[T]) Get(ctx context.Context, key T) (T, error) {
 func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint[T]) error {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
-		return errInvalidEntity(err, "Put")
+		return errInvalidEntity(err)
 	}
 
 	req := &dynamodb.PutItemInput{
@@ -135,12 +133,13 @@ func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint
 
 	_, err = db.dynamo.PutItem(ctx, req)
 	if err != nil {
-		var pce *types.ConditionalCheckFailedException
-		if errors.As(err, &pce) {
-			return dynamo.ErrPreConditionFailed(err, entity, strings.Contains(*req.ConditionExpression, "attribute_exists"))
+		if recoverConditionalCheckFailedException(err) {
+			return errPreConditionFailed(err, entity,
+				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
+				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
+			)
 		}
-
-		return errServiceIO(err, "Put")
+		return errServiceIO(err)
 	}
 
 	return nil
@@ -150,7 +149,7 @@ func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint
 func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint[T]) error {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
-		return errInvalidKey(err, "Remove")
+		return errInvalidKey(err)
 	}
 
 	req := &dynamodb.DeleteItemInput{
@@ -163,12 +162,13 @@ func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint
 
 	_, err = db.dynamo.DeleteItem(ctx, req)
 	if err != nil {
-		var pce *types.ConditionalCheckFailedException
-		if errors.As(err, &pce) {
-			return dynamo.ErrPreConditionFailed(err, key, strings.Contains(*req.ConditionExpression, "attribute_not_exists"))
+		if recoverConditionalCheckFailedException(err) {
+			return errPreConditionFailed(err, key,
+				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
+				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
+			)
 		}
-
-		return errServiceIO(err, "Remove")
+		return errServiceIO(err)
 	}
 
 	return nil
@@ -178,7 +178,7 @@ func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint
 func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (T, error) {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
-		return db.undefined, errInvalidEntity(err, "Update")
+		return db.undefined, errInvalidEntity(err)
 	}
 
 	names := map[string]string{}
@@ -211,22 +211,28 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 
 	val, err := db.dynamo.UpdateItem(ctx, req)
 	if err != nil {
-		var pce *types.ConditionalCheckFailedException
-		if errors.As(err, &pce) {
-			return db.undefined, dynamo.ErrPreConditionFailed(err, entity, strings.Contains(*req.ConditionExpression, "attribute_exists"))
+		if recoverConditionalCheckFailedException(err) {
+			return db.undefined, errPreConditionFailed(err, entity,
+				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
+				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
+			)
 		}
-
-		return db.undefined, errServiceIO(err, "Update")
+		return db.undefined, errServiceIO(err)
 	}
 
-	return db.codec.Decode(val.Attributes)
+	obj, err := db.codec.Decode(val.Attributes)
+	if err != nil {
+		return db.undefined, errInvalidEntity(err)
+	}
+
+	return obj, nil
 }
 
 // Match applies a pattern matching to elements in the table
 func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
-		return newSeq[T](ctx, nil, nil, errInvalidKey(err, "Match"))
+		return newSeq[T](ctx, nil, nil, errInvalidKey(err))
 	}
 
 	suffix, isSuffix := gen[db.codec.skSuffix]
@@ -269,24 +275,4 @@ func exprOf(gen map[string]types.AttributeValue) (val map[string]types.Attribute
 	}
 
 	return
-}
-
-//
-// Error types
-//
-
-func errServiceIO(err error, op string) error {
-	return fmt.Errorf("[dynamo.ddb.%s] service i/o failed: %w", op, err)
-}
-
-func errInvalidKey(err error, op string) error {
-	return fmt.Errorf("[dynamo.ddb.%s] invalid key: %w", op, err)
-}
-
-func errInvalidEntity(err error, op string) error {
-	return fmt.Errorf("[dynamo.ddb.%s] invalid entity: %w", op, err)
-}
-
-func errProcessEntity(err error, op string, thing dynamo.Thing) error {
-	return fmt.Errorf("[dynamo.ddb.%s] can't process (%s, %s) : %w", op, thing.HashKey(), thing.SortKey(), err)
 }

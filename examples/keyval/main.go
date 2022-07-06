@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -178,8 +179,8 @@ func exampleRemove(db KeyVal) {
 }
 
 func recoverNotFound(err error) bool {
-	type notfound interface{ NotFound() bool }
+	var e interface{ NotFound() string }
 
-	terr, ok := err.(notfound)
-	return ok && terr.NotFound()
+	ok := errors.As(err, &e)
+	return ok && e.NotFound() != ""
 }

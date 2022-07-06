@@ -121,10 +121,12 @@ func TestGet[S any](
 		ddb := factory(&expectKey, nil)
 
 		val, err := ddb.Get(fixtureKey())
+		_, isnfe := err.(interface{ NotFound() string })
+
 		it.Ok(t).
 			If(val).Should().Equal(Person{}).
 			If(err).ShouldNot().Equal(nil).
-			If(err).Should().Be().Like(dynamo.NotFound{})
+			IfTrue(isnfe)
 	})
 
 	//
