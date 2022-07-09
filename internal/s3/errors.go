@@ -51,23 +51,24 @@ func errProcessEntity(err error, thing dynamo.Thing) error {
 
 // NotFound is an error to handle unknown elements
 func errNotFound(err error, thing dynamo.Thing) error {
-	return &notFound{err: err, Thing: thing}
-}
-
-type notFound struct {
-	dynamo.Thing
-
-	err error
-}
-
-func (e *notFound) Error() string {
 	var name string
 
 	if pc, _, _, ok := runtime.Caller(1); ok {
 		name = runtime.FuncForPC(pc).Name()
 	}
 
-	return fmt.Sprintf("[%s] Not Found (%s, %s): %s", name, e.HashKey(), e.SortKey(), e.err)
+	return &notFound{Thing: thing, ctx: name, err: err}
+}
+
+type notFound struct {
+	dynamo.Thing
+
+	ctx string
+	err error
+}
+
+func (e *notFound) Error() string {
+	return fmt.Sprintf("[%s] Not Found (%s, %s): %v", e.ctx, e.HashKey(), e.SortKey(), e.err)
 }
 
 func (e *notFound) Unwrap() error { return e.err }
