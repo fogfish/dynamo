@@ -26,26 +26,15 @@ import (
 
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
-	ds3 "github.com/fogfish/dynamo/internal/s3"
-	"github.com/fogfish/dynamo/keyval"
+	s3api "github.com/fogfish/dynamo/service/s3"
 )
 
 //
 //
-type MockS3 interface {
-	Mock(ds3.S3)
-}
-
-func mock[T dynamo.Thing](mock ds3.S3) dynamo.KeyValNoContext[T] {
-	client := keyval.Must(keyval.New[T](dynamo.WithURI("s3:///test")))
-	switch v := client.(type) {
-	case MockS3:
-		v.Mock(mock)
-	default:
-		panic("Invalid config")
-	}
-
-	return keyval.NewKeyValContextDefault(client)
+func mock[T dynamo.Thing](mock dynamo.S3) dynamo.KeyVal[T] {
+	return s3api.Must(
+		s3api.New[T](mock, "s3:///test", curie.Namespaces{}),
+	)
 }
 
 func encodeKey(key dynamo.Thing) string {
@@ -66,7 +55,7 @@ GetObject mock
 func GetObject[T dynamo.Thing](
 	expectKey *T,
 	returnVal *T,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&s3GetObject[T]{
 		expectKey: expectKey,
 		returnVal: returnVal,
@@ -74,7 +63,7 @@ func GetObject[T dynamo.Thing](
 }
 
 type s3GetObject[T dynamo.Thing] struct {
-	ds3.S3
+	dynamo.S3
 	expectKey *T
 	returnVal *T
 }
@@ -100,14 +89,14 @@ PutObject mock
 */
 func PutObject[T dynamo.Thing](
 	expectVal *T,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&s3PutObject[T]{
 		expectVal: expectVal,
 	})
 }
 
 type s3PutObject[T dynamo.Thing] struct {
-	ds3.S3
+	dynamo.S3
 	expectVal *T
 }
 
@@ -132,12 +121,12 @@ DeleteObject mock
 */
 func DeleteObject[T dynamo.Thing](
 	expectKey *T,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&s3DeleteObject[T]{expectKey: expectKey})
 }
 
 type s3DeleteObject[T dynamo.Thing] struct {
-	ds3.S3
+	dynamo.S3
 	expectKey *T
 }
 
@@ -157,7 +146,7 @@ func GetPutObject[T dynamo.Thing](
 	expectKey *T,
 	expectVal *T,
 	returnVal *T,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&s3GetPutObject[T]{
 		put: &s3PutObject[T]{expectVal: expectVal},
 		get: &s3GetObject[T]{expectKey: expectKey, returnVal: returnVal},
@@ -165,7 +154,7 @@ func GetPutObject[T dynamo.Thing](
 }
 
 type s3GetPutObject[T dynamo.Thing] struct {
-	ds3.S3
+	dynamo.S3
 	get *s3GetObject[T]
 	put *s3PutObject[T]
 }
@@ -187,7 +176,7 @@ func GetListObjects[T dynamo.Thing](
 	returnLen int,
 	returnVal *T,
 	returnLastKey *T,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&s3GetListObjects[T]{
 		expectKey:     expectKey,
 		returnLen:     returnLen,
@@ -197,7 +186,7 @@ func GetListObjects[T dynamo.Thing](
 }
 
 type s3GetListObjects[T dynamo.Thing] struct {
-	ds3.S3
+	dynamo.S3
 	expectKey     *T
 	returnLen     int
 	returnVal     *T

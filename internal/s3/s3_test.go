@@ -9,6 +9,7 @@
 package s3_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/fogfish/curie"
@@ -82,7 +83,7 @@ func TestSeqS3Update(t *testing.T) {
 	valL := seqLong()
 	api := s3test.GetPutObject(&seqType{ID: "seq"}, &valS, &valL)
 
-	val, err := api.Update(valS)
+	val, err := api.Update(context.TODO(), valS)
 
 	it.Ok(t).
 		If(err).Should().Equal(nil).

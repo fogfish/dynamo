@@ -27,6 +27,13 @@ type Codec[T dynamo.Thing] struct {
 	undefined T
 }
 
+func NewCodec[T dynamo.Thing](uri *dynamo.URL) *Codec[T] {
+	return &Codec[T]{
+		pkPrefix: uri.Query("prefix", "prefix"),
+		skSuffix: uri.Query("suffix", "suffix"),
+	}
+}
+
 // EncodeKey to dynamo representation
 func (codec Codec[T]) EncodeKey(key T) (map[string]types.AttributeValue, error) {
 	hashkey := key.HashKey()

@@ -31,12 +31,12 @@ func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }
 
 // slice active page, loaded into memory
 type slice[T dynamo.Thing] struct {
-	db   *ddb[T]
+	db   *Storage[T]
 	head int
 	heap []map[string]types.AttributeValue
 }
 
-func newSlice[T dynamo.Thing](db *ddb[T], heap []map[string]types.AttributeValue) *slice[T] {
+func newSlice[T dynamo.Thing](db *Storage[T], heap []map[string]types.AttributeValue) *slice[T] {
 	return &slice[T]{
 		db:   db,
 		head: 0,
@@ -46,7 +46,7 @@ func newSlice[T dynamo.Thing](db *ddb[T], heap []map[string]types.AttributeValue
 
 func (slice *slice[T]) Head() (T, error) {
 	if slice.head < len(slice.heap) {
-		head, err := slice.db.codec.Decode(slice.heap[slice.head])
+		head, err := slice.db.Codec.Decode(slice.heap[slice.head])
 		if err != nil {
 			return slice.db.undefined, errInvalidEntity(err)
 		}
@@ -65,7 +65,7 @@ func (slice *slice[T]) Tail() bool {
 // seq is an iterator over matched results
 type seq[T dynamo.Thing] struct {
 	ctx    context.Context
-	db     *ddb[T]
+	db     *Storage[T]
 	q      *dynamodb.QueryInput
 	slice  *slice[T]
 	stream bool
@@ -74,7 +74,7 @@ type seq[T dynamo.Thing] struct {
 
 func newSeq[T dynamo.Thing](
 	ctx context.Context,
-	ddb *ddb[T],
+	ddb *Storage[T],
 	q *dynamodb.QueryInput,
 	err error,
 ) *seq[T] {
@@ -101,7 +101,7 @@ func (seq *seq[T]) seed() error {
 		return errEndOfStream()
 	}
 
-	val, err := seq.db.dynamo.Query(seq.ctx, seq.q)
+	val, err := seq.db.Service.Query(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
 		return errServiceIO(err)
@@ -167,7 +167,7 @@ func (seq *seq[T]) Cursor() dynamo.Thing {
 		var hkey, skey string
 
 		val := seq.q.ExclusiveStartKey
-		prefix, isPrefix := val[seq.db.codec.pkPrefix]
+		prefix, isPrefix := val[seq.db.Codec.pkPrefix]
 		if isPrefix {
 			switch v := prefix.(type) {
 			case *types.AttributeValueMemberS:
@@ -175,7 +175,7 @@ func (seq *seq[T]) Cursor() dynamo.Thing {
 			}
 		}
 
-		suffix, isSuffix := val[seq.db.codec.skSuffix]
+		suffix, isSuffix := val[seq.db.Codec.skSuffix]
 		if isSuffix {
 			switch v := suffix.(type) {
 			case *types.AttributeValueMemberS:
@@ -209,11 +209,11 @@ func (seq *seq[T]) Continue(key dynamo.Thing) dynamo.Seq[T] {
 	if prefix != "" {
 		key := map[string]types.AttributeValue{}
 
-		key[seq.db.codec.pkPrefix] = &types.AttributeValueMemberS{Value: string(prefix)}
+		key[seq.db.Codec.pkPrefix] = &types.AttributeValueMemberS{Value: string(prefix)}
 		if suffix != "" {
-			key[seq.db.codec.skSuffix] = &types.AttributeValueMemberS{Value: string(suffix)}
+			key[seq.db.Codec.skSuffix] = &types.AttributeValueMemberS{Value: string(suffix)}
 		} else {
-			key[seq.db.codec.skSuffix] = &types.AttributeValueMemberS{Value: "_"}
+			key[seq.db.Codec.skSuffix] = &types.AttributeValueMemberS{Value: "_"}
 		}
 		seq.q.ExclusiveStartKey = key
 	}

@@ -16,7 +16,7 @@ import (
 
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo"
-	"github.com/fogfish/dynamo/keyval"
+	"github.com/fogfish/dynamo/service/ddb"
 )
 
 //
@@ -38,15 +38,12 @@ type KeyVal dynamo.KeyVal[*Person]
 //
 //
 func main() {
-	db := keyval.Must(
-		keyval.New[*Person](
-			dynamo.WithURI(os.Args[1]),
-			dynamo.WithPrefixes(
-				curie.Namespaces{
-					"test":   "t/kv",
-					"person": "person/",
-				},
-			),
+	db := ddb.Must(
+		ddb.New[*Person](nil, os.Args[1],
+			curie.Namespaces{
+				"test":   "t/kv",
+				"person": "person/",
+			},
 		),
 	)
 

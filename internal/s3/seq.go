@@ -32,7 +32,7 @@ func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }
 // seq is an iterator over matched results
 type seq[T dynamo.Thing] struct {
 	ctx    context.Context
-	db     *ds3[T]
+	db     *Storage[T]
 	q      *s3.ListObjectsV2Input
 	at     int
 	items  []*string
@@ -42,7 +42,7 @@ type seq[T dynamo.Thing] struct {
 
 func newSeq[T dynamo.Thing](
 	ctx context.Context,
-	db *ds3[T],
+	db *Storage[T],
 	q *s3.ListObjectsV2Input,
 	err error,
 ) *seq[T] {
@@ -70,7 +70,7 @@ func (seq *seq[T]) seed() error {
 		return errEndOfStream()
 	}
 
-	val, err := seq.db.s3.ListObjectsV2(seq.ctx, seq.q)
+	val, err := seq.db.Service.ListObjectsV2(seq.ctx, seq.q)
 	if err != nil {
 		seq.err = err
 		return errServiceIO(err)
@@ -123,10 +123,10 @@ func (seq *seq[T]) Head() (T, error) {
 	}
 
 	req := &s3.GetObjectInput{
-		Bucket: seq.db.bucket,
+		Bucket: seq.db.Bucket,
 		Key:    seq.items[seq.at],
 	}
-	val, err := seq.db.s3.GetObject(seq.ctx, req)
+	val, err := seq.db.Service.GetObject(seq.ctx, req)
 	if err != nil {
 		return seq.db.undefined, errServiceIO(err)
 	}

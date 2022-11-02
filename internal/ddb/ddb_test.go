@@ -9,6 +9,7 @@
 package ddb_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -67,8 +68,8 @@ func TestDdbPutWithConstrain(t *testing.T) {
 	name := dynamo.Schema1[person, string]("Name")
 	ddb := ddbtest.Constrains[person](nil)
 
-	success := ddb.Put(entityStruct(), name.Eq("xxx"))
-	failure := ddb.Put(entityStruct(), name.Eq("yyy"))
+	success := ddb.Put(context.TODO(), entityStruct(), name.Eq("xxx"))
+	failure := ddb.Put(context.TODO(), entityStruct(), name.Eq("yyy"))
 	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
 	it.Ok(t).
@@ -80,8 +81,8 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 	name := dynamo.Schema1[person, string]("Name")
 	ddb := ddbtest.Constrains[person](nil)
 
-	success := ddb.Remove(entityStruct(), name.Eq("xxx"))
-	failure := ddb.Remove(entityStruct(), name.Eq("yyy"))
+	success := ddb.Remove(context.TODO(), entityStruct(), name.Eq("xxx"))
+	failure := ddb.Remove(context.TODO(), entityStruct(), name.Eq("yyy"))
 	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
 	it.Ok(t).
@@ -98,8 +99,8 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 		Age:    65,
 	}
 
-	_, success := ddb.Update(patch, name.Eq("xxx"))
-	_, failure := ddb.Update(patch, name.Eq("yyy"))
+	_, success := ddb.Update(context.TODO(), patch, name.Eq("xxx"))
+	_, failure := ddb.Update(context.TODO(), patch, name.Eq("yyy"))
 	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
 	it.Ok(t).

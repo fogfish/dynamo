@@ -24,42 +24,13 @@ import (
 	"github.com/fogfish/dynamo"
 )
 
-/*
-
-S3 declares AWS API used by the library
-*/
-type S3 interface {
-	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
-	PutObject(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
-	DeleteObject(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
-	ListObjectsV2(context.Context, *s3.ListObjectsV2Input, ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
-}
-
 // ds3 is a S3 client
-type ds3[T dynamo.Thing] struct {
-	s3        S3
-	bucket    *string
-	codec     *Codec[T]
-	schema    *Schema[T]
+type Storage[T dynamo.Thing] struct {
+	Service   dynamo.S3
+	Bucket    *string
+	Codec     *Codec[T]
+	Schema    *Schema[T]
 	undefined T
-}
-
-func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
-	db := &ds3[T]{
-		s3: s3.NewFromConfig(cfg.AWS),
-	}
-
-	seq := cfg.URI.Segments()
-	db.bucket = &seq[0]
-	db.schema = NewSchema[T]()
-
-	db.codec = NewCodec[T](cfg.Prefixes)
-	return db
-}
-
-// Mock S3 I/O channel
-func (db *ds3[T]) Mock(s3 S3) {
-	db.s3 = s3
 }
 
 //-----------------------------------------------------------------------------
@@ -69,13 +40,13 @@ func (db *ds3[T]) Mock(s3 S3) {
 //-----------------------------------------------------------------------------
 
 // Get item from storage
-func (db *ds3[T]) Get(ctx context.Context, key T) (T, error) {
+func (db *Storage[T]) Get(ctx context.Context, key T) (T, error) {
 	req := &s3.GetObjectInput{
-		Bucket: db.bucket,
-		Key:    aws.String(db.codec.EncodeKey(key)),
+		Bucket: db.Bucket,
+		Key:    aws.String(db.Codec.EncodeKey(key)),
 	}
 
-	val, err := db.s3.GetObject(ctx, req)
+	val, err := db.Service.GetObject(ctx, req)
 	if err != nil {
 		switch {
 		case recoverNoSuchKey(err):
@@ -95,19 +66,19 @@ func (db *ds3[T]) Get(ctx context.Context, key T) (T, error) {
 }
 
 // Put writes entity
-func (db *ds3[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint[T]) error {
+func (db *Storage[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint[T]) error {
 	gen, err := json.Marshal(entity)
 	if err != nil {
 		return errInvalidEntity(err)
 	}
 
 	req := &s3.PutObjectInput{
-		Bucket: db.bucket,
-		Key:    aws.String(db.codec.EncodeKey(entity)),
+		Bucket: db.Bucket,
+		Key:    aws.String(db.Codec.EncodeKey(entity)),
 		Body:   bytes.NewReader(gen),
 	}
 
-	_, err = db.s3.PutObject(ctx, req)
+	_, err = db.Service.PutObject(ctx, req)
 	if err != nil {
 		return errServiceIO(err)
 	}
@@ -116,13 +87,13 @@ func (db *ds3[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint
 }
 
 // Remove discards the entity from the table
-func (db *ds3[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint[T]) error {
+func (db *Storage[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint[T]) error {
 	req := &s3.DeleteObjectInput{
-		Bucket: db.bucket,
-		Key:    aws.String(db.codec.EncodeKey(key)),
+		Bucket: db.Bucket,
+		Key:    aws.String(db.Codec.EncodeKey(key)),
 	}
 
-	_, err := db.s3.DeleteObject(ctx, req)
+	_, err := db.Service.DeleteObject(ctx, req)
 	if err != nil {
 		return errServiceIO(err)
 	}
@@ -131,13 +102,13 @@ func (db *ds3[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (T, error) {
+func (db *Storage[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (T, error) {
 	req := &s3.GetObjectInput{
-		Bucket: db.bucket,
-		Key:    aws.String(db.codec.EncodeKey(entity)),
+		Bucket: db.Bucket,
+		Key:    aws.String(db.Codec.EncodeKey(entity)),
 	}
 
-	val, err := db.s3.GetObject(ctx, req)
+	val, err := db.Service.GetObject(ctx, req)
 	if err != nil {
 		var nsk *types.NoSuchKey
 		if errors.As(err, &nsk) {
@@ -157,7 +128,7 @@ func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 		return db.undefined, errInvalidEntity(err)
 	}
 
-	updated := db.schema.Merge(entity, existing)
+	updated := db.Schema.Merge(entity, existing)
 
 	err = db.Put(ctx, updated)
 	if err != nil {
@@ -168,11 +139,11 @@ func (db *ds3[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 }
 
 // Match applies a pattern matching to elements in the bucket
-func (db *ds3[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
+func (db *Storage[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
 	req := &s3.ListObjectsV2Input{
-		Bucket:  db.bucket,
+		Bucket:  db.Bucket,
 		MaxKeys: 1000,
-		Prefix:  aws.String(db.codec.EncodeKey(key)),
+		Prefix:  aws.String(db.Codec.EncodeKey(key)),
 	}
 
 	return newSeq(ctx, db, req, nil)
