@@ -17,8 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
-	"github.com/fogfish/dynamo/internal/ddb"
+	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v2/internal/ddb"
 )
 
 func Must[T dynamo.Thing](keyval dynamo.KeyVal[T], err error) dynamo.KeyVal[T] {

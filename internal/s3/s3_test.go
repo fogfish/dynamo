@@ -13,8 +13,8 @@ import (
 	"testing"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/internal/dynamotest"
-	"github.com/fogfish/dynamo/internal/s3/s3test"
+	"github.com/fogfish/dynamo/v2/internal/dynamotest"
+	"github.com/fogfish/dynamo/v2/internal/s3/s3test"
 	"github.com/fogfish/it"
 )
 

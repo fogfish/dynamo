@@ -5,7 +5,7 @@ import (
 	"math/rand"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/v2"
 )
 
 /*

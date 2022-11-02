@@ -99,16 +99,14 @@ The following code snippet shows a typical I/O patterns
 
 ```go
 import (
-  keyval "github.com/fogfish/dynamo/service/ddb"
+  "github.com/fogfish/dynamo/v2/service/ddb"
 )
 
 //
 // Create dynamodb client and bind it with the table.
 // The client is type-safe and support I/O with a single type (e.g. Person).
 // Use URI notation to specify the diver (ddb://) and the table (/my-table).
-db := keyval.Must(
-  keyval.New[Person]("ddb:///my-table", nil, nil),
-)
+db := ddb.Must(ddb.New[Person]("ddb:///my-table", nil, nil))
 
 //
 // Write the struct with Put
@@ -318,7 +316,7 @@ type Person struct {
 /*** aws/ddb/ddb.go ***/
 
 import (
-  dynamo "github.com/fogfish/dynamo/service/ddb"
+  "github.com/fogfish/dynamo/service/ddb"
 )
 
 // 3. declare codecs for complex core domain type 
@@ -332,12 +330,12 @@ func (*id) UnmarshalDynamoDBAttributeValue(types.AttributeValue) error {/* ...*/
 type dbPerson Person
 
 // 3. custom codec for structure field is defined 
-var codecHashKey, codecSortKey = dynamo.Codec2[dbPerson, id, id]("Org", "ID")
+var codecHashKey, codecSortKey = ddb.Codec2[dbPerson, id, id]("Org", "ID")
 
 // 4. use custom codec
 func (p dbPerson) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
   type tStruct dbPerson
-  return dynamo.Encode(av, tStruct(p),
+  return ddb.Encode(av, tStruct(p),
     codecHashKey.Encode(id(p.Org)),
     codecSortKey.Encode(id(p.ID))),
   )
@@ -345,7 +343,7 @@ func (p dbPerson) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) 
 
 func (x *dbPerson) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
   type tStruct *dbPerson
-  return dynamo.Decode(av, tStruct(x),
+  return ddb.Decode(av, tStruct(x),
     codecHashKey.Decode((*id)(&x.Org)),
     codecSortKey.Decode((*id)(&x.ID))),
   )
@@ -433,8 +431,8 @@ The library advances its simple I/O interface to AWS S3 bucket, allowing to pers
 
 ```go
 import (
-  "github.com/fogfish/dynamo/service/ddb"
-  "github.com/fogfish/dynamo/service/s3"
+  "github.com/fogfish/dynamo/v2/service/ddb"
+  "github.com/fogfish/dynamo/v2/service/s3"
 )
 
 

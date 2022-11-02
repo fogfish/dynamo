@@ -15,8 +15,8 @@ import (
 	"os"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
-	"github.com/fogfish/dynamo/service/ddb"
+	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v2/service/ddb"
 )
 
 //

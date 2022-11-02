@@ -25,8 +25,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
-	s3api "github.com/fogfish/dynamo/service/s3"
+	"github.com/fogfish/dynamo/v2"
+	s3api "github.com/fogfish/dynamo/v2/service/s3"
 )
 
 //

@@ -10,7 +10,7 @@ package s3
 
 import (
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/v2"
 )
 
 /*

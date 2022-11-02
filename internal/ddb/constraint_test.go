@@ -14,7 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/v2"
 	"github.com/fogfish/it"
 )
 
