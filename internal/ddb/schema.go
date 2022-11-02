@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/v2"
 	"github.com/fogfish/golem/pure/hseq"
 )
 

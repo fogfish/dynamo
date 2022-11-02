@@ -14,7 +14,11 @@ package dynamo
 
 import (
 	"context"
+	"net/url"
+	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/fogfish/curie"
 )
 
@@ -116,14 +120,6 @@ type KeyValGetter[T Thing] interface {
 	Get(context.Context, T) (T, error)
 }
 
-/*
-
-KeyValGetterNoContext defines read by key notation
-*/
-type KeyValGetterNoContext[T Thing] interface {
-	Get(T) (T, error)
-}
-
 //-----------------------------------------------------------------------------
 //
 // Storage Pattern Matcher
@@ -136,14 +132,6 @@ KeyValPattern defines simple pattern matching lookup I/O
 */
 type KeyValPattern[T Thing] interface {
 	Match(context.Context, T) Seq[T]
-}
-
-/*
-
-KeyValPatternNoContext defines simple pattern matching lookup I/O
-*/
-type KeyValPatternNoContext[T Thing] interface {
-	Match(T) Seq[T]
 }
 
 //-----------------------------------------------------------------------------
@@ -159,15 +147,6 @@ KeyValReader a generic key-value trait to read domain objects
 type KeyValReader[T Thing] interface {
 	KeyValGetter[T]
 	KeyValPattern[T]
-}
-
-/*
-
-KeyValReaderNoContext a generic key-value trait to read domain objects
-*/
-type KeyValReaderNoContext[T Thing] interface {
-	KeyValGetterNoContext[T]
-	KeyValPatternNoContext[T]
 }
 
 //-----------------------------------------------------------------------------
@@ -186,16 +165,6 @@ type KeyValWriter[T Thing] interface {
 	Update(context.Context, T, ...Constraint[T]) (T, error)
 }
 
-/*
-
-KeyValWriterNoContext defines a generic key-value writer
-*/
-type KeyValWriterNoContext[T Thing] interface {
-	Put(T, ...Constraint[T]) error
-	Remove(T, ...Constraint[T]) error
-	Update(T, ...Constraint[T]) (T, error)
-}
-
 //-----------------------------------------------------------------------------
 //
 // Storage interface
@@ -211,11 +180,57 @@ type KeyVal[T Thing] interface {
 	KeyValWriter[T]
 }
 
+//-----------------------------------------------------------------------------
+//
+// External Services
+//
+//-----------------------------------------------------------------------------
+
 /*
 
-KeyValNoContext is a generic key-value trait to access domain objects.
+DynamoDB declares interface of original AWS DynamoDB API used by the library
 */
-type KeyValNoContext[T Thing] interface {
-	KeyValReaderNoContext[T]
-	KeyValWriterNoContext[T]
+type DynamoDB interface {
+	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+	PutItem(context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
+	DeleteItem(context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
+	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
+}
+
+/*
+
+S3 declares AWS API used by the library
+*/
+type S3 interface {
+	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	PutObject(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+	DeleteObject(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
+	ListObjectsV2(context.Context, *s3.ListObjectsV2Input, ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
+}
+
+/*
+
+URL custom type with helper functions
+*/
+type URL url.URL
+
+func (uri *URL) String() string {
+	return (*url.URL)(uri).String()
+}
+
+// query parameters
+func (uri *URL) Query(key, def string) string {
+	val := (*url.URL)(uri).Query().Get(key)
+
+	if val == "" {
+		return def
+	}
+
+	return val
+}
+
+// path segments of length
+func (uri *URL) Segments() []string {
+	return strings.Split((*url.URL)(uri).Path, "/")[1:]
 }

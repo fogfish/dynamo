@@ -6,7 +6,7 @@
 // https://github.com/fogfish/dynamo
 //
 
-package dynamo_test
+package ddb_test
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
+	dynamo "github.com/fogfish/dynamo/v2/service/ddb"
 	"github.com/fogfish/it"
 )
 

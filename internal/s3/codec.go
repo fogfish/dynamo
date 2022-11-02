@@ -10,7 +10,7 @@ package s3
 
 import (
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/v2"
 )
 
 /*
@@ -22,6 +22,10 @@ type Codec[T dynamo.Thing] struct {
 }
 
 func NewCodec[T dynamo.Thing](prefixes curie.Prefixes) *Codec[T] {
+	if prefixes == nil {
+		return &Codec[T]{prefixes: curie.Namespaces{}}
+	}
+
 	return &Codec[T]{prefixes: prefixes}
 }
 

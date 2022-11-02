@@ -14,7 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/v2"
 )
 
 /*
@@ -25,6 +25,13 @@ type Codec[T dynamo.Thing] struct {
 	pkPrefix  string
 	skSuffix  string
 	undefined T
+}
+
+func NewCodec[T dynamo.Thing](uri *dynamo.URL) *Codec[T] {
+	return &Codec[T]{
+		pkPrefix: uri.Query("prefix", "prefix"),
+		skSuffix: uri.Query("suffix", "suffix"),
+	}
 }
 
 // EncodeKey to dynamo representation

@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/v2"
 )
 
 //

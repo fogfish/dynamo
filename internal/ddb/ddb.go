@@ -19,63 +19,20 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/v2"
 )
-
-/*
-
-DynamoDB declares API used by the library
-*/
-type DynamoDB interface {
-	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
-	PutItem(context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
-	DeleteItem(context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
-	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
-	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
-}
 
 /*
 
 ddb internal handler for dynamo I/O
 */
-type ddb[T dynamo.Thing] struct {
-	dynamo    DynamoDB
-	codec     Codec[T]
-	table     *string
-	index     *string
-	schema    *Schema[T]
+type Storage[T dynamo.Thing] struct {
+	Service   dynamo.DynamoDB
+	Table     *string
+	Index     *string
+	Codec     *Codec[T]
+	Schema    *Schema[T]
 	undefined T
-}
-
-func New[T dynamo.Thing](cfg *dynamo.Config) dynamo.KeyVal[T] {
-	db := &ddb[T]{
-		dynamo: dynamodb.NewFromConfig(cfg.AWS),
-	}
-
-	// config table name and index name
-	seq := cfg.URI.Segments()
-	db.table = &seq[0]
-	if len(seq) > 1 {
-		db.index = &seq[1]
-	}
-	db.schema = NewSchema[T]()
-
-	// config mapping of Indentity to table attributes
-	db.codec = Codec[T]{
-		pkPrefix: cfg.URI.Query("prefix", "prefix"),
-		skSuffix: cfg.URI.Query("suffix", "suffix"),
-	}
-
-	return db
-}
-
-// Mock dynamoDB I/O channel
-func (db *ddb[T]) Mock(dynamo DynamoDB) {
-	db.dynamo = dynamo
-	db.codec = Codec[T]{
-		pkPrefix: "prefix",
-		skSuffix: "suffix",
-	}
 }
 
 //-----------------------------------------------------------------------------
@@ -85,20 +42,20 @@ func (db *ddb[T]) Mock(dynamo DynamoDB) {
 //-----------------------------------------------------------------------------
 
 // Get item from storage
-func (db *ddb[T]) Get(ctx context.Context, key T) (T, error) {
-	gen, err := db.codec.EncodeKey(key)
+func (db *Storage[T]) Get(ctx context.Context, key T) (T, error) {
+	gen, err := db.Codec.EncodeKey(key)
 	if err != nil {
 		return db.undefined, errInvalidKey(err)
 	}
 
 	req := &dynamodb.GetItemInput{
 		Key:                      gen,
-		TableName:                db.table,
-		ProjectionExpression:     db.schema.Projection,
-		ExpressionAttributeNames: db.schema.ExpectedAttributeNames,
+		TableName:                db.Table,
+		ProjectionExpression:     db.Schema.Projection,
+		ExpressionAttributeNames: db.Schema.ExpectedAttributeNames,
 	}
 
-	val, err := db.dynamo.GetItem(ctx, req)
+	val, err := db.Service.GetItem(ctx, req)
 	if err != nil {
 		return db.undefined, errServiceIO(err)
 	}
@@ -107,7 +64,7 @@ func (db *ddb[T]) Get(ctx context.Context, key T) (T, error) {
 		return db.undefined, errNotFound(nil, key)
 	}
 
-	obj, err := db.codec.Decode(val.Item)
+	obj, err := db.Codec.Decode(val.Item)
 	if err != nil {
 		return db.undefined, errInvalidEntity(err)
 	}
@@ -116,22 +73,22 @@ func (db *ddb[T]) Get(ctx context.Context, key T) (T, error) {
 }
 
 // Put writes entity
-func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint[T]) error {
-	gen, err := db.codec.Encode(entity)
+func (db *Storage[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint[T]) error {
+	gen, err := db.Codec.Encode(entity)
 	if err != nil {
 		return errInvalidEntity(err)
 	}
 
 	req := &dynamodb.PutItemInput{
 		Item:      gen,
-		TableName: db.table,
+		TableName: db.Table,
 	}
 
 	names, values := maybeConditionExpression(&req.ConditionExpression, config)
 	req.ExpressionAttributeValues = values
 	req.ExpressionAttributeNames = names
 
-	_, err = db.dynamo.PutItem(ctx, req)
+	_, err = db.Service.PutItem(ctx, req)
 	if err != nil {
 		if recoverConditionalCheckFailedException(err) {
 			return errPreConditionFailed(err, entity,
@@ -146,21 +103,21 @@ func (db *ddb[T]) Put(ctx context.Context, entity T, config ...dynamo.Constraint
 }
 
 // Remove discards the entity from the table
-func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint[T]) error {
-	gen, err := db.codec.EncodeKey(key)
+func (db *Storage[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint[T]) error {
+	gen, err := db.Codec.EncodeKey(key)
 	if err != nil {
 		return errInvalidKey(err)
 	}
 
 	req := &dynamodb.DeleteItemInput{
 		Key:       gen,
-		TableName: db.table,
+		TableName: db.Table,
 	}
 	names, values := maybeConditionExpression(&req.ConditionExpression, config)
 	req.ExpressionAttributeValues = values
 	req.ExpressionAttributeNames = names
 
-	_, err = db.dynamo.DeleteItem(ctx, req)
+	_, err = db.Service.DeleteItem(ctx, req)
 	if err != nil {
 		if recoverConditionalCheckFailedException(err) {
 			return errPreConditionFailed(err, key,
@@ -175,8 +132,8 @@ func (db *ddb[T]) Remove(ctx context.Context, key T, config ...dynamo.Constraint
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (T, error) {
-	gen, err := db.codec.Encode(entity)
+func (db *Storage[T]) Update(ctx context.Context, entity T, config ...dynamo.Constraint[T]) (T, error) {
+	gen, err := db.Codec.Encode(entity)
 	if err != nil {
 		return db.undefined, errInvalidEntity(err)
 	}
@@ -185,7 +142,7 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 	values := map[string]types.AttributeValue{}
 	update := make([]string, 0)
 	for k, v := range gen {
-		if k != db.codec.pkPrefix && k != db.codec.skSuffix && k != "id" {
+		if k != db.Codec.pkPrefix && k != db.Codec.skSuffix && k != "id" {
 			names["#__"+k+"__"] = k
 			values[":__"+k+"__"] = v
 			update = append(update, "#__"+k+"__="+":__"+k+"__")
@@ -194,11 +151,11 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 	expression := aws.String("SET " + strings.Join(update, ","))
 
 	req := &dynamodb.UpdateItemInput{
-		Key:                       db.codec.KeyOnly(gen),
+		Key:                       db.Codec.KeyOnly(gen),
 		ExpressionAttributeNames:  names,
 		ExpressionAttributeValues: values,
 		UpdateExpression:          expression,
-		TableName:                 db.table,
+		TableName:                 db.Table,
 		ReturnValues:              "ALL_NEW",
 	}
 
@@ -209,7 +166,7 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 		config,
 	)
 
-	val, err := db.dynamo.UpdateItem(ctx, req)
+	val, err := db.Service.UpdateItem(ctx, req)
 	if err != nil {
 		if recoverConditionalCheckFailedException(err) {
 			return db.undefined, errPreConditionFailed(err, entity,
@@ -220,7 +177,7 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 		return db.undefined, errServiceIO(err)
 	}
 
-	obj, err := db.codec.Decode(val.Attributes)
+	obj, err := db.Codec.Decode(val.Attributes)
 	if err != nil {
 		return db.undefined, errInvalidEntity(err)
 	}
@@ -229,33 +186,33 @@ func (db *ddb[T]) Update(ctx context.Context, entity T, config ...dynamo.Constra
 }
 
 // Match applies a pattern matching to elements in the table
-func (db *ddb[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
-	gen, err := db.codec.EncodeKey(key)
+func (db *Storage[T]) Match(ctx context.Context, key T) dynamo.Seq[T] {
+	gen, err := db.Codec.EncodeKey(key)
 	if err != nil {
 		return newSeq[T](ctx, nil, nil, errInvalidKey(err))
 	}
 
-	suffix, isSuffix := gen[db.codec.skSuffix]
+	suffix, isSuffix := gen[db.Codec.skSuffix]
 	switch v := suffix.(type) {
 	case *types.AttributeValueMemberS:
 		if v.Value == "_" {
-			delete(gen, db.codec.skSuffix)
+			delete(gen, db.Codec.skSuffix)
 			isSuffix = false
 		}
 	}
 
-	expr := db.codec.pkPrefix + " = :__" + db.codec.pkPrefix + "__"
+	expr := db.Codec.pkPrefix + " = :__" + db.Codec.pkPrefix + "__"
 	if isSuffix {
-		expr = expr + " and begins_with(" + db.codec.skSuffix + ", :__" + db.codec.skSuffix + "__)"
+		expr = expr + " and begins_with(" + db.Codec.skSuffix + ", :__" + db.Codec.skSuffix + "__)"
 	}
 
 	q := &dynamodb.QueryInput{
 		KeyConditionExpression:    aws.String(expr),
 		ExpressionAttributeValues: exprOf(gen),
-		ProjectionExpression:      db.schema.Projection,
-		ExpressionAttributeNames:  db.schema.ExpectedAttributeNames,
-		TableName:                 db.table,
-		IndexName:                 db.index,
+		ProjectionExpression:      db.Schema.Projection,
+		ExpressionAttributeNames:  db.Schema.ExpectedAttributeNames,
+		TableName:                 db.Table,
+		IndexName:                 db.Index,
 	}
 
 	return newSeq(ctx, db, q, err)

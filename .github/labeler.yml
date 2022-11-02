@@ -14,16 +14,17 @@
 
 "[#] api":
  - '*.go'
- - 'keyval/*'
  - 'internal/common/*'
  - 'internal/constrain/*'
  - 'internal/dynamotest/*'
 
 "[#] dynamodb":
+ - 'service/ddb/*'
  - 'internal/ddb/*'
  - 'internal/ddb/**/*'
 
 "[#] s3":
+ - 'service/s3/*'
  - 'internal/s3/*'
  - 'internal/s3/**/*'
 

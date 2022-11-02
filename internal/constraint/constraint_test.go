@@ -11,7 +11,7 @@ package constraint_test
 import (
 	"testing"
 
-	"github.com/fogfish/dynamo/internal/constraint"
+	"github.com/fogfish/dynamo/v2/internal/constraint"
 	"github.com/fogfish/it"
 )
 

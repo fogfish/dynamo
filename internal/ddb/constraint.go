@@ -16,8 +16,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/dynamo"
-	constrain "github.com/fogfish/dynamo/internal/constraint"
+	"github.com/fogfish/dynamo/v2"
+	constrain "github.com/fogfish/dynamo/v2/internal/constraint"
 )
 
 /*

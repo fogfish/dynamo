@@ -9,11 +9,12 @@
 package s3_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/internal/dynamotest"
-	"github.com/fogfish/dynamo/internal/s3/s3test"
+	"github.com/fogfish/dynamo/v2/internal/dynamotest"
+	"github.com/fogfish/dynamo/v2/internal/s3/s3test"
 	"github.com/fogfish/it"
 )
 
@@ -82,7 +83,7 @@ func TestSeqS3Update(t *testing.T) {
 	valL := seqLong()
 	api := s3test.GetPutObject(&seqType{ID: "seq"}, &valS, &valL)
 
-	val, err := api.Update(valS)
+	val, err := api.Update(context.TODO(), valS)
 
 	it.Ok(t).
 		If(err).Should().Equal(nil).

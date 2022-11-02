@@ -10,7 +10,7 @@
 // The file declares public types to implement custom codecs
 //
 
-package dynamo
+package ddb
 
 import (
 	"fmt"
@@ -18,6 +18,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/fogfish/dynamo/v2"
 	"github.com/fogfish/golem/pure/hseq"
 )
 
@@ -46,7 +47,7 @@ needs to be casted to MyDynamoType that knows how to marshal/unmarshal the type.
   }
 
 */
-type CodecOf[T Thing, A any] interface {
+type CodecOf[T dynamo.Thing, A any] interface {
 	Decode(*A) Coder
 	Encode(A) Coder
 }
@@ -55,7 +56,7 @@ type CodecOf[T Thing, A any] interface {
 
 Codec1 builds Codec for 1 attributes
 */
-func Codec1[T Thing, A any](a string) CodecOf[T, A] {
+func Codec1[T dynamo.Thing, A any](a string) CodecOf[T, A] {
 	return hseq.FMap1(
 		generic[T](a),
 		mkCodecOf[T, A],
@@ -66,7 +67,7 @@ func Codec1[T Thing, A any](a string) CodecOf[T, A] {
 
 Codec2 builds Codec for 2 attributes
 */
-func Codec2[T Thing, A, B any](a, b string) (
+func Codec2[T dynamo.Thing, A, B any](a, b string) (
 	CodecOf[T, A],
 	CodecOf[T, B],
 ) {
@@ -81,7 +82,7 @@ func Codec2[T Thing, A, B any](a, b string) (
 
 Codec4 builds Codec for 4 attributes
 */
-func Codec3[T Thing, A, B, C any](a, b, c string) (
+func Codec3[T dynamo.Thing, A, B, C any](a, b, c string) (
 	CodecOf[T, A],
 	CodecOf[T, B],
 	CodecOf[T, C],
@@ -98,7 +99,7 @@ func Codec3[T Thing, A, B, C any](a, b, c string) (
 
 Codec4 builds Codec for 4 attributes
 */
-func Codec4[T Thing, A, B, C, D any](a, b, c, d string) (
+func Codec4[T dynamo.Thing, A, B, C, D any](a, b, c, d string) (
 	CodecOf[T, A],
 	CodecOf[T, B],
 	CodecOf[T, C],
@@ -117,7 +118,7 @@ func Codec4[T Thing, A, B, C, D any](a, b, c, d string) (
 
 Codec5 builds Codec for 5 attributes
 */
-func Codec5[T Thing, A, B, C, D, E any](a, b, c, d, e string) (
+func Codec5[T dynamo.Thing, A, B, C, D, E any](a, b, c, d, e string) (
 	CodecOf[T, A],
 	CodecOf[T, B],
 	CodecOf[T, C],
@@ -138,7 +139,7 @@ func Codec5[T Thing, A, B, C, D, E any](a, b, c, d, e string) (
 
 Codec6 builds Codec for 6 attributes
 */
-func Codec6[T Thing, A, B, C, D, E, F any](a, b, c, d, e, f string) (
+func Codec6[T dynamo.Thing, A, B, C, D, E, F any](a, b, c, d, e, f string) (
 	CodecOf[T, A],
 	CodecOf[T, B],
 	CodecOf[T, C],
@@ -161,7 +162,7 @@ func Codec6[T Thing, A, B, C, D, E, F any](a, b, c, d, e, f string) (
 
 Codec7 builds Codec for 7 attributes
 */
-func Codec7[T Thing, A, B, C, D, E, F, G any](a, b, c, d, e, f, g string) (
+func Codec7[T dynamo.Thing, A, B, C, D, E, F, G any](a, b, c, d, e, f, g string) (
 	CodecOf[T, A],
 	CodecOf[T, B],
 	CodecOf[T, C],
@@ -186,7 +187,7 @@ func Codec7[T Thing, A, B, C, D, E, F, G any](a, b, c, d, e, f, g string) (
 
 Codec8 builds Codec for 8 attributes
 */
-func Codec8[T Thing, A, B, C, D, E, F, G, H any](a, b, c, d, e, f, g, h string) (
+func Codec8[T dynamo.Thing, A, B, C, D, E, F, G, H any](a, b, c, d, e, f, g, h string) (
 	CodecOf[T, A],
 	CodecOf[T, B],
 	CodecOf[T, C],
@@ -213,7 +214,7 @@ func Codec8[T Thing, A, B, C, D, E, F, G, H any](a, b, c, d, e, f, g, h string) 
 
 Codec9 builds Codec for 9 attributes
 */
-func Codec9[T Thing, A, B, C, D, E, F, G, H, I any](a, b, c, d, e, f, g, h, i string) (
+func Codec9[T dynamo.Thing, A, B, C, D, E, F, G, H, I any](a, b, c, d, e, f, g, h, i string) (
 	CodecOf[T, A],
 	CodecOf[T, B],
 	CodecOf[T, C],
@@ -242,7 +243,7 @@ func Codec9[T Thing, A, B, C, D, E, F, G, H, I any](a, b, c, d, e, f, g, h, i st
 
 Codec10 builds Codec for 10 attributes
 */
-func Codec10[T Thing, A, B, C, D, E, F, G, H, I, J any](a, b, c, d, e, f, g, h, i, j string) (
+func Codec10[T dynamo.Thing, A, B, C, D, E, F, G, H, I, J any](a, b, c, d, e, f, g, h, i, j string) (
 	CodecOf[T, A],
 	CodecOf[T, B],
 	CodecOf[T, C],
@@ -269,8 +270,21 @@ func Codec10[T Thing, A, B, C, D, E, F, G, H, I, J any](a, b, c, d, e, f, g, h, 
 	)
 }
 
+// generic[T] filters hseq.Generic[T] list with defined fields
+func generic[T any](fs ...string) hseq.Seq[T] {
+	seq := make(hseq.Seq[T], 0)
+	for _, t := range hseq.Generic[T]() {
+		for _, f := range fs {
+			if t.Name == f {
+				seq = append(seq, t)
+			}
+		}
+	}
+	return seq
+}
+
 // Builds CodecOf
-func mkCodecOf[T Thing, A any](t hseq.Type[T]) CodecOf[T, A] {
+func mkCodecOf[T dynamo.Thing, A any](t hseq.Type[T]) CodecOf[T, A] {
 	tag := t.Tag.Get("dynamodbav")
 	if tag == "" {
 		return codec[T, A]("")
@@ -280,7 +294,7 @@ func mkCodecOf[T Thing, A any](t hseq.Type[T]) CodecOf[T, A] {
 }
 
 // internal implementation of codec
-type codec[T Thing, A any] string
+type codec[T dynamo.Thing, A any] string
 
 /*
 

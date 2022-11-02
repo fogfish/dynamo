@@ -14,11 +14,12 @@
 package dynamotest
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo"
+	"github.com/fogfish/dynamo/v2"
 	"github.com/fogfish/it"
 )
 
@@ -96,7 +97,7 @@ type Encoder[A any] func(Person) (A, error)
 func TestGet[S any](
 	t *testing.T,
 	encoder Encoder[S],
-	factory func(*S, *S) dynamo.KeyValNoContext[Person],
+	factory func(*S, *S) dynamo.KeyVal[Person],
 ) {
 	t.Helper()
 
@@ -110,7 +111,7 @@ func TestGet[S any](
 	t.Run("GetSuccess", func(t *testing.T) {
 		ddb := factory(&expectKey, &expectVal)
 
-		val, err := ddb.Get(fixtureKey())
+		val, err := ddb.Get(context.TODO(), fixtureKey())
 		it.Ok(t).
 			If(err).Should().Equal(nil).
 			If(val).Should().Equal(fixtureVal())
@@ -120,7 +121,7 @@ func TestGet[S any](
 	t.Run("GetNotFound", func(t *testing.T) {
 		ddb := factory(&expectKey, nil)
 
-		val, err := ddb.Get(fixtureKey())
+		val, err := ddb.Get(context.TODO(), fixtureKey())
 		_, isnfe := err.(interface{ NotFound() string })
 
 		it.Ok(t).
@@ -133,7 +134,7 @@ func TestGet[S any](
 	t.Run("GetFailure", func(t *testing.T) {
 		ddb := factory(new(S), nil)
 
-		val, err := ddb.Get(fixtureKey())
+		val, err := ddb.Get(context.TODO(), fixtureKey())
 		it.Ok(t).
 			If(val).Should().Equal(Person{}).
 			If(err).ShouldNot().Equal(nil)
@@ -145,7 +146,7 @@ func TestGet[S any](
 func TestPut[S any](
 	t *testing.T,
 	encoder Encoder[S],
-	factory func(*S) dynamo.KeyValNoContext[Person],
+	factory func(*S) dynamo.KeyVal[Person],
 ) {
 	t.Helper()
 
@@ -156,7 +157,7 @@ func TestPut[S any](
 	t.Run("PutSuccess", func(t *testing.T) {
 		ddb := factory(&expectVal)
 
-		err := ddb.Put(fixtureVal())
+		err := ddb.Put(context.TODO(), fixtureVal())
 		it.Ok(t).
 			If(err).Should().Equal(nil)
 	})
@@ -186,7 +187,7 @@ func TestPut[S any](
 func TestRemove[S any](
 	t *testing.T,
 	encoder Encoder[S],
-	factory func(*S) dynamo.KeyValNoContext[Person],
+	factory func(*S) dynamo.KeyVal[Person],
 ) {
 	t.Helper()
 
@@ -197,7 +198,7 @@ func TestRemove[S any](
 	t.Run("RemoveSuccess", func(t *testing.T) {
 		ddb := factory(&expectKey)
 
-		err := ddb.Remove(fixtureVal())
+		err := ddb.Remove(context.TODO(), fixtureVal())
 		it.Ok(t).
 			If(err).Should().Equal(nil)
 	})
@@ -208,7 +209,7 @@ func TestRemove[S any](
 func TestUpdate[S any](
 	t *testing.T,
 	encoder Encoder[S],
-	factory func(*S, *S, *S) dynamo.KeyValNoContext[Person],
+	factory func(*S, *S, *S) dynamo.KeyVal[Person],
 ) {
 	t.Helper()
 
@@ -225,7 +226,7 @@ func TestUpdate[S any](
 	t.Run("UpdateSuccess", func(t *testing.T) {
 		ddb := factory(&expectKey, &expectVal, &returnVal)
 
-		val, err := ddb.Update(fixturePatch())
+		val, err := ddb.Update(context.TODO(), fixturePatch())
 		it.Ok(t).
 			If(err).Should().Equal(nil).
 			If(val).Should().Equal(fixtureVal())
@@ -237,7 +238,7 @@ func TestUpdate[S any](
 func TestMatch[S any](
 	t *testing.T,
 	encoder Encoder[S],
-	factory func(*S, int, *S, *S) dynamo.KeyValNoContext[Person],
+	factory func(*S, int, *S, *S) dynamo.KeyVal[Person],
 ) {
 	t.Helper()
 
@@ -251,7 +252,7 @@ func TestMatch[S any](
 	t.Run("MatchNone", func(t *testing.T) {
 		ddb := factory(&expectKey, 0, &returnVal, nil)
 
-		seq := ddb.Match(fixtureKeyHashOnly())
+		seq := ddb.Match(context.TODO(), fixtureKeyHashOnly())
 
 		it.Ok(t).
 			IfFalse(seq.Tail()).
@@ -262,7 +263,7 @@ func TestMatch[S any](
 	t.Run("MatchOne", func(t *testing.T) {
 		ddb := factory(&expectKey, 1, &returnVal, nil)
 
-		seq := ddb.Match(fixtureKeyHashOnly())
+		seq := ddb.Match(context.TODO(), fixtureKeyHashOnly())
 		val, err := seq.Head()
 
 		it.Ok(t).
@@ -277,7 +278,7 @@ func TestMatch[S any](
 		ddb := factory(&expectKey, 5, &returnVal, nil)
 
 		cnt := 0
-		seq := ddb.Match(fixtureKeyHashOnly())
+		seq := ddb.Match(context.TODO(), fixtureKeyHashOnly())
 
 		for seq.Tail() {
 			cnt++
@@ -298,7 +299,7 @@ func TestMatch[S any](
 		ddb := factory(&expectKey, 0, &returnVal, nil)
 
 		var seq Persons
-		err := ddb.Match(fixtureKeyHashOnly()).FMap(seq.Join)
+		err := ddb.Match(context.TODO(), fixtureKeyHashOnly()).FMap(seq.Join)
 
 		it.Ok(t).
 			If(err).Should().Equal(nil).
@@ -310,7 +311,7 @@ func TestMatch[S any](
 		ddb := factory(&expectKey, 2, &returnVal, nil)
 
 		var seq Persons
-		err := ddb.Match(fixtureKeyHashOnly()).FMap(seq.Join)
+		err := ddb.Match(context.TODO(), fixtureKeyHashOnly()).FMap(seq.Join)
 
 		it.Ok(t).
 			If(err).Should().Equal(nil).
@@ -325,7 +326,7 @@ func TestMatch[S any](
 		ddb := factory(&expectKeyFull, 2, &returnVal, nil)
 
 		var seq Persons
-		err = ddb.Match(fixtureKey()).FMap(seq.Join)
+		err = ddb.Match(context.TODO(), fixtureKey()).FMap(seq.Join)
 
 		it.Ok(t).
 			If(err).Should().Equal(nil).
@@ -337,7 +338,7 @@ func TestMatch[S any](
 		ddb := factory(&expectKey, 2, &returnVal, nil)
 
 		var seq dynamo.Things[Person]
-		err := ddb.Match(fixtureKeyHashOnly()).FMap(seq.Join)
+		err := ddb.Match(context.TODO(), fixtureKeyHashOnly()).FMap(seq.Join)
 
 		it.Ok(t).
 			If(err).Should().Equal(nil).
@@ -351,12 +352,12 @@ func TestMatch[S any](
 
 		ddb := factory(&expectKey, 2, &returnVal, &expectKeyFull)
 
-		dbseq := ddb.Match(fixtureKeyHashOnly())
+		dbseq := ddb.Match(context.TODO(), fixtureKeyHashOnly())
 		dbseq.Tail()
 		cursor0 := dbseq.Cursor()
 		keys0 := filepath.Join(string(cursor0.HashKey()), string(cursor0.SortKey()))
 
-		dbseq = ddb.Match(fixtureKey()).Continue(cursor0)
+		dbseq = ddb.Match(context.TODO(), fixtureKey()).Continue(cursor0)
 		dbseq.Tail()
 		cursor1 := dbseq.Cursor()
 		keys1 := filepath.Join(string(cursor1.HashKey()), string(cursor1.SortKey()))

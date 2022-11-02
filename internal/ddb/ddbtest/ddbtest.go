@@ -20,29 +20,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	"github.com/fogfish/dynamo"
-	"github.com/fogfish/dynamo/internal/ddb"
-	"github.com/fogfish/dynamo/keyval"
+	"github.com/fogfish/curie"
+	"github.com/fogfish/dynamo/v2"
+	ddbapi "github.com/fogfish/dynamo/v2/service/ddb"
 )
 
 /*
 
 mock factory
 */
-type MockDynamoDB interface {
-	Mock(db ddb.DynamoDB)
-}
-
-func mock[T dynamo.Thing](mock ddb.DynamoDB) dynamo.KeyValNoContext[T] {
-	client := keyval.Must(keyval.New[T](dynamo.WithURI("ddb:///test")))
-	switch v := client.(type) {
-	case MockDynamoDB:
-		v.Mock(mock)
-	default:
-		panic("invalid config")
-	}
-
-	return keyval.NewKeyValContextDefault(client)
+func mock[T dynamo.Thing](mock dynamo.DynamoDB) dynamo.KeyVal[T] {
+	return ddbapi.Must(
+		ddbapi.New[T]("ddb:///test", mock, curie.Namespaces{}),
+	)
 }
 
 /*
@@ -52,12 +42,12 @@ GetItem mocks
 func GetItem[T dynamo.Thing](
 	expectKey *map[string]types.AttributeValue,
 	returnVal *map[string]types.AttributeValue,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&ddbGetItem{expectKey: expectKey, returnVal: returnVal})
 }
 
 type ddbGetItem struct {
-	ddb.DynamoDB
+	dynamo.DynamoDB
 	expectKey *map[string]types.AttributeValue
 	returnVal *map[string]types.AttributeValue
 }
@@ -80,14 +70,14 @@ PutItem mock
 */
 func PutItem[T dynamo.Thing](
 	expectVal *map[string]types.AttributeValue,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&ddbPutItem{
 		expectVal: expectVal,
 	})
 }
 
 type ddbPutItem struct {
-	ddb.DynamoDB
+	dynamo.DynamoDB
 	expectVal *map[string]types.AttributeValue
 }
 
@@ -104,12 +94,12 @@ DeleteItem mock
 */
 func DeleteItem[T dynamo.Thing](
 	expectKey *map[string]types.AttributeValue,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&ddbDeleteItem{expectKey: expectKey})
 }
 
 type ddbDeleteItem struct {
-	ddb.DynamoDB
+	dynamo.DynamoDB
 	expectKey *map[string]types.AttributeValue
 }
 
@@ -129,7 +119,7 @@ func UpdateItem[T dynamo.Thing](
 	expectKey *map[string]types.AttributeValue,
 	expectVal *map[string]types.AttributeValue,
 	returnVal *map[string]types.AttributeValue,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&ddbUpdateItem{
 		expectKey: expectKey,
 		expectVal: expectVal,
@@ -138,7 +128,7 @@ func UpdateItem[T dynamo.Thing](
 }
 
 type ddbUpdateItem struct {
-	ddb.DynamoDB
+	dynamo.DynamoDB
 	expectKey *map[string]types.AttributeValue
 	expectVal *map[string]types.AttributeValue
 	retrunVal *map[string]types.AttributeValue
@@ -169,7 +159,7 @@ func Query[T dynamo.Thing](
 	returnLen int,
 	returnVal *map[string]types.AttributeValue,
 	returnLastKey *map[string]types.AttributeValue,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&ddbQuery{
 		expectKey:     expectKey,
 		returnLen:     returnLen,
@@ -179,7 +169,7 @@ func Query[T dynamo.Thing](
 }
 
 type ddbQuery struct {
-	ddb.DynamoDB
+	dynamo.DynamoDB
 	expectKey     *map[string]types.AttributeValue
 	returnLen     int
 	returnVal     *map[string]types.AttributeValue
@@ -213,7 +203,7 @@ func (mock *ddbQuery) Query(ctx context.Context, input *dynamodb.QueryInput, opt
 
 func Constrains[T dynamo.Thing](
 	returnVal map[string]types.AttributeValue,
-) dynamo.KeyValNoContext[T] {
+) dynamo.KeyVal[T] {
 	return mock[T](&ddbConstrains{
 		returnVal: returnVal,
 	})
@@ -222,7 +212,7 @@ func Constrains[T dynamo.Thing](
 //
 //
 type ddbConstrains struct {
-	ddb.DynamoDB
+	dynamo.DynamoDB
 	returnVal map[string]types.AttributeValue
 }
 

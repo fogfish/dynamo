@@ -15,7 +15,7 @@ package dynamo
 import (
 	"strings"
 
-	"github.com/fogfish/dynamo/internal/constraint"
+	"github.com/fogfish/dynamo/v2/internal/constraint"
 	"github.com/fogfish/golem/pure/hseq"
 )
 
