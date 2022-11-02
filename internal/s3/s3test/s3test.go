@@ -33,7 +33,7 @@ import (
 //
 func mock[T dynamo.Thing](mock dynamo.S3) dynamo.KeyVal[T] {
 	return s3api.Must(
-		s3api.New[T](mock, "s3:///test", curie.Namespaces{}),
+		s3api.New[T]("s3:///test", mock, curie.Namespaces{}),
 	)
 }
 

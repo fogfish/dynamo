@@ -39,7 +39,7 @@ type KeyVal dynamo.KeyVal[*Person]
 //
 func main() {
 	db := ddb.Must(
-		ddb.New[*Person](nil, os.Args[1],
+		ddb.New[*Person](os.Args[1], nil,
 			curie.Namespaces{
 				"test":   "t/kv",
 				"person": "person/",

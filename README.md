@@ -20,9 +20,9 @@ Essentially, the library implement a following generic key-value trait to access
 ```go
 type KeyVal[T dynamo.Thing] interface {
   Put(T) error
-  Get(T) (*T, error)
+  Get(T) (T, error)
   Remove(T) error
-  Update(T) (*T, error)
+  Update(T) (T, error)
   Match(T) Seq[T]
 }
 ```
@@ -59,8 +59,6 @@ Data types definition is an essential part of development with `dynamo` library.
 The library demands from each structure implementation of `Thing` interface. This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied to the dynamo library. Secondly, each structure defines unique "composite primary key". The library encourages definition of both partition and sort keys using a special data type `curie.IRI`. This type is a synonym to compact Internationalized Resource Identifiers, which facilitates linked-data, hierarchical structures and cheap relations between data items. `curie.IRI` is a synonym to the built-in `string` type so that anything castable to string suite to model the keys as alternative solution.   
 
 ```go
-import "github.com/fogfish/dynamo"
-
 type Person struct {
   Org     curie.IRI `dynamodbav:"prefix,omitempty"`
   ID      curie.IRI `dynamodbav:"suffix,omitempty"`
@@ -101,8 +99,7 @@ The following code snippet shows a typical I/O patterns
 
 ```go
 import (
-  "github.com/fogfish/dynamo"
-  "github.com/fogfish/dynamo/keyval"
+  keyval "github.com/fogfish/dynamo/service/ddb"
 )
 
 //
@@ -110,21 +107,19 @@ import (
 // The client is type-safe and support I/O with a single type (e.g. Person).
 // Use URI notation to specify the diver (ddb://) and the table (/my-table).
 db := keyval.Must(
-  keyval.New[Person](
-    dynamo.WithURI("ddb:///my-table"),
-  ),
+  keyval.New[Person]("ddb:///my-table", nil, nil),
 )
 
 //
 // Write the struct with Put
-if err := db.Put(person); err != nil {
+if err := db.Put(context.TODO(), person); err != nil {
 }
 
 //
 // Lookup the struct using Get. This function takes input structure as key
 // and return a new copy upon the completion. The only requirement - ID has to
 // be defined.
-val, err := db.Get(
+val, err := db.Get(context.TODO(),
   Person{
     Org: curie.IRI("University:Kiel"),
     ID:  curie.IRI("Professor:8980789222"),
@@ -144,7 +139,7 @@ default:
 // Apply a partial update using Update function. This function takes 
 // a partially defined structure, patches the instance at storage and 
 // returns remaining attributes.
-val, err := db.Update(
+val, err := db.Update(context.TODO(),
   Person{
     Org:     curie.IRI("University:Kiel"),
     ID:      curie.IRI("Professor:8980789222"),
@@ -156,7 +151,7 @@ if err != nil { /* ... */ }
 
 //
 // Remove the struct using Remove give partially defined struct with ID
-err := db.Remove(
+err := db.Remove(context.TODO(),
   Person{
     Org: curie.IRI("University:Kiel"),
     ID:  curie.IRI("Professor:8980789222"),
@@ -205,11 +200,11 @@ Composite sort key is core concept to organize hierarchies. It facilitates linke
 //
 // Match uses partition key to match DynamoDB entries. It returns a sequence of 
 // data type instances. FMap is an utility it takes a closure function. 
-db.Match(Message{Thread: "thread:A"}).FMap(/* ... */)
+db.Match(context.TODO(), Message{Thread: "thread:A"}).FMap(/* ... */)
 
 //
 // Match uses partition key and partial sort key to match DynamoDB entries. 
-db.Match(Message{Thread: "thread:A", ID: "C"}).FMap(/* ... */)
+db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C"}).FMap(/* ... */)
 
 
 //
@@ -224,10 +219,10 @@ func (seq *Messages) Join(val *Message) error {
 
 // and final magic to discover hierarchy of elements
 seq := Messages{}
-db.Match(Message{Thread: "thread:A", ID: "C/E"}).FMap(seq.Join)
+db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C/E"}).FMap(seq.Join)
 ```
 
-See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for api spec and [advanced example](example) app.
+See [advanced example](examples/relational/) for details on managing linked-data. 
 
 
 ### Sequences and Pagination
@@ -236,7 +231,7 @@ Hierarchical structures is the way to organize collections, lists, sets, etc. Th
 
 ```go
 // 1. Set the limit on the stream 
-seq := db.Match(Message{Thread: "thread:A", ID: "C"}).Limit(25)
+seq := db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C"}).Limit(25)
 // 2. Consume the stream
 seq.FMap(persons.Join)
 // 3. Read cursor value
@@ -244,7 +239,9 @@ cursor := seq.Cursor()
 
 
 // 4. Continue I/O with a new stream, supply the cursor
-seq := db.Match(Message{Thread: "thread:A", ID: "C"}).Limit(25).Continue(cursor)
+seq := db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C"}).
+  Limit(25).
+  Continue(cursor)
 ```
 
 
@@ -320,6 +317,10 @@ type Person struct {
 
 /*** aws/ddb/ddb.go ***/
 
+import (
+  dynamo "github.com/fogfish/dynamo/service/ddb"
+)
+
 // 3. declare codecs for complex core domain type 
 type id core.ID
 
@@ -386,7 +387,7 @@ type Person struct {
 }
 var Name = dynamo.Schema1[Person, string]("Name")
 
-val, err := db.Update(&person, Name.Eq("Verner Pleishner"))
+val, err := db.Update(context.TODO(), &person, Name.Eq("Verner Pleishner"))
 switch err.(type) {
 case nil:
   // success
@@ -419,9 +420,7 @@ If table uses other names for `partitionKey` and `sortKey` then connect URI allo
 //
 // Create client and bind it with DynamoDB the table
 db := keyval.Must(
-  keyval.New[Person](
-    dynamo.WithURI("ddb:///my-table?prefix=someHashKey&suffix=someSortKe"),
-  ),
+  keyval.New[Person]("ddb:///my-table?prefix=someHashKey&suffix=someSortKey", nil, nil),
 )
 ```
 
@@ -433,13 +432,19 @@ The following [post](example/relational/README.md) discusses in depth and shows 
 The library advances its simple I/O interface to AWS S3 bucket, allowing to persist data types to multiple storage simultaneously.
 
 ```go
+import (
+  "github.com/fogfish/dynamo/service/ddb"
+  "github.com/fogfish/dynamo/service/s3"
+)
+
+
 //
 // Create client and bind it with DynamoDB the table
-db := keyval.Must(keyval.New("ddb:///my-table"))
+db := ddb.Must(ddb.New("ddb:///my-table", nil, nil))
 
 //
 // Create client and bind it with S3 bucket
-s3 := keyval.Must(keyval.New("s3:///my-bucket"))
+db := s3.Must(s3.New("s3:///my-bucket", nil, nil))
 ```
 
 There are few fundamental differences about AWS S3 bucket

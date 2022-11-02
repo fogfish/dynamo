@@ -32,8 +32,8 @@ func Must[T dynamo.Thing](keyval dynamo.KeyVal[T], err error) dynamo.KeyVal[T] {
 
 // New creates instance of S3 api
 func New[T dynamo.Thing](
-	service dynamo.S3,
 	connector string,
+	service dynamo.S3,
 	prefixes curie.Prefixes,
 ) (dynamo.KeyVal[T], error) {
 	aws, err := newService(service)

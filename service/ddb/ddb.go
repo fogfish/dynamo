@@ -31,8 +31,8 @@ func Must[T dynamo.Thing](keyval dynamo.KeyVal[T], err error) dynamo.KeyVal[T] {
 
 // New creates instance of DynamoDB api
 func New[T dynamo.Thing](
-	service dynamo.DynamoDB,
 	connector string,
+	service dynamo.DynamoDB,
 	prefixes curie.Prefixes,
 ) (dynamo.KeyVal[T], error) {
 	aws, err := newService(service)

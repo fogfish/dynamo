@@ -22,12 +22,12 @@ func main() {
 	//
 	// create DynamoDB clients for the main table (ddb), local secondary index (lsi),
 	// global secondary index (gsi)
-	db := ddb.Must(ddb.New[Author](nil, "ddb:///example-dynamo-relational", nil))
-	dba := ddb.Must(ddb.New[Article](nil, "ddb:///example-dynamo-relational", nil))
-	dbk := ddb.Must(ddb.New[Keyword](nil, "ddb:///example-dynamo-relational", nil))
+	db := ddb.Must(ddb.New[Author]("ddb:///example-dynamo-relational", nil, nil))
+	dba := ddb.Must(ddb.New[Article]("ddb:///example-dynamo-relational", nil, nil))
+	dbk := ddb.Must(ddb.New[Keyword]("ddb:///example-dynamo-relational", nil, nil))
 
-	lsi := ddb.Must(ddb.New[Article](nil, "ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year", nil))
-	gsi := ddb.Must(ddb.New[Category](nil, "ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year", nil))
+	lsi := ddb.Must(ddb.New[Article]("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year", nil, nil))
+	gsi := ddb.Must(ddb.New[Category]("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year", nil, nil))
 
 	//
 	// As an author I want to register a profile ...
