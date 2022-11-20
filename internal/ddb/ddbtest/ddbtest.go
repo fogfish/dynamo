@@ -20,23 +20,20 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/v2"
 	ddbapi "github.com/fogfish/dynamo/v2/service/ddb"
 )
 
 /*
-
 mock factory
 */
 func mock[T dynamo.Thing](mock dynamo.DynamoDB) dynamo.KeyVal[T] {
 	return ddbapi.Must(
-		ddbapi.New[T]("ddb:///test", mock, curie.Namespaces{}),
+		ddbapi.New[T]("ddb:///test", dynamo.WithService(mock)),
 	)
 }
 
 /*
-
 GetItem mocks
 */
 func GetItem[T dynamo.Thing](
@@ -65,7 +62,6 @@ func (mock *ddbGetItem) GetItem(ctx context.Context, input *dynamodb.GetItemInpu
 }
 
 /*
-
 PutItem mock
 */
 func PutItem[T dynamo.Thing](
@@ -89,7 +85,6 @@ func (mock *ddbPutItem) PutItem(ctx context.Context, input *dynamodb.PutItemInpu
 }
 
 /*
-
 DeleteItem mock
 */
 func DeleteItem[T dynamo.Thing](
@@ -112,7 +107,6 @@ func (mock *ddbDeleteItem) DeleteItem(ctx context.Context, input *dynamodb.Delet
 }
 
 /*
-
 UpdateItem mock
 */
 func UpdateItem[T dynamo.Thing](
@@ -151,7 +145,6 @@ func (mock *ddbUpdateItem) UpdateItem(ctx context.Context, input *dynamodb.Updat
 }
 
 /*
-
 Query mock
 */
 func Query[T dynamo.Thing](
@@ -209,8 +202,6 @@ func Constrains[T dynamo.Thing](
 	})
 }
 
-//
-//
 type ddbConstrains struct {
 	dynamo.DynamoDB
 	returnVal map[string]types.AttributeValue

@@ -19,7 +19,6 @@ import (
 	"github.com/fogfish/dynamo/v2/service/ddb"
 )
 
-//
 // Person type demonstrates composition of core type with db one
 type Person struct {
 	Org     curie.IRI `dynamodbav:"prefix,omitempty"`
@@ -35,15 +34,15 @@ func (p Person) SortKey() curie.IRI { return p.ID }
 // KeyVal is type synonym
 type KeyVal dynamo.KeyVal[*Person]
 
-//
-//
 func main() {
 	db := ddb.Must(
-		ddb.New[*Person](os.Args[1], nil,
-			curie.Namespaces{
-				"test":   "t/kv",
-				"person": "person/",
-			},
+		ddb.New[*Person](os.Args[1],
+			dynamo.WithPrefixes(
+				curie.Namespaces{
+					"test":   "t/kv",
+					"person": "person/",
+				},
+			),
 		),
 	)
 

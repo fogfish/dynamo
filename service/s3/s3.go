@@ -16,7 +16,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/v2"
 	ds3 "github.com/fogfish/dynamo/v2/internal/s3"
 )
@@ -31,12 +30,13 @@ func Must[T dynamo.Thing](keyval dynamo.KeyVal[T], err error) dynamo.KeyVal[T] {
 }
 
 // New creates instance of S3 api
-func New[T dynamo.Thing](
-	connector string,
-	service dynamo.S3,
-	prefixes curie.Prefixes,
-) (dynamo.KeyVal[T], error) {
-	aws, err := newService(service)
+func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (dynamo.KeyVal[T], error) {
+	conf := dynamo.NewConfig()
+	for _, opt := range opts {
+		opt(&conf)
+	}
+
+	aws, err := newService(&conf)
 	if err != nil {
 		return nil, err
 	}
@@ -53,14 +53,17 @@ func New[T dynamo.Thing](
 	return &ds3.Storage[T]{
 		Service: aws,
 		Bucket:  bucket,
-		Codec:   ds3.NewCodec[T](prefixes),
+		Codec:   ds3.NewCodec[T](conf.Prefixes),
 		Schema:  ds3.NewSchema[T](),
 	}, nil
 }
 
-func newService(service dynamo.S3) (dynamo.S3, error) {
-	if service != nil {
-		return service, nil
+func newService(conf *dynamo.Config) (dynamo.S3, error) {
+	if conf.Service != nil {
+		service, ok := conf.Service.(dynamo.S3)
+		if ok {
+			return service, nil
+		}
 	}
 
 	aws, err := config.LoadDefaultConfig(context.Background())

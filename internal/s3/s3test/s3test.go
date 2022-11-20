@@ -29,11 +29,9 @@ import (
 	s3api "github.com/fogfish/dynamo/v2/service/s3"
 )
 
-//
-//
 func mock[T dynamo.Thing](mock dynamo.S3) dynamo.KeyVal[T] {
 	return s3api.Must(
-		s3api.New[T]("s3:///test", mock, curie.Namespaces{}),
+		s3api.New[T]("s3:///test", dynamo.WithService(mock)),
 	)
 }
 
@@ -49,7 +47,6 @@ func encodeKey(key dynamo.Thing) string {
 }
 
 /*
-
 GetObject mock
 */
 func GetObject[T dynamo.Thing](
@@ -84,7 +81,6 @@ func (mock *s3GetObject[T]) GetObject(ctx context.Context, input *s3.GetObjectIn
 }
 
 /*
-
 PutObject mock
 */
 func PutObject[T dynamo.Thing](
@@ -116,7 +112,6 @@ func (mock *s3PutObject[T]) PutObject(ctx context.Context, input *s3.PutObjectIn
 }
 
 /*
-
 DeleteObject mock
 */
 func DeleteObject[T dynamo.Thing](
@@ -139,7 +134,6 @@ func (mock *s3DeleteObject[T]) DeleteObject(ctx context.Context, input *s3.Delet
 }
 
 /*
-
 GetPutObject mock (used by the Update)
 */
 func GetPutObject[T dynamo.Thing](
@@ -168,7 +162,6 @@ func (mock *s3GetPutObject[T]) PutObject(ctx context.Context, input *s3.PutObjec
 }
 
 /*
-
 GetListObjects mock
 */
 func GetListObjects[T dynamo.Thing](

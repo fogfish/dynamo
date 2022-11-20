@@ -16,7 +16,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/v2"
 	"github.com/fogfish/dynamo/v2/internal/ddb"
 )
@@ -30,12 +29,13 @@ func Must[T dynamo.Thing](keyval dynamo.KeyVal[T], err error) dynamo.KeyVal[T] {
 }
 
 // New creates instance of DynamoDB api
-func New[T dynamo.Thing](
-	connector string,
-	service dynamo.DynamoDB,
-	prefixes curie.Prefixes,
-) (dynamo.KeyVal[T], error) {
-	aws, err := newService(service)
+func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (dynamo.KeyVal[T], error) {
+	conf := dynamo.NewConfig()
+	for _, opt := range opts {
+		opt(&conf)
+	}
+
+	aws, err := newService(&conf)
 	if err != nil {
 		return nil, err
 	}
@@ -61,9 +61,12 @@ func New[T dynamo.Thing](
 	}, nil
 }
 
-func newService(service dynamo.DynamoDB) (dynamo.DynamoDB, error) {
-	if service != nil {
-		return service, nil
+func newService(conf *dynamo.Config) (dynamo.DynamoDB, error) {
+	if conf.Service != nil {
+		service, ok := conf.Service.(dynamo.DynamoDB)
+		if ok {
+			return service, nil
+		}
 	}
 
 	aws, err := config.LoadDefaultConfig(context.Background())
