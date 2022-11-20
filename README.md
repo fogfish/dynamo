@@ -106,7 +106,7 @@ import (
 // Create dynamodb client and bind it with the table.
 // The client is type-safe and support I/O with a single type (e.g. Person).
 // Use URI notation to specify the diver (ddb://) and the table (/my-table).
-db := ddb.Must(ddb.New[Person]("ddb:///my-table", nil, nil))
+db := ddb.Must(ddb.New[Person]("ddb:///my-table"))
 
 //
 // Write the struct with Put
