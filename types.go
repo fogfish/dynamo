@@ -119,13 +119,7 @@ type KeyVal[T Thing] interface {
 //
 //-----------------------------------------------------------------------------
 
-/*
-
- */
-
-/*
-URL custom type with helper functions
-*/
+// URL custom type with helper functions
 type URL url.URL
 
 func (uri *URL) String() string {
