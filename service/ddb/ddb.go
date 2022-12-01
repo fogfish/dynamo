@@ -17,9 +17,18 @@ import (
 	"github.com/fogfish/dynamo/v2"
 )
 
+// DynamoDB declares interface of original AWS DynamoDB API used by the library
+type DynamoDB interface {
+	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+	PutItem(context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
+	DeleteItem(context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
+	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
+}
+
 // Storage type
 type Storage[T dynamo.Thing] struct {
-	service   dynamo.DynamoDB
+	service   DynamoDB
 	table     *string
 	index     *string
 	codec     *codec[T]
@@ -68,9 +77,9 @@ func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (*Storage[T], 
 	}, nil
 }
 
-func newService(conf *dynamo.Config) (dynamo.DynamoDB, error) {
+func newService(conf *dynamo.Config) (DynamoDB, error) {
 	if conf.Service != nil {
-		service, ok := conf.Service.(dynamo.DynamoDB)
+		service, ok := conf.Service.(DynamoDB)
 		if ok {
 			return service, nil
 		}

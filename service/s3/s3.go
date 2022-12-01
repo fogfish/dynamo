@@ -17,8 +17,16 @@ import (
 	"github.com/fogfish/dynamo/v2"
 )
 
+// S3 declares AWS API used by the library
+type S3 interface {
+	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	PutObject(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+	DeleteObject(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
+	ListObjectsV2(context.Context, *s3.ListObjectsV2Input, ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
+}
+
 type Storage[T dynamo.Thing] struct {
-	service   dynamo.S3
+	service   S3
 	bucket    *string
 	codec     *codec[T]
 	schema    *schema[T]
@@ -63,9 +71,9 @@ func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (*Storage[T], 
 	}, nil
 }
 
-func newService(conf *dynamo.Config) (dynamo.S3, error) {
+func newService(conf *dynamo.Config) (S3, error) {
 	if conf.Service != nil {
-		service, ok := conf.Service.(dynamo.S3)
+		service, ok := conf.Service.(S3)
 		if ok {
 			return service, nil
 		}

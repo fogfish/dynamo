@@ -29,7 +29,7 @@ import (
 	s3api "github.com/fogfish/dynamo/v2/service/s3"
 )
 
-func mock[T dynamo.Thing](mock dynamo.S3) dynamo.KeyVal[T] {
+func mock[T dynamo.Thing](mock s3api.S3) dynamo.KeyVal[T] {
 	return s3api.Must(
 		s3api.New[T]("s3:///test", dynamo.WithService(mock)),
 	)
@@ -60,7 +60,7 @@ func GetObject[T dynamo.Thing](
 }
 
 type s3GetObject[T dynamo.Thing] struct {
-	dynamo.S3
+	s3api.S3
 	expectKey *T
 	returnVal *T
 }
@@ -92,7 +92,7 @@ func PutObject[T dynamo.Thing](
 }
 
 type s3PutObject[T dynamo.Thing] struct {
-	dynamo.S3
+	s3api.S3
 	expectVal *T
 }
 
@@ -121,7 +121,7 @@ func DeleteObject[T dynamo.Thing](
 }
 
 type s3DeleteObject[T dynamo.Thing] struct {
-	dynamo.S3
+	s3api.S3
 	expectKey *T
 }
 
@@ -148,7 +148,7 @@ func GetPutObject[T dynamo.Thing](
 }
 
 type s3GetPutObject[T dynamo.Thing] struct {
-	dynamo.S3
+	s3api.S3
 	get *s3GetObject[T]
 	put *s3PutObject[T]
 }
@@ -179,7 +179,7 @@ func GetListObjects[T dynamo.Thing](
 }
 
 type s3GetListObjects[T dynamo.Thing] struct {
-	dynamo.S3
+	s3api.S3
 	expectKey     *T
 	returnLen     int
 	returnVal     *T
