@@ -6,14 +6,13 @@
 // https://github.com/fogfish/dynamo
 //
 
-package s3_test
+package s3
 
 import (
 	"testing"
 
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/v2/internal/dynamotest"
-	"github.com/fogfish/dynamo/v2/internal/s3"
 	"github.com/fogfish/it"
 )
 
@@ -38,13 +37,13 @@ func TestMerge(t *testing.T) {
 	}
 
 	t.Run("Values", func(t *testing.T) {
-		schema := s3.NewSchema[dynamotest.Person]()
+		schema := newSchema[dynamotest.Person]()
 		it.Ok(t).
 			If(schema.Merge(a, b)).Should().Equal(c)
 	})
 
 	t.Run("Pointers", func(t *testing.T) {
-		schema := s3.NewSchema[*dynamotest.Person]()
+		schema := newSchema[*dynamotest.Person]()
 		it.Ok(t).
 			If(schema.Merge(&a, &b)).Should().Equal(&c)
 	})

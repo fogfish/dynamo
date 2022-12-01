@@ -91,11 +91,10 @@ As a reader I want to list all articles written by the author ...
 func lookupArticlesByAuthor(db dynamo.KeyVal[Article], author string) error {
 	log.Printf("==> lookup articles by author: %s\n", author)
 
-	var seq Articles
-	err := db.Match(context.Background(), Article{
+	seq, err := db.Match(context.Background(), Article{
 		Author: curie.New("author:%s", author),
 		ID:     curie.New("article:"),
-	}).FMap(seq.Join)
+	})
 
 	if err != nil {
 		return err
@@ -110,12 +109,11 @@ As a reader I want to look up articles titles for given keywords ...
 func lookupArticlesByKeyword(db dynamo.KeyVal[Keyword], keyword string) error {
 	log.Printf("==> lookup articles by keyword: %s\n", keyword)
 
-	var seq Keywords
-	err := db.Match(context.Background(),
+	seq, err := db.Match(context.Background(),
 		Keyword{
 			HKey: curie.New("keyword:%s", keyword),
 		},
-	).FMap(seq.Join)
+	)
 
 	if err != nil {
 		return err
@@ -130,13 +128,12 @@ As a reader I want to look up articles titles written by the author for a given 
 func lookupArticlesByKeywordAuthor(db dynamo.KeyVal[Keyword], keyword, author string) error {
 	log.Printf("==> lookup articles by keyword %s and author: %s\n", keyword, author)
 
-	var seq Keywords
-	err := db.Match(context.Background(),
+	seq, err := db.Match(context.Background(),
 		Keyword{
 			HKey: curie.New("keyword:%s", keyword),
 			SKey: curie.New("article:%s", author),
 		},
-	).FMap(seq.Join)
+	)
 
 	if err != nil {
 		return err
@@ -151,13 +148,12 @@ As a reader I want to look up all keywords of the article ...
 func fetchArticleKeywords(db dynamo.KeyVal[Keyword]) error {
 	log.Printf("==> lookup keyword for An axiomatization of set theory\n")
 
-	var seq Keywords
-	err := db.Match(context.Background(),
+	seq, err := db.Match(context.Background(),
 		Keyword{
 			HKey: curie.New("article:%s/%s", "neumann", "theory_of_set"),
 			SKey: curie.New("keyword:"),
 		},
-	).FMap(seq.Join)
+	)
 
 	if err != nil {
 		return err
@@ -172,12 +168,11 @@ As a reader I want to look up all articles for a given category in chronological
 func lookupArticlesByCategory(db dynamo.KeyVal[Category], category string) error {
 	log.Printf("==> lookup articles by category: %s\n", category)
 
-	var seq dynamo.Things[Category]
-	err := db.Match(context.Background(),
+	seq, err := db.Match(context.Background(),
 		Category{
 			Category: category,
 		},
-	).FMap(seq.Join)
+	)
 
 	if err != nil {
 		return err
@@ -192,12 +187,11 @@ As a reader I want to list all articles written by the author in chronological o
 func lookupByAuthorOrderedByTime(db dynamo.KeyVal[Article], author string) error {
 	log.Printf("==> lookup articles in chronological order: %s", author)
 
-	var seq Articles
-	err := db.Match(context.Background(),
+	seq, err := db.Match(context.Background(),
 		Article{
 			Author: curie.New("author:%s", author),
 		},
-	).FMap(seq.Join)
+	)
 
 	if err != nil {
 		return err

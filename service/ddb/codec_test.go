@@ -22,7 +22,6 @@ import (
 	"github.com/fogfish/it"
 )
 
-//
 // Testing custom codecs
 type codecType struct{ Val string }
 
@@ -55,7 +54,10 @@ type codecStruct struct {
 func (s codecStruct) HashKey() curie.IRI { return curie.IRI(s.ID.Val) }
 func (s codecStruct) SortKey() curie.IRI { return curie.IRI(s.Type.Val) }
 
-var lensCodecID, lensCodecType = dynamo.Codec2[codecStruct, codecTypeDB, codecTypeDB]("ID", "Type")
+var (
+	lensCodecID   = dynamo.Codec[codecStruct, codecTypeDB]("ID")
+	lensCodecType = dynamo.Codec[codecStruct, codecTypeDB]("Type")
+)
 
 func (x codecStruct) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
 	type tStruct codecStruct
@@ -114,9 +116,6 @@ func TestCodecEncode(t *testing.T) {
 		If(tv.Value["city"].(*types.AttributeValueMemberS).Value).Equal("myCity")
 }
 
-//
-//
-//
 type codecMyType struct {
 	HKey curie.IRI  `dynamodbav:"hkey,omitempty"`
 	SKey curie.IRI  `dynamodbav:"skey,omitempty"`
@@ -182,9 +181,6 @@ func TestCodecEncodeDecodeKeyOnlyHash(t *testing.T) {
 		IfTrue(curie.Eq(core.SKey, some.SKey))
 }
 
-//
-//
-//
 type codecTypeBad codecType
 
 func (x codecTypeBad) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
@@ -238,7 +234,11 @@ type codecBadStruct struct {
 func (s codecBadStruct) HashKey() string { return s.HKey.Val }
 func (s codecBadStruct) SortKey() string { return s.SKey.Val }
 
-var lensCodecBadsHKey, lensCodecBadsSKey, lensCodecBadsLink = dynamo.Codec3[codecBadType, codecTypeBad, codecTypeBad, codecTypeBad]("HKey", "SKey", "Link")
+var (
+	lensCodecBadsHKey = dynamo.Codec[codecBadType, codecTypeBad]("HKey")
+	lensCodecBadsSKey = dynamo.Codec[codecBadType, codecTypeBad]("SKey")
+	lensCodecBadsLink = dynamo.Codec[codecBadType, codecTypeBad]("Link")
+)
 
 func (x codecBadStruct) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
 	type tStruct codecBadStruct

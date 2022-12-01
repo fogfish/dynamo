@@ -29,7 +29,6 @@ import (
 //-----------------------------------------------------------------------------
 
 /*
-
 Thing is the most generic item type used by the library to
 abstract writable/readable items into storage services.
 
@@ -42,14 +41,13 @@ type Thing interface {
 }
 
 /*
-
 Things is sequence of Thing
 */
 type Things[T Thing] []T
 
 /*
-
 Join lifts sequence of matched objects to seq of IDs
+
 	seq := dynamo.Things{}
 	dynamo.Match(...).FMap(seq.Join)
 */
@@ -65,7 +63,6 @@ func (seq *Things[T]) Join(t T) error {
 //-----------------------------------------------------------------------------
 
 /*
-
 SeqLazy is an interface to iterate through collection of objects at storage
 */
 type SeqLazy[T Thing] interface {
@@ -80,7 +77,6 @@ type SeqLazy[T Thing] interface {
 }
 
 /*
-
 SeqConfig configures optional sequence behavior
 */
 type SeqConfig[T Thing] interface {
@@ -93,10 +89,9 @@ type SeqConfig[T Thing] interface {
 }
 
 /*
-
 Seq is an interface to transform collection of objects
 
-  db.Match(dynamo.NewID("users")).FMap(func(x *T) error { ... })
+	db.Match(dynamo.NewID("users")).FMap(func(x *T) error { ... })
 */
 type Seq[T Thing] interface {
 	SeqLazy[T]
@@ -113,7 +108,6 @@ type Seq[T Thing] interface {
 //-----------------------------------------------------------------------------
 
 /*
-
 KeyValGetter defines read by key notation
 */
 type KeyValGetter[T Thing] interface {
@@ -127,12 +121,23 @@ type KeyValGetter[T Thing] interface {
 //-----------------------------------------------------------------------------
 
 /*
-
 KeyValPattern defines simple pattern matching lookup I/O
 */
 type KeyValPattern[T Thing] interface {
-	Match(context.Context, T) Seq[T]
+	Match(context.Context, T, ...interface{ MatchOpt() }) ([]T, error)
 }
+
+// Limit option for Match
+type Limit int32
+
+func (Limit) MatchOpt() {}
+
+// Cursor option for Match
+func Cursor(c Thing) interface{ MatchOpt() } { return cursor{c} }
+
+type cursor struct{ Thing }
+
+func (cursor) MatchOpt() {}
 
 //-----------------------------------------------------------------------------
 //
@@ -141,7 +146,6 @@ type KeyValPattern[T Thing] interface {
 //-----------------------------------------------------------------------------
 
 /*
-
 KeyValReader a generic key-value trait to read domain objects
 */
 type KeyValReader[T Thing] interface {
@@ -156,13 +160,12 @@ type KeyValReader[T Thing] interface {
 //-----------------------------------------------------------------------------
 
 /*
-
 KeyValWriter defines a generic key-value writer
 */
 type KeyValWriter[T Thing] interface {
-	Put(context.Context, T, ...Constraint[T]) error
-	Remove(context.Context, T, ...Constraint[T]) error
-	Update(context.Context, T, ...Constraint[T]) (T, error)
+	Put(context.Context, T, ...interface{ Constraint(T) }) error
+	Remove(context.Context, T, ...interface{ Constraint(T) }) error
+	Update(context.Context, T, ...interface{ Constraint(T) }) (T, error)
 }
 
 //-----------------------------------------------------------------------------
@@ -172,7 +175,6 @@ type KeyValWriter[T Thing] interface {
 //-----------------------------------------------------------------------------
 
 /*
-
 KeyVal is a generic key-value trait to access domain objects.
 */
 type KeyVal[T Thing] interface {
@@ -187,7 +189,6 @@ type KeyVal[T Thing] interface {
 //-----------------------------------------------------------------------------
 
 /*
-
 DynamoDB declares interface of original AWS DynamoDB API used by the library
 */
 type DynamoDB interface {
@@ -199,7 +200,6 @@ type DynamoDB interface {
 }
 
 /*
-
 S3 declares AWS API used by the library
 */
 type S3 interface {
@@ -210,7 +210,6 @@ type S3 interface {
 }
 
 /*
-
 URL custom type with helper functions
 */
 type URL url.URL

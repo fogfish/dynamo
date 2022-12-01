@@ -112,10 +112,8 @@ func exampleUpdate(db KeyVal) {
 }
 
 func exampleMatch(db KeyVal) {
-	seq := dynamo.Things[*Person]{}
 	key := Person{Org: curie.New("test:")}
-	err := db.Match(context.Background(), &key).FMap(seq.Join)
-
+	seq, err := db.Match(context.Background(), &key)
 	if err != nil {
 		fmt.Printf("=[ match ]=> %v\n", err)
 		return
@@ -129,34 +127,28 @@ func exampleMatch(db KeyVal) {
 
 func exampleMatchWithCursor(db KeyVal) {
 	// first batch
-	persons := dynamo.Things[*Person]{}
 	key := Person{Org: curie.New("test:")}
-	seq := db.Match(context.Background(), &key).Limit(2)
-	err := seq.FMap(persons.Join)
-	cur := seq.Cursor()
-
+	seq, err := db.Match(context.Background(), &key, dynamo.Limit(2))
 	if err != nil {
 		fmt.Printf("=[ match 1st ]=> %v\n", err)
 		return
 	}
 
 	fmt.Println("=[ match 1st ]=>")
-	for _, x := range persons {
+	for _, x := range seq {
 		fmt.Printf("\t%+v\n", x)
 	}
 
 	// second batch
-	persons = dynamo.Things[*Person]{}
-	seq = db.Match(context.Background(), &key).Continue(cur)
-	err = seq.FMap(persons.Join)
-
+	cur := seq[len(seq)-1]
+	seq, err = db.Match(context.Background(), &key, dynamo.Cursor(cur))
 	if err != nil {
 		fmt.Printf("=[ match 2nd ]=> %v\n", err)
 		return
 	}
 
 	fmt.Println("=[ match 2nd ]=>")
-	for _, x := range persons {
+	for _, x := range seq {
 		fmt.Printf("\t%+v\n", x)
 	}
 

@@ -13,6 +13,7 @@
 package ddb
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -22,256 +23,45 @@ import (
 	"github.com/fogfish/golem/pure/hseq"
 )
 
-/*
-
-CodecOf for struct fields, the type implement Encode/Decode primitives.
-Codec helps to implement semi-automated encoding/decoding algebraic data type
-into the format compatible with storage.
-
-Let's consider scenario were application uses complex types that skips
-implementation of marshal/unmarshal protocols. Here the type MyComplexType
-needs to be casted to MyDynamoType that knows how to marshal/unmarshal the type.
-
-  type MyType struct {
-    ID   MyComplexType
-    Name MyComplexType
-  }
-  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
-
-  func (t MyType) MarshalDynamoDBAttributeValue() (*dynamodb.AttributeValue, error) {
-    type tStruct MyType
-    return dynamo.Encode(tStruct(p),
-      ID.Encode(MyDynamoType(t.ID)),
-      Name.Encode(MyDynamoType(t.Name)),
-    )
-  }
-
-*/
+// CodecOf for struct fields, the type implement Encode/Decode primitives.
+// Codec helps to implement semi-automated encoding/decoding algebraic data type
+// into the format compatible with storage.
+//
+// Let's consider scenario were application uses complex types that skips
+// implementation of marshal/unmarshal protocols. Here the type MyComplexType
+// needs to be casted to MyDynamoType that knows how to marshal/unmarshal the type.
+//
+//	type MyType struct {
+//	  ID   MyComplexType
+//	  Name MyComplexType
+//	}
+//	var (
+//	  ID   = dynamo.Codec[MyType, MyDynamoType]("ID")
+//	  Name = dynamo.Codec[MyType, MyDynamoType]("Name")
+//	)
+//
+//	func (t MyType) MarshalDynamoDBAttributeValue() (*dynamodb.AttributeValue, error) {
+//	  type tStruct MyType
+//	  return dynamo.Encode(tStruct(p),
+//	    ID.Encode(MyDynamoType(t.ID)),
+//	    Name.Encode(MyDynamoType(t.Name)),
+//	  )
+//	}
 type CodecOf[T dynamo.Thing, A any] interface {
 	Decode(*A) Coder
 	Encode(A) Coder
 }
 
-/*
-
-Codec1 builds Codec for 1 attributes
-*/
-func Codec1[T dynamo.Thing, A any](a string) CodecOf[T, A] {
+// Build field codec for attribute
+func Codec[T dynamo.Thing, A any](a string) CodecOf[T, A] {
 	return hseq.FMap1(
-		generic[T](a),
+		genCodec[T](a),
 		mkCodecOf[T, A],
-	)
-}
-
-/*
-
-Codec2 builds Codec for 2 attributes
-*/
-func Codec2[T dynamo.Thing, A, B any](a, b string) (
-	CodecOf[T, A],
-	CodecOf[T, B],
-) {
-	return hseq.FMap2(
-		generic[T](a, b),
-		mkCodecOf[T, A],
-		mkCodecOf[T, B],
-	)
-}
-
-/*
-
-Codec4 builds Codec for 4 attributes
-*/
-func Codec3[T dynamo.Thing, A, B, C any](a, b, c string) (
-	CodecOf[T, A],
-	CodecOf[T, B],
-	CodecOf[T, C],
-) {
-	return hseq.FMap3(
-		generic[T](a, b, c),
-		mkCodecOf[T, A],
-		mkCodecOf[T, B],
-		mkCodecOf[T, C],
-	)
-}
-
-/*
-
-Codec4 builds Codec for 4 attributes
-*/
-func Codec4[T dynamo.Thing, A, B, C, D any](a, b, c, d string) (
-	CodecOf[T, A],
-	CodecOf[T, B],
-	CodecOf[T, C],
-	CodecOf[T, D],
-) {
-	return hseq.FMap4(
-		generic[T](a, b, c, d),
-		mkCodecOf[T, A],
-		mkCodecOf[T, B],
-		mkCodecOf[T, C],
-		mkCodecOf[T, D],
-	)
-}
-
-/*
-
-Codec5 builds Codec for 5 attributes
-*/
-func Codec5[T dynamo.Thing, A, B, C, D, E any](a, b, c, d, e string) (
-	CodecOf[T, A],
-	CodecOf[T, B],
-	CodecOf[T, C],
-	CodecOf[T, D],
-	CodecOf[T, E],
-) {
-	return hseq.FMap5(
-		generic[T](a, b, c, d, e),
-		mkCodecOf[T, A],
-		mkCodecOf[T, B],
-		mkCodecOf[T, C],
-		mkCodecOf[T, D],
-		mkCodecOf[T, E],
-	)
-}
-
-/*
-
-Codec6 builds Codec for 6 attributes
-*/
-func Codec6[T dynamo.Thing, A, B, C, D, E, F any](a, b, c, d, e, f string) (
-	CodecOf[T, A],
-	CodecOf[T, B],
-	CodecOf[T, C],
-	CodecOf[T, D],
-	CodecOf[T, E],
-	CodecOf[T, F],
-) {
-	return hseq.FMap6(
-		generic[T](a, b, c, d, e, f),
-		mkCodecOf[T, A],
-		mkCodecOf[T, B],
-		mkCodecOf[T, C],
-		mkCodecOf[T, D],
-		mkCodecOf[T, E],
-		mkCodecOf[T, F],
-	)
-}
-
-/*
-
-Codec7 builds Codec for 7 attributes
-*/
-func Codec7[T dynamo.Thing, A, B, C, D, E, F, G any](a, b, c, d, e, f, g string) (
-	CodecOf[T, A],
-	CodecOf[T, B],
-	CodecOf[T, C],
-	CodecOf[T, D],
-	CodecOf[T, E],
-	CodecOf[T, F],
-	CodecOf[T, G],
-) {
-	return hseq.FMap7(
-		generic[T](a, b, c, d, e, f, g),
-		mkCodecOf[T, A],
-		mkCodecOf[T, B],
-		mkCodecOf[T, C],
-		mkCodecOf[T, D],
-		mkCodecOf[T, E],
-		mkCodecOf[T, F],
-		mkCodecOf[T, G],
-	)
-}
-
-/*
-
-Codec8 builds Codec for 8 attributes
-*/
-func Codec8[T dynamo.Thing, A, B, C, D, E, F, G, H any](a, b, c, d, e, f, g, h string) (
-	CodecOf[T, A],
-	CodecOf[T, B],
-	CodecOf[T, C],
-	CodecOf[T, D],
-	CodecOf[T, E],
-	CodecOf[T, F],
-	CodecOf[T, G],
-	CodecOf[T, H],
-) {
-	return hseq.FMap8(
-		generic[T](a, b, c, d, e, f, g, h),
-		mkCodecOf[T, A],
-		mkCodecOf[T, B],
-		mkCodecOf[T, C],
-		mkCodecOf[T, D],
-		mkCodecOf[T, E],
-		mkCodecOf[T, F],
-		mkCodecOf[T, G],
-		mkCodecOf[T, H],
-	)
-}
-
-/*
-
-Codec9 builds Codec for 9 attributes
-*/
-func Codec9[T dynamo.Thing, A, B, C, D, E, F, G, H, I any](a, b, c, d, e, f, g, h, i string) (
-	CodecOf[T, A],
-	CodecOf[T, B],
-	CodecOf[T, C],
-	CodecOf[T, D],
-	CodecOf[T, E],
-	CodecOf[T, F],
-	CodecOf[T, G],
-	CodecOf[T, H],
-	CodecOf[T, I],
-) {
-	return hseq.FMap9(
-		generic[T](a, b, c, d, e, f, g, h, i),
-		mkCodecOf[T, A],
-		mkCodecOf[T, B],
-		mkCodecOf[T, C],
-		mkCodecOf[T, D],
-		mkCodecOf[T, E],
-		mkCodecOf[T, F],
-		mkCodecOf[T, G],
-		mkCodecOf[T, H],
-		mkCodecOf[T, I],
-	)
-}
-
-/*
-
-Codec10 builds Codec for 10 attributes
-*/
-func Codec10[T dynamo.Thing, A, B, C, D, E, F, G, H, I, J any](a, b, c, d, e, f, g, h, i, j string) (
-	CodecOf[T, A],
-	CodecOf[T, B],
-	CodecOf[T, C],
-	CodecOf[T, D],
-	CodecOf[T, E],
-	CodecOf[T, F],
-	CodecOf[T, G],
-	CodecOf[T, H],
-	CodecOf[T, I],
-	CodecOf[T, J],
-) {
-	return hseq.FMap10(
-		generic[T](a, b, c, d, e, f, g, h, i, j),
-		mkCodecOf[T, A],
-		mkCodecOf[T, B],
-		mkCodecOf[T, C],
-		mkCodecOf[T, D],
-		mkCodecOf[T, E],
-		mkCodecOf[T, F],
-		mkCodecOf[T, G],
-		mkCodecOf[T, H],
-		mkCodecOf[T, I],
-		mkCodecOf[T, J],
 	)
 }
 
 // generic[T] filters hseq.Generic[T] list with defined fields
-func generic[T any](fs ...string) hseq.Seq[T] {
+func genCodec[T any](fs ...string) hseq.Seq[T] {
 	seq := make(hseq.Seq[T], 0)
 	for _, t := range hseq.Generic[T]() {
 		for _, f := range fs {
@@ -287,20 +77,17 @@ func generic[T any](fs ...string) hseq.Seq[T] {
 func mkCodecOf[T dynamo.Thing, A any](t hseq.Type[T]) CodecOf[T, A] {
 	tag := t.Tag.Get("dynamodbav")
 	if tag == "" {
-		return codec[T, A]("")
+		return codecOf[T, A]("")
 	}
 
-	return codec[T, A](strings.Split(tag, ",")[0])
+	return codecOf[T, A](strings.Split(tag, ",")[0])
 }
 
 // internal implementation of codec
-type codec[T dynamo.Thing, A any] string
+type codecOf[T dynamo.Thing, A any] string
 
-/*
-
-Decode generic DynamoDB attribute values into struct fields behind pointers
-*/
-func (key codec[T, A]) Decode(val *A) Coder {
+// Decode generic DynamoDB attribute values into struct fields behind pointers
+func (key codecOf[T, A]) Decode(val *A) Coder {
 	return func(gen map[string]types.AttributeValue) (map[string]types.AttributeValue, error) {
 		if gval, exists := gen[string(key)]; exists {
 			if err := attributevalue.Unmarshal(gval, val); err != nil {
@@ -312,11 +99,8 @@ func (key codec[T, A]) Decode(val *A) Coder {
 	}
 }
 
-/*
-
-Encode encode struct field into DynamoDB attribute values
-*/
-func (key codec[T, A]) Encode(val A) Coder {
+// Encode encode struct field into DynamoDB attribute values
+func (key codecOf[T, A]) Encode(val A) Coder {
 	return func(gen map[string]types.AttributeValue) (map[string]types.AttributeValue, error) {
 		gval, err := attributevalue.Marshal(val)
 		if err != nil {
@@ -328,32 +112,25 @@ func (key codec[T, A]) Encode(val A) Coder {
 	}
 }
 
-/*
-
-Coder is a function, applies transformation of generic dynamodb AttributeValue
-*/
+// Coder is a function, applies transformation of generic dynamodb AttributeValue
 type Coder func(map[string]types.AttributeValue) (map[string]types.AttributeValue, error)
 
-/*
-
-Decode is a helper function to decode core domain types from Dynamo DB format.
-The helper ensures compact URI de-serialization from DynamoDB schema.
-
-  type MyType struct {
-    ID   MyComplexType
-    Name MyComplexType
-  }
-  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
-
-  func (x *MyType) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
-    type tStruct *MyType
-    return dynamo.Decode(av, tStruct(x),
-      ID.Decode((*MyDynamoType)(&x.ID)),
-			Name.Decode((*MyDynamoType)(&x.Name)),
-    )
-  }
-
-*/
+// Decode is a helper function to decode core domain types from Dynamo DB format.
+// The helper ensures compact URI de-serialization from DynamoDB schema.
+//
+//	  type MyType struct {
+//	    ID   MyComplexType
+//	    Name MyComplexType
+//	  }
+//	  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
+//
+//	  func (x *MyType) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
+//	    type tStruct *MyType
+//	    return dynamo.Decode(av, tStruct(x),
+//	      ID.Decode((*MyDynamoType)(&x.ID)),
+//				Name.Decode((*MyDynamoType)(&x.Name)),
+//	    )
+//	  }
 func Decode(av types.AttributeValue, val interface{}, coder ...Coder) (err error) {
 	tv, ok := av.(*types.AttributeValueMemberM)
 	if !ok {
@@ -373,26 +150,22 @@ func Decode(av types.AttributeValue, val interface{}, coder ...Coder) (err error
 	return attributevalue.Unmarshal(tv, val)
 }
 
-/*
-
-Encode is a helper function to encode core domain types into struct.
-The helper ensures compact URI serialization into DynamoDB schema.
-
-  type MyType struct {
-    ID   MyComplexType
-    Name MyComplexType
-  }
-  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
-
-  func (x MyType) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
-    type tStruct MyType
-    return dynamo.Encode(av, tStruct(x),
-      ID.Encode(MyDynamoType(x.ID)),
-			Name.Encode(MyDynamoType(x.Name)),
-    )
-  }
-
-*/
+// Encode is a helper function to encode core domain types into struct.
+// The helper ensures compact URI serialization into DynamoDB schema.
+//
+//	  type MyType struct {
+//	    ID   MyComplexType
+//	    Name MyComplexType
+//	  }
+//	  var ID, Name = dynamo.Codec2[MyType, MyDynamoType, MyDynamoType]("ID", "Name")
+//
+//	  func (x MyType) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
+//	    type tStruct MyType
+//	    return dynamo.Encode(av, tStruct(x),
+//	      ID.Encode(MyDynamoType(x.ID)),
+//				Name.Encode(MyDynamoType(x.Name)),
+//	    )
+//	  }
 func Encode(val interface{}, coder ...Coder) (types.AttributeValue, error) {
 	gen, err := attributevalue.Marshal(val)
 	if err != nil {
@@ -418,4 +191,77 @@ func Encode(val interface{}, coder ...Coder) (types.AttributeValue, error) {
 	}
 
 	return gem, nil
+}
+
+// Codec is utility to encode/decode objects to dynamo representation
+type codec[T dynamo.Thing] struct {
+	pkPrefix  string
+	skSuffix  string
+	undefined T
+}
+
+func newCodec[T dynamo.Thing](uri *dynamo.URL) *codec[T] {
+	return &codec[T]{
+		pkPrefix: uri.Query("prefix", "prefix"),
+		skSuffix: uri.Query("suffix", "suffix"),
+	}
+}
+
+// EncodeKey to dynamo representation
+func (codec codec[T]) EncodeKey(key T) (map[string]types.AttributeValue, error) {
+	hashkey := key.HashKey()
+	if hashkey == "" {
+		return nil, fmt.Errorf("invalid key of %T, hashkey cannot be empty", key)
+	}
+
+	sortkey := key.SortKey()
+	if sortkey == "" {
+		sortkey = "_"
+	}
+
+	gen := map[string]types.AttributeValue{}
+	gen[codec.pkPrefix] = &types.AttributeValueMemberS{Value: string(hashkey)}
+	gen[codec.skSuffix] = &types.AttributeValueMemberS{Value: string(sortkey)}
+
+	return gen, nil
+}
+
+// KeyOnly extracts key value from generic representation
+func (codec codec[T]) KeyOnly(gen map[string]types.AttributeValue) map[string]types.AttributeValue {
+	key := map[string]types.AttributeValue{}
+	key[codec.pkPrefix] = gen[codec.pkPrefix]
+	key[codec.skSuffix] = gen[codec.skSuffix]
+
+	return key
+}
+
+// Encode object to dynamo representation
+func (codec codec[T]) Encode(entity T) (map[string]types.AttributeValue, error) {
+	gen, err := attributevalue.MarshalMap(entity)
+	if err != nil {
+		return nil, err
+	}
+
+	_ /*suffix*/, isSuffix := gen[codec.skSuffix]
+	if !isSuffix /*|| suffix.Value == nil*/ {
+		gen[codec.skSuffix] = &types.AttributeValueMemberS{Value: "_"}
+	}
+
+	return gen, nil
+}
+
+// Decode dynamo representation to object
+func (codec codec[T]) Decode(gen map[string]types.AttributeValue) (T, error) {
+	_, isPrefix := gen[codec.pkPrefix]
+	_, isSuffix := gen[codec.skSuffix]
+	if !isPrefix || !isSuffix {
+		return codec.undefined, errors.New("invalid DDB schema")
+	}
+
+	var entity T
+	if err := attributevalue.UnmarshalMap(gen, &entity); err != nil {
+		return codec.undefined, err
+	}
+
+	return entity, nil
 }
