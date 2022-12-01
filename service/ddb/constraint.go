@@ -22,7 +22,9 @@ import (
 	"github.com/fogfish/golem/pure/hseq"
 )
 
-// Constraint ...
+// Constraint is a function that applies conditional expression to storage request.
+// Each storage implements own constrains protocols. The module here defines a few
+// constrain protocol. The structure of the constrain is abstracted away from the client.
 type Constraint[T any] struct {
 	fun string
 	key string
@@ -31,7 +33,31 @@ type Constraint[T any] struct {
 
 func (Constraint[T]) Constraint(T) {}
 
-// Schema ...
+// Scehma declares type descriptor to express Storage I/O Constrains.
+//
+// Let's consider a following example:
+//
+//	type Person struct {
+//	  curie.ID
+//	  Name    string `dynamodbav:"anothername,omitempty"`
+//	}
+//
+// How to define a condition expression on the field Name? Golang struct defines
+// and refers the field by `Name` but DynamoDB stores it under the attribute
+// `anothername`. Struct field dynamodbav tag specifies serialization rules.
+// Golang does not support a typesafe approach to build a correspondence between
+// `Name` ⟷ `anothername`. Developers have to utilize dynamodb attribute
+// name(s) in conditional expression and Golang struct name in rest of the code.
+// It becomes confusing and hard to maintain.
+//
+// The types TypeOf and SchemaN are helpers to declare builders for conditional
+// expressions. Just declare a global variables next to type definition and
+// use them across the application.
+//
+//	  var name = dynamo.Schema[Person, string]("Name")
+//
+//		name.Eq("Joe Doe")
+//	  name.NotExists()
 func Schema[T dynamo.Thing, A any](a string) Effect[T, A] {
 	return hseq.FMap1(
 		generic[T](a),
@@ -70,6 +96,64 @@ type Effect[T dynamo.Thing, A any] struct{ key string }
 //	name.Eq(x) ⟼ Field = :value
 func (eff Effect[T, A]) Eq(val A) Constraint[T] {
 	return Constraint[T]{fun: "=", key: eff.key, val: val}
+}
+
+// Ne is non equal constraint
+//
+//	name.Ne(x) ⟼ Field <> :value
+func (eff Effect[T, A]) Ne(val A) Constraint[T] {
+	return Constraint[T]{fun: "<>", key: eff.key, val: val}
+}
+
+// Lt is less than constraint
+//
+//	name.Lt(x) ⟼ Field < :value
+func (eff Effect[T, A]) Lt(val A) Constraint[T] {
+	return Constraint[T]{fun: "<", key: eff.key, val: val}
+}
+
+// Le is less or equal constain
+//
+//	name.Le(x) ⟼ Field <= :value
+func (eff Effect[T, A]) Le(val A) Constraint[T] {
+	return Constraint[T]{fun: "<=", key: eff.key, val: val}
+}
+
+// Gt is greater than constrain
+//
+//	name.Le(x) ⟼ Field > :value
+func (eff Effect[T, A]) Gt(val A) Constraint[T] {
+	return Constraint[T]{fun: ">", key: eff.key, val: val}
+}
+
+// Ge is greater or equal constrain
+//
+//	name.Le(x) ⟼ Field >= :value
+func (eff Effect[T, A]) Ge(val A) Constraint[T] {
+	return Constraint[T]{fun: ">=", key: eff.key, val: val}
+}
+
+// Is matches either Eq or NotExists if value is not defined
+func (eff Effect[T, A]) Is(val string) Constraint[T] {
+	if val == "_" {
+		return eff.NotExists()
+	}
+
+	return Constraint[T]{fun: "=", key: eff.key, val: val}
+}
+
+// Exists attribute constrain
+//
+//	name.Exists(x) ⟼ attribute_exists(name)
+func (eff Effect[T, A]) Exists() Constraint[T] {
+	return Constraint[T]{fun: "attribute_exists", key: eff.key}
+}
+
+// NotExists attribute constrain
+//
+//	name.NotExists(x) ⟼ attribute_not_exists(name)
+func (eff Effect[T, A]) NotExists() Constraint[T] {
+	return Constraint[T]{fun: "attribute_not_exists", key: eff.key}
 }
 
 /*

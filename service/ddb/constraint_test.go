@@ -32,12 +32,12 @@ func TestConditionExpression(t *testing.T) {
 	)
 
 	spec := map[string]func(string) Constraint[tConstrain]{
-		"=": Name.Eq,
-		// "<>": Name.Ne,
-		// "<":  Name.Lt,
-		// "<=": Name.Le,
-		// ">":  Name.Gt,
-		// ">=": Name.Ge,
+		"=":  Name.Eq,
+		"<>": Name.Ne,
+		"<":  Name.Lt,
+		"<=": Name.Le,
+		">":  Name.Gt,
+		">=": Name.Ge,
 	}
 
 	for op, fn := range spec {
@@ -55,67 +55,67 @@ func TestConditionExpression(t *testing.T) {
 	}
 }
 
-// func TestExists(t *testing.T) {
-// 	var (
-// 		expr *string = nil
-// 	)
+func TestExists(t *testing.T) {
+	var (
+		expr *string = nil
+	)
 
-// 	config := []dynamo.Constraint[tConstrain]{Name.Exists()}
-// 	name, vals := maybeConditionExpression(&expr, config)
+	config := []interface{ Constraint(tConstrain) }{Name.Exists()}
+	name, vals := maybeConditionExpression(&expr, config)
 
-// 	expectExpr := "attribute_exists(#__anothername__)"
-// 	expectName := map[string]string{"#__anothername__": "anothername"}
+	expectExpr := "attribute_exists(#__anothername__)"
+	expectName := map[string]string{"#__anothername__": "anothername"}
 
-// 	it.Ok(t).
-// 		If(*expr).Should().Equal(expectExpr).
-// 		If(len(vals)).Should().Equal(0).
-// 		If(name).Should().Equal(expectName)
-// }
+	it.Ok(t).
+		If(*expr).Should().Equal(expectExpr).
+		If(len(vals)).Should().Equal(0).
+		If(name).Should().Equal(expectName)
+}
 
-// func TestNotExists(t *testing.T) {
-// 	var (
-// 		expr *string = nil
-// 	)
+func TestNotExists(t *testing.T) {
+	var (
+		expr *string = nil
+	)
 
-// 	config := []dynamo.Constraint[tConstrain]{Name.NotExists()}
-// 	name, vals := maybeConditionExpression(&expr, config)
+	config := []interface{ Constraint(tConstrain) }{Name.NotExists()}
+	name, vals := maybeConditionExpression(&expr, config)
 
-// 	expectExpr := "attribute_not_exists(#__anothername__)"
-// 	expectName := map[string]string{"#__anothername__": "anothername"}
+	expectExpr := "attribute_not_exists(#__anothername__)"
+	expectName := map[string]string{"#__anothername__": "anothername"}
 
-// 	it.Ok(t).
-// 		If(*expr).Should().Equal(expectExpr).
-// 		If(len(vals)).Should().Equal(0).
-// 		If(name).Should().Equal(expectName)
-// }
+	it.Ok(t).
+		If(*expr).Should().Equal(expectExpr).
+		If(len(vals)).Should().Equal(0).
+		If(name).Should().Equal(expectName)
+}
 
-// func TestIs(t *testing.T) {
-// 	var (
-// 		expr *string = nil
-// 	)
+func TestIs(t *testing.T) {
+	var (
+		expr *string = nil
+	)
 
-// 	config := []dynamo.Constraint[tConstrain]{Name.Is("_")}
-// 	name, vals := maybeConditionExpression(&expr, config)
+	config := []interface{ Constraint(tConstrain) }{Name.Is("_")}
+	name, vals := maybeConditionExpression(&expr, config)
 
-// 	expectExpr := "attribute_not_exists(#__anothername__)"
-// 	expectName := map[string]string{"#__anothername__": "anothername"}
+	expectExpr := "attribute_not_exists(#__anothername__)"
+	expectName := map[string]string{"#__anothername__": "anothername"}
 
-// 	it.Ok(t).
-// 		If(*expr).Should().Equal(expectExpr).
-// 		If(len(vals)).Should().Equal(0).
-// 		If(name).Should().Equal(expectName)
+	it.Ok(t).
+		If(*expr).Should().Equal(expectExpr).
+		If(len(vals)).Should().Equal(0).
+		If(name).Should().Equal(expectName)
 
-// 	//
-// 	config = []dynamo.Constraint[tConstrain]{Name.Is("abc")}
-// 	name, vals = maybeConditionExpression(&expr, config)
+	//
+	config = []interface{ Constraint(tConstrain) }{Name.Is("abc")}
+	name, vals = maybeConditionExpression(&expr, config)
 
-// 	expectExpr = "#__anothername__ = :__anothername__"
-// 	expectVals := map[string]types.AttributeValue{
-// 		":__anothername__": &types.AttributeValueMemberS{Value: "abc"},
-// 	}
+	expectExpr = "#__anothername__ = :__anothername__"
+	expectVals := map[string]types.AttributeValue{
+		":__anothername__": &types.AttributeValueMemberS{Value: "abc"},
+	}
 
-// 	it.Ok(t).
-// 		If(*expr).Should().Equal(expectExpr).
-// 		If(vals).Should().Equal(expectVals).
-// 		If(name).Should().Equal(expectName)
-// }
+	it.Ok(t).
+		If(*expr).Should().Equal(expectExpr).
+		If(vals).Should().Equal(expectVals).
+		If(name).Should().Equal(expectName)
+}
