@@ -42,14 +42,15 @@ func (e *notFound) Unwrap() error { return e.err }
 func (e *notFound) NotFound() string { return e.HashKey().Safe() + " " + e.SortKey().Safe() }
 
 // errPreConditionFailed
-func errPreConditionFailed(thing dynamo.Thing, conflict bool, gone bool) error {
-	return &preConditionFailed{Thing: thing, conflict: conflict, gone: gone}
+func errPreConditionFailed(err error, thing dynamo.Thing, conflict bool, gone bool) error {
+	return &preConditionFailed{Thing: thing, conflict: conflict, gone: gone, err: err}
 }
 
 type preConditionFailed struct {
 	dynamo.Thing
 	conflict bool
 	gone     bool
+	err      error
 }
 
 func (e *preConditionFailed) Error() string {
@@ -61,6 +62,8 @@ func (e *preConditionFailed) PreConditionFailed() bool { return true }
 func (e *preConditionFailed) Conflict() bool { return e.conflict }
 
 func (e *preConditionFailed) Gone() bool { return e.gone }
+
+func (e *preConditionFailed) Unwrap() error { return e.err }
 
 // recover AWS ErrorCode
 func recoverConditionalCheckFailedException(err error) bool {

@@ -55,7 +55,7 @@ func (db *Storage[T]) Update(ctx context.Context, entity T, config ...interface{
 	val, err := db.service.UpdateItem(ctx, req)
 	if err != nil {
 		if recoverConditionalCheckFailedException(err) {
-			return db.undefined, errPreConditionFailed(entity,
+			return db.undefined, errPreConditionFailed(err, entity,
 				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
 				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
 			)

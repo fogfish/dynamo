@@ -33,7 +33,7 @@ type Constraint[T any] struct {
 
 func (Constraint[T]) Constraint(T) {}
 
-// Scehma declares type descriptor to express Storage I/O Constrains.
+// Schema declares type descriptor to express Storage I/O Constrains.
 //
 // Let's consider a following example:
 //
@@ -50,18 +50,18 @@ func (Constraint[T]) Constraint(T) {}
 // name(s) in conditional expression and Golang struct name in rest of the code.
 // It becomes confusing and hard to maintain.
 //
-// The types TypeOf and SchemaN are helpers to declare builders for conditional
+// The types Effect and Schema are helpers to declare builders for conditional
 // expressions. Just declare a global variables next to type definition and
 // use them across the application.
 //
-//	  var name = dynamo.Schema[Person, string]("Name")
+//	var name = dynamo.Schema[Person, string]("Name")
 //
-//		name.Eq("Joe Doe")
-//	  name.NotExists()
-func Schema[T dynamo.Thing, A any](a string) Effect[T, A] {
+//	name.Eq("Joe Doe")
+//	name.NotExists()
+func Schema[T dynamo.Thing, A any](a string) Constraints[T, A] {
 	return hseq.FMap1(
 		generic[T](a),
-		mkEffect[T, A],
+		mkConstraints[T, A],
 	)
 }
 
@@ -78,63 +78,63 @@ func generic[T any](fs ...string) hseq.Seq[T] {
 	return seq
 }
 
-// Builds TypeOf constrain
-func mkEffect[T dynamo.Thing, A any](t hseq.Type[T]) Effect[T, A] {
+// Builds Constrains
+func mkConstraints[T dynamo.Thing, A any](t hseq.Type[T]) Constraints[T, A] {
 	tag := t.Tag.Get("dynamodbav")
 	if tag == "" {
-		return Effect[T, A]{""}
+		return Constraints[T, A]{""}
 	}
 
-	return Effect[T, A]{strings.Split(tag, ",")[0]}
+	return Constraints[T, A]{strings.Split(tag, ",")[0]}
 }
 
 // Internal implementation of Constrain effects for storage
-type Effect[T dynamo.Thing, A any] struct{ key string }
+type Constraints[T dynamo.Thing, A any] struct{ key string }
 
 // Eq is equal constrain
 //
 //	name.Eq(x) ⟼ Field = :value
-func (eff Effect[T, A]) Eq(val A) Constraint[T] {
+func (eff Constraints[T, A]) Eq(val A) Constraint[T] {
 	return Constraint[T]{fun: "=", key: eff.key, val: val}
 }
 
 // Ne is non equal constraint
 //
 //	name.Ne(x) ⟼ Field <> :value
-func (eff Effect[T, A]) Ne(val A) Constraint[T] {
+func (eff Constraints[T, A]) Ne(val A) Constraint[T] {
 	return Constraint[T]{fun: "<>", key: eff.key, val: val}
 }
 
 // Lt is less than constraint
 //
 //	name.Lt(x) ⟼ Field < :value
-func (eff Effect[T, A]) Lt(val A) Constraint[T] {
+func (eff Constraints[T, A]) Lt(val A) Constraint[T] {
 	return Constraint[T]{fun: "<", key: eff.key, val: val}
 }
 
 // Le is less or equal constain
 //
 //	name.Le(x) ⟼ Field <= :value
-func (eff Effect[T, A]) Le(val A) Constraint[T] {
+func (eff Constraints[T, A]) Le(val A) Constraint[T] {
 	return Constraint[T]{fun: "<=", key: eff.key, val: val}
 }
 
 // Gt is greater than constrain
 //
 //	name.Le(x) ⟼ Field > :value
-func (eff Effect[T, A]) Gt(val A) Constraint[T] {
+func (eff Constraints[T, A]) Gt(val A) Constraint[T] {
 	return Constraint[T]{fun: ">", key: eff.key, val: val}
 }
 
 // Ge is greater or equal constrain
 //
 //	name.Le(x) ⟼ Field >= :value
-func (eff Effect[T, A]) Ge(val A) Constraint[T] {
+func (eff Constraints[T, A]) Ge(val A) Constraint[T] {
 	return Constraint[T]{fun: ">=", key: eff.key, val: val}
 }
 
 // Is matches either Eq or NotExists if value is not defined
-func (eff Effect[T, A]) Is(val string) Constraint[T] {
+func (eff Constraints[T, A]) Is(val string) Constraint[T] {
 	if val == "_" {
 		return eff.NotExists()
 	}
@@ -145,14 +145,14 @@ func (eff Effect[T, A]) Is(val string) Constraint[T] {
 // Exists attribute constrain
 //
 //	name.Exists(x) ⟼ attribute_exists(name)
-func (eff Effect[T, A]) Exists() Constraint[T] {
+func (eff Constraints[T, A]) Exists() Constraint[T] {
 	return Constraint[T]{fun: "attribute_exists", key: eff.key}
 }
 
 // NotExists attribute constrain
 //
 //	name.NotExists(x) ⟼ attribute_not_exists(name)
-func (eff Effect[T, A]) NotExists() Constraint[T] {
+func (eff Constraints[T, A]) NotExists() Constraint[T] {
 	return Constraint[T]{fun: "attribute_not_exists", key: eff.key}
 }
 

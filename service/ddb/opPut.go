@@ -34,7 +34,7 @@ func (db *Storage[T]) Put(ctx context.Context, entity T, config ...interface{ Co
 	_, err = db.service.PutItem(ctx, req)
 	if err != nil {
 		if recoverConditionalCheckFailedException(err) {
-			return errPreConditionFailed(entity,
+			return errPreConditionFailed(err, entity,
 				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
 				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
 			)

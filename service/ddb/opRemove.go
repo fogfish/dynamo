@@ -33,7 +33,7 @@ func (db *Storage[T]) Remove(ctx context.Context, key T, config ...interface{ Co
 	_, err = db.service.DeleteItem(ctx, req)
 	if err != nil {
 		if recoverConditionalCheckFailedException(err) {
-			return errPreConditionFailed(key,
+			return errPreConditionFailed(err, key,
 				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
 				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
 			)
