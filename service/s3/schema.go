@@ -16,16 +16,15 @@ import (
 )
 
 /*
-
 Schema is utility that merges two struct
 */
-type Schema[T dynamo.Thing] struct{ hseq.Seq[T] }
+type schema[T dynamo.Thing] struct{ hseq.Seq[T] }
 
-func NewSchema[T dynamo.Thing]() *Schema[T] {
-	return &Schema[T]{hseq.Generic[T]()}
+func newSchema[T dynamo.Thing]() *schema[T] {
+	return &schema[T]{hseq.Generic[T]()}
 }
 
-func (schema Schema[T]) Merge(a, b T) (c T) {
+func (schema schema[T]) Merge(a, b T) (c T) {
 	va := reflect.ValueOf(a)
 	if va.Kind() == reflect.Pointer {
 		va = va.Elem()

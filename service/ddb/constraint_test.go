@@ -14,7 +14,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
 	"github.com/fogfish/it"
 )
 
@@ -25,14 +24,14 @@ type tConstrain struct {
 func (tConstrain) HashKey() curie.IRI { return "" }
 func (tConstrain) SortKey() curie.IRI { return "" }
 
-var Name = dynamo.Schema1[tConstrain, string]("Name")
+var Name = Schema[tConstrain, string]("Name")
 
 func TestConditionExpression(t *testing.T) {
 	var (
 		expr *string = nil
 	)
 
-	spec := map[string]func(string) dynamo.Constraint[tConstrain]{
+	spec := map[string]func(string) Constraint[tConstrain]{
 		"=":  Name.Eq,
 		"<>": Name.Ne,
 		"<":  Name.Lt,
@@ -42,7 +41,7 @@ func TestConditionExpression(t *testing.T) {
 	}
 
 	for op, fn := range spec {
-		config := []dynamo.Constraint[tConstrain]{fn("abc")}
+		config := []interface{ Constraint(tConstrain) }{fn("abc")}
 		name, vals := maybeConditionExpression(&expr, config)
 
 		expectExpr := fmt.Sprintf("#__anothername__ %s :__anothername__", op)
@@ -61,7 +60,7 @@ func TestExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []dynamo.Constraint[tConstrain]{Name.Exists()}
+	config := []interface{ Constraint(tConstrain) }{Name.Exists()}
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_exists(#__anothername__)"
@@ -78,7 +77,7 @@ func TestNotExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []dynamo.Constraint[tConstrain]{Name.NotExists()}
+	config := []interface{ Constraint(tConstrain) }{Name.NotExists()}
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_not_exists(#__anothername__)"
@@ -95,7 +94,7 @@ func TestIs(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []dynamo.Constraint[tConstrain]{Name.Is("_")}
+	config := []interface{ Constraint(tConstrain) }{Name.Is("_")}
 	name, vals := maybeConditionExpression(&expr, config)
 
 	expectExpr := "attribute_not_exists(#__anothername__)"
@@ -107,7 +106,7 @@ func TestIs(t *testing.T) {
 		If(name).Should().Equal(expectName)
 
 	//
-	config = []dynamo.Constraint[tConstrain]{Name.Is("abc")}
+	config = []interface{ Constraint(tConstrain) }{Name.Is("abc")}
 	name, vals = maybeConditionExpression(&expr, config)
 
 	expectExpr = "#__anothername__ = :__anothername__"

@@ -24,7 +24,6 @@ import (
 )
 
 /*
-
 Person is a type used for testing
 */
 type Person struct {
@@ -38,7 +37,6 @@ type Person struct {
 func (p Person) HashKey() curie.IRI { return p.Prefix }
 func (p Person) SortKey() curie.IRI { return p.Suffix }
 
-//
 // Use type aliases and methods to implement FMap
 type Persons []Person
 
@@ -47,8 +45,6 @@ func (seq *Persons) Join(val Person) error {
 	return nil
 }
 
-//
-//
 func fixtureKey() Person {
 	return Person{
 		Prefix: curie.New("dead:beef"),
@@ -56,16 +52,12 @@ func fixtureKey() Person {
 	}
 }
 
-//
-//
 func fixtureKeyHashOnly() Person {
 	return Person{
 		Prefix: curie.New("dead:beef"),
 	}
 }
 
-//
-//
 func fixtureVal() Person {
 	return Person{
 		Prefix:  curie.New("dead:beef"),
@@ -76,8 +68,6 @@ func fixtureVal() Person {
 	}
 }
 
-//
-//
 func fixturePatch() Person {
 	return Person{
 		Prefix: curie.New("dead:beef"),
@@ -87,13 +77,10 @@ func fixturePatch() Person {
 }
 
 /*
-
 Encoder of test type to storage internal format
 */
 type Encoder[A any] func(Person) (A, error)
 
-//
-//
 func TestGet[S any](
 	t *testing.T,
 	encoder Encoder[S],
@@ -141,8 +128,6 @@ func TestGet[S any](
 	})
 }
 
-//
-//
 func TestPut[S any](
 	t *testing.T,
 	encoder Encoder[S],
@@ -182,8 +167,6 @@ func TestPut[S any](
 	// })
 }
 
-//
-//
 func TestRemove[S any](
 	t *testing.T,
 	encoder Encoder[S],
@@ -204,8 +187,6 @@ func TestRemove[S any](
 	})
 }
 
-//
-//
 func TestUpdate[S any](
 	t *testing.T,
 	encoder Encoder[S],
@@ -233,8 +214,6 @@ func TestUpdate[S any](
 	})
 }
 
-//
-//
 func TestMatch[S any](
 	t *testing.T,
 	encoder Encoder[S],
@@ -252,114 +231,57 @@ func TestMatch[S any](
 	t.Run("MatchNone", func(t *testing.T) {
 		ddb := factory(&expectKey, 0, &returnVal, nil)
 
-		seq := ddb.Match(context.TODO(), fixtureKeyHashOnly())
+		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
 
 		it.Ok(t).
-			IfFalse(seq.Tail()).
-			If(seq.Error()).Should().Equal(nil)
+			IfNil(err).
+			If(len(seq)).Equal(0)
 	})
 
 	//
 	t.Run("MatchOne", func(t *testing.T) {
 		ddb := factory(&expectKey, 1, &returnVal, nil)
 
-		seq := ddb.Match(context.TODO(), fixtureKeyHashOnly())
-		val, err := seq.Head()
+		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
 
 		it.Ok(t).
-			IfFalse(seq.Tail()).
-			If(seq.Error()).Should().Equal(nil).
 			If(err).Should().Equal(nil).
-			If(val).Should().Equal(fixtureVal())
+			If(len(seq)).ShouldNot().Equal(0).
+			If(seq[0]).Should().Equal(fixtureVal())
 	})
 
 	//
 	t.Run("MatchMany", func(t *testing.T) {
 		ddb := factory(&expectKey, 5, &returnVal, nil)
 
-		cnt := 0
-		seq := ddb.Match(context.TODO(), fixtureKeyHashOnly())
+		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
 
-		for seq.Tail() {
-			cnt++
+		it.Ok(t).
+			If(err).Should().Equal(nil).
+			If(len(seq)).Should().Equal(5)
 
-			val, err := seq.Head()
-			it.Ok(t).
-				If(err).Should().Equal(nil).
-				If(val).Should().Equal(fixtureVal())
+		for _, val := range seq {
+			it.Ok(t).If(val).Should().Equal(fixtureVal())
 		}
-
-		it.Ok(t).
-			If(seq.Error()).Should().Equal(nil).
-			If(cnt).Should().Equal(5)
 	})
 
 	//
-	t.Run("FMapNone", func(t *testing.T) {
-		ddb := factory(&expectKey, 0, &returnVal, nil)
-
-		var seq Persons
-		err := ddb.Match(context.TODO(), fixtureKeyHashOnly()).FMap(seq.Join)
-
-		it.Ok(t).
-			If(err).Should().Equal(nil).
-			If(len(seq)).Should().Equal(0)
-	})
-
-	//
-	t.Run("FMapPrefix", func(t *testing.T) {
-		ddb := factory(&expectKey, 2, &returnVal, nil)
-
-		var seq Persons
-		err := ddb.Match(context.TODO(), fixtureKeyHashOnly()).FMap(seq.Join)
-
-		it.Ok(t).
-			If(err).Should().Equal(nil).
-			If(seq).Should().Equal(Persons{fixtureVal(), fixtureVal()})
-	})
-
-	//
-	t.Run("FMapPrefixSuffix", func(t *testing.T) {
-		expectKeyFull, err := encoder(fixtureKey())
-		it.Ok(t).IfNil(err)
-
-		ddb := factory(&expectKeyFull, 2, &returnVal, nil)
-
-		var seq Persons
-		err = ddb.Match(context.TODO(), fixtureKey()).FMap(seq.Join)
-
-		it.Ok(t).
-			If(err).Should().Equal(nil).
-			If(seq).Should().Equal(Persons{fixtureVal(), fixtureVal()})
-	})
-
-	//
-	t.Run("FMapThings", func(t *testing.T) {
-		ddb := factory(&expectKey, 2, &returnVal, nil)
-
-		var seq dynamo.Things[Person]
-		err := ddb.Match(context.TODO(), fixtureKeyHashOnly()).FMap(seq.Join)
-
-		it.Ok(t).
-			If(err).Should().Equal(nil).
-			If(seq).Should().Equal(dynamo.Things[Person]{fixtureVal(), fixtureVal()})
-	})
-
-	//
-	t.Run("FMapWithCursor", func(t *testing.T) {
+	t.Run("MatchWithCursor", func(t *testing.T) {
 		expectKeyFull, err := encoder(fixtureKey())
 		it.Ok(t).IfNil(err)
 
 		ddb := factory(&expectKey, 2, &returnVal, &expectKeyFull)
 
-		dbseq := ddb.Match(context.TODO(), fixtureKeyHashOnly())
-		dbseq.Tail()
-		cursor0 := dbseq.Cursor()
+		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
+		it.Ok(t).IfNil(err)
+
+		cursor0 := seq[1]
 		keys0 := filepath.Join(string(cursor0.HashKey()), string(cursor0.SortKey()))
 
-		dbseq = ddb.Match(context.TODO(), fixtureKey()).Continue(cursor0)
-		dbseq.Tail()
-		cursor1 := dbseq.Cursor()
+		seq, err = ddb.Match(context.Background(), fixtureKey(), dynamo.Cursor(cursor0))
+		it.Ok(t).IfNil(err)
+
+		cursor1 := seq[1]
 		keys1 := filepath.Join(string(cursor1.HashKey()), string(cursor1.SortKey()))
 
 		it.Ok(t).

@@ -15,9 +15,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
-	"github.com/fogfish/dynamo/v2/internal/ddb/ddbtest"
+	"github.com/fogfish/dynamo/v2/internal/ddbtest"
 	"github.com/fogfish/dynamo/v2/internal/dynamotest"
+	"github.com/fogfish/dynamo/v2/service/ddb"
 	"github.com/fogfish/it"
 )
 
@@ -65,7 +65,7 @@ func TestDynamoDB(t *testing.T) {
 }
 
 func TestDdbPutWithConstrain(t *testing.T) {
-	name := dynamo.Schema1[person, string]("Name")
+	name := ddb.Schema[person, string]("Name")
 	ddb := ddbtest.Constrains[person](nil)
 
 	success := ddb.Put(context.TODO(), entityStruct(), name.Eq("xxx"))
@@ -78,7 +78,7 @@ func TestDdbPutWithConstrain(t *testing.T) {
 }
 
 func TestDdbRemoveWithConstrain(t *testing.T) {
-	name := dynamo.Schema1[person, string]("Name")
+	name := ddb.Schema[person, string]("Name")
 	ddb := ddbtest.Constrains[person](nil)
 
 	success := ddb.Remove(context.TODO(), entityStruct(), name.Eq("xxx"))
@@ -91,7 +91,7 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 }
 
 func TestDdbUpdateWithConstrain(t *testing.T) {
-	name := dynamo.Schema1[person, string]("Name")
+	name := ddb.Schema[person, string]("Name")
 	ddb := ddbtest.Constrains[person](entityDynamo())
 	patch := person{
 		Prefix: curie.New("dead:beef"),

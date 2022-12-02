@@ -10,17 +10,33 @@ package ddb
 
 import (
 	"context"
-	"fmt"
 	"net/url"
-	"runtime"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/fogfish/dynamo/v2"
-	"github.com/fogfish/dynamo/v2/internal/ddb"
 )
 
-func Must[T dynamo.Thing](keyval dynamo.KeyVal[T], err error) dynamo.KeyVal[T] {
+// DynamoDB declares interface of original AWS DynamoDB API used by the library
+type DynamoDB interface {
+	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
+	PutItem(context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
+	DeleteItem(context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
+	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
+}
+
+// Storage type
+type Storage[T dynamo.Thing] struct {
+	service   DynamoDB
+	table     *string
+	index     *string
+	codec     *codec[T]
+	schema    *schema[T]
+	undefined T
+}
+
+func Must[T dynamo.Thing](keyval *Storage[T], err error) *Storage[T] {
 	if err != nil {
 		panic(err)
 	}
@@ -29,7 +45,7 @@ func Must[T dynamo.Thing](keyval dynamo.KeyVal[T], err error) dynamo.KeyVal[T] {
 }
 
 // New creates instance of DynamoDB api
-func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (dynamo.KeyVal[T], error) {
+func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (*Storage[T], error) {
 	conf := dynamo.NewConfig()
 	for _, opt := range opts {
 		opt(&conf)
@@ -43,7 +59,7 @@ func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (dynamo.KeyVal
 	var table, index *string
 	uri, err := newURI(connector)
 	if err != nil || len(uri.Path) < 2 {
-		return nil, errInvalidConnectorURL(connector)
+		return nil, errInvalidConnectorURL.New(nil, connector)
 	}
 
 	seq := uri.Segments()
@@ -52,18 +68,18 @@ func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (dynamo.KeyVal
 		index = &seq[1]
 	}
 
-	return &ddb.Storage[T]{
-		Service: aws,
-		Table:   table,
-		Index:   index,
-		Codec:   ddb.NewCodec[T](uri),
-		Schema:  ddb.NewSchema[T](),
+	return &Storage[T]{
+		service: aws,
+		table:   table,
+		index:   index,
+		codec:   newCodec[T](uri),
+		schema:  newSchema[T](),
 	}, nil
 }
 
-func newService(conf *dynamo.Config) (dynamo.DynamoDB, error) {
+func newService(conf *dynamo.Config) (DynamoDB, error) {
 	if conf.Service != nil {
-		service, ok := conf.Service.(dynamo.DynamoDB)
+		service, ok := conf.Service.(DynamoDB)
 		if ok {
 			return service, nil
 		}
@@ -84,14 +100,4 @@ func newURI(uri string) (*dynamo.URL, error) {
 	}
 
 	return (*dynamo.URL)(spec), nil
-}
-
-func errInvalidConnectorURL(url string) error {
-	var name string
-
-	if pc, _, _, ok := runtime.Caller(1); ok {
-		name = runtime.FuncForPC(pc).Name()
-	}
-
-	return fmt.Errorf("[%s] invalid connector url: %s", name, url)
 }

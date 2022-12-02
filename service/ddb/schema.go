@@ -16,16 +16,13 @@ import (
 	"github.com/fogfish/golem/pure/hseq"
 )
 
-/*
-
-Schema is utility that decodes type into projection expression
-*/
-type Schema[T dynamo.Thing] struct {
+// Schema is utility that decodes type into projection expression
+type schema[T dynamo.Thing] struct {
 	ExpectedAttributeNames map[string]string
 	Projection             *string
 }
 
-func NewSchema[T dynamo.Thing]() *Schema[T] {
+func newSchema[T dynamo.Thing]() *schema[T] {
 	seq := hseq.FMap(
 		hseq.Generic[T](),
 		func(t hseq.Type[T]) string {
@@ -35,16 +32,16 @@ func NewSchema[T dynamo.Thing]() *Schema[T] {
 	)
 
 	names := make(map[string]string, len(seq))
-	schema := make([]string, len(seq))
+	attrs := make([]string, len(seq))
 
 	for i, x := range seq {
 		name := "#__" + x + "__"
 		names[name] = x
-		schema[i] = name
+		attrs[i] = name
 	}
 
-	return &Schema[T]{
+	return &schema[T]{
 		ExpectedAttributeNames: names,
-		Projection:             aws.String(strings.Join(schema, ", ")),
+		Projection:             aws.String(strings.Join(attrs, ", ")),
 	}
 }

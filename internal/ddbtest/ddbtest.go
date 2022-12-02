@@ -27,7 +27,7 @@ import (
 /*
 mock factory
 */
-func mock[T dynamo.Thing](mock dynamo.DynamoDB) dynamo.KeyVal[T] {
+func mock[T dynamo.Thing](mock ddbapi.DynamoDB) dynamo.KeyVal[T] {
 	return ddbapi.Must(
 		ddbapi.New[T]("ddb:///test", dynamo.WithService(mock)),
 	)
@@ -44,7 +44,7 @@ func GetItem[T dynamo.Thing](
 }
 
 type ddbGetItem struct {
-	dynamo.DynamoDB
+	ddbapi.DynamoDB
 	expectKey *map[string]types.AttributeValue
 	returnVal *map[string]types.AttributeValue
 }
@@ -73,7 +73,7 @@ func PutItem[T dynamo.Thing](
 }
 
 type ddbPutItem struct {
-	dynamo.DynamoDB
+	ddbapi.DynamoDB
 	expectVal *map[string]types.AttributeValue
 }
 
@@ -94,7 +94,7 @@ func DeleteItem[T dynamo.Thing](
 }
 
 type ddbDeleteItem struct {
-	dynamo.DynamoDB
+	ddbapi.DynamoDB
 	expectKey *map[string]types.AttributeValue
 }
 
@@ -122,7 +122,7 @@ func UpdateItem[T dynamo.Thing](
 }
 
 type ddbUpdateItem struct {
-	dynamo.DynamoDB
+	ddbapi.DynamoDB
 	expectKey *map[string]types.AttributeValue
 	expectVal *map[string]types.AttributeValue
 	retrunVal *map[string]types.AttributeValue
@@ -162,7 +162,7 @@ func Query[T dynamo.Thing](
 }
 
 type ddbQuery struct {
-	dynamo.DynamoDB
+	ddbapi.DynamoDB
 	expectKey     *map[string]types.AttributeValue
 	returnLen     int
 	returnVal     *map[string]types.AttributeValue
@@ -203,7 +203,7 @@ func Constrains[T dynamo.Thing](
 }
 
 type ddbConstrains struct {
-	dynamo.DynamoDB
+	ddbapi.DynamoDB
 	returnVal map[string]types.AttributeValue
 }
 

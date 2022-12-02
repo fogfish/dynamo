@@ -5,11 +5,9 @@ import (
 	"math/rand"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
 )
 
 /*
-
 Author of articles with-in fictional arxiv.org application.
 
 The access patterns for authors follow a classical Key-Val I/O.
@@ -20,7 +18,8 @@ sharding suffix can also be employed if needed.
 
 HashKey is
 curie.New("author:%s", "neumann")
-  ⟿ author:neumann
+
+	⟿ author:neumann
 */
 type Author struct {
 	ID   curie.IRI `dynamodbav:"prefix,omitempty"`
@@ -32,7 +31,6 @@ func (author Author) HashKey() curie.IRI { return author.ID }
 func (author Author) SortKey() curie.IRI { return curie.IRI("_") }
 
 /*
-
 NewAuthor creates instance of author
 */
 func NewAuthor(id, name string) Author {
@@ -43,7 +41,6 @@ func NewAuthor(id, name string) Author {
 }
 
 /*
-
 Article is published by Authors (Author ¹⟼ⁿ Article)
 
 The access patterns for an article follows one-to-many I/O
@@ -58,11 +55,13 @@ the partition key, article id is a sort key
 
 HashKey is
 curie.New("author:%s", "neumann")
-  ⟿ author:neumann
+
+	⟿ author:neumann
 
 SortKey is
 curie.New("article:%s", "theory_of_automata")
-  ⟿ article:theory_of_automata
+
+	⟿ article:theory_of_automata
 */
 type Article struct {
 	Author   curie.IRI `dynamodbav:"prefix,omitempty"`
@@ -77,7 +76,6 @@ func (article Article) HashKey() curie.IRI { return article.Author }
 func (article Article) SortKey() curie.IRI { return article.ID }
 
 /*
-
 Category is a projection of the Article to different index
 */
 type Category Article
@@ -87,7 +85,6 @@ func (article Category) HashKey() curie.IRI { return curie.IRI(article.Category)
 func (article Category) SortKey() curie.IRI { return curie.IRI(article.Year) }
 
 /*
-
 NewArticle creates instance of Article
 */
 func NewArticle(author string, id, title string) Article {
@@ -106,22 +103,6 @@ func NewArticle(author string, id, title string) Article {
 }
 
 /*
-
-Articles is sequence of Articles.
-
-This code snippet shows the best approach to lift generic sequence of DynamoDB
-items into the sequence of articles. The pattern uses concept of monoid.
-*/
-type Articles dynamo.Things[Article]
-
-// Join generic element into sequence
-func (seq *Articles) Join(val Article) error {
-	*seq = append(*seq, val)
-	return nil
-}
-
-/*
-
 Keyword is contained by Article (Keyword ⁿ⟼ⁿ Article)
 
 The access patterns for an article - keyword is a classical many-to-many I/O
@@ -139,19 +120,23 @@ explicitly. The composed sort key builds for this lists:
 
 HashKey is
 curie.New("keyword:%s", "theory")
-  ⟿ keyword:theory
+
+	⟿ keyword:theory
 
 SortKey is
 curie.New("article:%s/%s", "neumann", "theory_of_automata")
-  ⟿ article:neumann/theory_of_automata
+
+	⟿ article:neumann/theory_of_automata
 
 and inverse
 
 HashKey is
-  ⟿ article:neumann/theory_of_automata
+
+	⟿ article:neumann/theory_of_automata
 
 SortKey is
-  ⟿ keyword:theory
+
+	⟿ keyword:theory
 */
 type Keyword struct {
 	HKey curie.IRI `dynamodbav:"prefix,omitempty"`
@@ -164,7 +149,6 @@ func (keyword Keyword) HashKey() curie.IRI { return keyword.HKey }
 func (keyword Keyword) SortKey() curie.IRI { return keyword.SKey }
 
 /*
-
 NewKeyword explicitly creates pair of Keyword ⟼ Article and
 Article ⟼ Keyword relations.
 */
@@ -179,7 +163,6 @@ func NewKeyword(author, article, title, keyword string) []Keyword {
 }
 
 /*
-
 Keywords is a sequence of Keywords
 */
 type Keywords []Keyword

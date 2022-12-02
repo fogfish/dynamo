@@ -23,7 +23,7 @@ type KeyVal[T dynamo.Thing] interface {
   Get(T) (T, error)
   Remove(T) error
   Update(T) (T, error)
-  Match(T) Seq[T]
+  Match(T) []T
 }
 ```
 
@@ -196,28 +196,13 @@ Composite sort key is core concept to organize hierarchies. It facilitates linke
 
 ```go
 //
-// Match uses partition key to match DynamoDB entries. It returns a sequence of 
-// data type instances. FMap is an utility it takes a closure function. 
-db.Match(context.TODO(), Message{Thread: "thread:A"}).FMap(/* ... */)
+// Match uses partition key to match DynamoDB entries.
+// It returns a sequence of matched data elements.  
+db.Match(context.TODO(), Message{Thread: "thread:A"})
 
 //
 // Match uses partition key and partial sort key to match DynamoDB entries. 
-db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C"}).FMap(/* ... */)
-
-
-//
-// Type aliases is the best approach to lift generic sequence in type safe one.
-type Messages []Message
-
-// Join is a monoid to append generic element into sequence 
-func (seq *Messages) Join(val *Message) error {
-  *seq = append(*seq, *val)
-  return nil
-}
-
-// and final magic to discover hierarchy of elements
-seq := Messages{}
-db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C/E"}).FMap(seq.Join)
+db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C"})
 ```
 
 See [advanced example](examples/relational/) for details on managing linked-data. 
@@ -229,17 +214,20 @@ Hierarchical structures is the way to organize collections, lists, sets, etc. Th
 
 ```go
 // 1. Set the limit on the stream 
-seq := db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C"}).Limit(25)
-// 2. Consume the stream
-seq.FMap(persons.Join)
-// 3. Read cursor value
-cursor := seq.Cursor()
+seq := db.Match(context.TODO(),
+  Message{Thread: "thread:A", ID: "C"},
+  dynamo.Limit(25),
+)
 
+// 2. Read cursor value
+cursor := seq[len(seq)-1]
 
-// 4. Continue I/O with a new stream, supply the cursor
-seq := db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C"}).
-  Limit(25).
-  Continue(cursor)
+// 3. Continue I/O with a new stream, supply the cursor
+seq := db.Match(context.TODO(),
+  Message{Thread: "thread:A", ID: "C"},
+  dynamo.Limit(25),
+  dynamo.Cursor(cursor),
+)
 ```
 
 
@@ -322,15 +310,23 @@ import (
 // 3. declare codecs for complex core domain type 
 type id core.ID
 
-func (id) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {/* ...*/}
-func (*id) UnmarshalDynamoDBAttributeValue(types.AttributeValue) error {/* ...*/}
+func (id) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
+  /* ...*/
+}
+
+func (*id) UnmarshalDynamoDBAttributeValue(types.AttributeValue) error {
+  /* ...*/
+}
 
 // aws/ddb/ddb.go
 // 2. type alias to core type implements dynamo custom codec
 type dbPerson Person
 
 // 3. custom codec for structure field is defined 
-var codecHashKey, codecSortKey = ddb.Codec2[dbPerson, id, id]("Org", "ID")
+var (
+  codecHashKey = ddb.Codec[dbPerson, id]("Org")
+  codecSortKey = ddb.Codec[dbPerson, id]("ID")
+)
 
 // 4. use custom codec
 func (p dbPerson) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
@@ -383,7 +379,7 @@ type Person struct {
   ID      string `dynamodbav:"suffix,omitempty"`
   Name    string `dynamodbav:"anothername,omitempty"`
 }
-var Name = dynamo.Schema1[Person, string]("Name")
+var Name = dynamo.Schema[Person, string]("Name")
 
 val, err := db.Update(context.TODO(), &person, Name.Eq("Verner Pleishner"))
 switch err.(type) {

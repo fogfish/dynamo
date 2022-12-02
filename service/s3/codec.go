@@ -14,23 +14,21 @@ import (
 )
 
 /*
-
 Codec is utility to encode/decode objects to s3 representation
 */
-type Codec[T dynamo.Thing] struct {
+type codec[T dynamo.Thing] struct {
 	prefixes curie.Prefixes
 }
 
-func NewCodec[T dynamo.Thing](prefixes curie.Prefixes) *Codec[T] {
+func newCodec[T dynamo.Thing](prefixes curie.Prefixes) *codec[T] {
 	if prefixes == nil {
-		return &Codec[T]{prefixes: curie.Namespaces{}}
+		return &codec[T]{prefixes: curie.Namespaces{}}
 	}
 
-	return &Codec[T]{prefixes: prefixes}
+	return &codec[T]{prefixes: prefixes}
 }
 
-//
-func (codec Codec[T]) EncodeKey(key T) string {
+func (codec codec[T]) EncodeKey(key dynamo.Thing) string {
 	hkey := curie.URI(codec.prefixes, key.HashKey())
 	skey := curie.URI(codec.prefixes, key.SortKey())
 
