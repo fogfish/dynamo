@@ -79,10 +79,10 @@ func TestDdbPutWithConstrain(t *testing.T) {
 
 func TestDdbRemoveWithConstrain(t *testing.T) {
 	name := ddb.Schema[person, string]("Name")
-	ddb := ddbtest.Constrains[person](nil)
+	ddb := ddbtest.Constrains[person](entityDynamo())
 
-	success := ddb.Remove(context.TODO(), entityStruct(), name.Eq("xxx"))
-	failure := ddb.Remove(context.TODO(), entityStruct(), name.Eq("yyy"))
+	_, success := ddb.Remove(context.TODO(), entityStruct(), name.Eq("xxx"))
+	_, failure := ddb.Remove(context.TODO(), entityStruct(), name.Eq("yyy"))
 	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
 	it.Ok(t).

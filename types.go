@@ -95,7 +95,7 @@ KeyValWriter defines a generic key-value writer
 */
 type KeyValWriter[T Thing] interface {
 	Put(context.Context, T, ...interface{ Constraint(T) }) error
-	Remove(context.Context, T, ...interface{ Constraint(T) }) error
+	Remove(context.Context, T, ...interface{ Constraint(T) }) (T, error)
 	Update(context.Context, T, ...interface{ Constraint(T) }) (T, error)
 }
 

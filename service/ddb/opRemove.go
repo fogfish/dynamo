@@ -16,30 +16,36 @@ import (
 )
 
 // Remove discards the entity from the table
-func (db *Storage[T]) Remove(ctx context.Context, key T, config ...interface{ Constraint(T) }) error {
+func (db *Storage[T]) Remove(ctx context.Context, key T, config ...interface{ Constraint(T) }) (T, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
-		return errInvalidKey.New(err)
+		return db.undefined, errInvalidKey.New(err)
 	}
 
 	req := &dynamodb.DeleteItemInput{
-		Key:       gen,
-		TableName: db.table,
+		Key:          gen,
+		TableName:    db.table,
+		ReturnValues: "ALL_OLD",
 	}
 	names, values := maybeConditionExpression(&req.ConditionExpression, config)
 	req.ExpressionAttributeValues = values
 	req.ExpressionAttributeNames = names
 
-	_, err = db.service.DeleteItem(ctx, req)
+	val, err := db.service.DeleteItem(ctx, req)
 	if err != nil {
 		if recoverConditionalCheckFailedException(err) {
-			return errPreConditionFailed(err, key,
+			return db.undefined, errPreConditionFailed(err, key,
 				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
 				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
 			)
 		}
-		return errServiceIO.New(err)
+		return db.undefined, errServiceIO.New(err)
 	}
 
-	return nil
+	obj, err := db.codec.Decode(val.Attributes)
+	if err != nil {
+		return db.undefined, errInvalidEntity.New(err)
+	}
+
+	return obj, nil
 }

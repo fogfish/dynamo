@@ -21,7 +21,7 @@ Essentially, the library implement a following generic key-value trait to access
 type KeyVal[T dynamo.Thing] interface {
   Put(T) error
   Get(T) (T, error)
-  Remove(T) error
+  Remove(T) (T, error)
   Update(T) (T, error)
   Match(T) []T
 }
@@ -149,7 +149,7 @@ if err != nil { /* ... */ }
 
 //
 // Remove the struct using Remove give partially defined struct with ID
-err := db.Remove(context.TODO(),
+_, err := db.Remove(context.TODO(),
   Person{
     Org: curie.IRI("University:Kiel"),
     ID:  curie.IRI("Professor:8980789222"),

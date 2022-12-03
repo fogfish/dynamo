@@ -89,13 +89,15 @@ DeleteItem mock
 */
 func DeleteItem[T dynamo.Thing](
 	expectKey *map[string]types.AttributeValue,
+	returnVal *map[string]types.AttributeValue,
 ) dynamo.KeyVal[T] {
-	return mock[T](&ddbDeleteItem{expectKey: expectKey})
+	return mock[T](&ddbDeleteItem{expectKey: expectKey, returnVal: returnVal})
 }
 
 type ddbDeleteItem struct {
 	ddbapi.DynamoDB
 	expectKey *map[string]types.AttributeValue
+	returnVal *map[string]types.AttributeValue
 }
 
 func (mock *ddbDeleteItem) DeleteItem(ctx context.Context, input *dynamodb.DeleteItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
@@ -103,7 +105,7 @@ func (mock *ddbDeleteItem) DeleteItem(ctx context.Context, input *dynamodb.Delet
 		return nil, errors.New("unexpected entity")
 	}
 
-	return &dynamodb.DeleteItemOutput{}, nil
+	return &dynamodb.DeleteItemOutput{Attributes: *mock.returnVal}, nil
 }
 
 /*
@@ -117,7 +119,7 @@ func UpdateItem[T dynamo.Thing](
 	return mock[T](&ddbUpdateItem{
 		expectKey: expectKey,
 		expectVal: expectVal,
-		retrunVal: returnVal,
+		returnVal: returnVal,
 	})
 }
 
@@ -125,7 +127,7 @@ type ddbUpdateItem struct {
 	ddbapi.DynamoDB
 	expectKey *map[string]types.AttributeValue
 	expectVal *map[string]types.AttributeValue
-	retrunVal *map[string]types.AttributeValue
+	returnVal *map[string]types.AttributeValue
 }
 
 func (mock *ddbUpdateItem) UpdateItem(ctx context.Context, input *dynamodb.UpdateItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
@@ -141,7 +143,7 @@ func (mock *ddbUpdateItem) UpdateItem(ctx context.Context, input *dynamodb.Updat
 		}
 	}
 
-	return &dynamodb.UpdateItemOutput{Attributes: *mock.retrunVal}, nil
+	return &dynamodb.UpdateItemOutput{Attributes: *mock.returnVal}, nil
 }
 
 /*
@@ -238,7 +240,9 @@ func (mock ddbConstrains) DeleteItem(ctx context.Context, input *dynamodb.Delete
 		return nil, err
 	}
 
-	return &dynamodb.DeleteItemOutput{}, nil
+	return &dynamodb.DeleteItemOutput{
+		Attributes: mock.returnVal,
+	}, nil
 }
 
 func (mock ddbConstrains) UpdateItem(ctx context.Context, input *dynamodb.UpdateItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
