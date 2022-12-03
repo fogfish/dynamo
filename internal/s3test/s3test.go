@@ -114,18 +114,27 @@ func (mock *s3PutObject[T]) PutObject(ctx context.Context, input *s3.PutObjectIn
 /*
 DeleteObject mock
 */
-func DeleteObject[T dynamo.Thing](
+func GetDeleteObject[T dynamo.Thing](
 	expectKey *T,
+	returnVal *T,
 ) dynamo.KeyVal[T] {
-	return mock[T](&s3DeleteObject[T]{expectKey: expectKey})
+	return mock[T](&s3GetDeleteObject[T]{
+		expectKey: expectKey,
+		get:       &s3GetObject[T]{expectKey: expectKey, returnVal: returnVal},
+	})
 }
 
-type s3DeleteObject[T dynamo.Thing] struct {
+type s3GetDeleteObject[T dynamo.Thing] struct {
 	s3api.S3
 	expectKey *T
+	get       *s3GetObject[T]
 }
 
-func (mock *s3DeleteObject[T]) DeleteObject(ctx context.Context, input *s3.DeleteObjectInput, opts ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
+func (mock *s3GetDeleteObject[T]) GetObject(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
+	return mock.get.GetObject(ctx, input, opts...)
+}
+
+func (mock *s3GetDeleteObject[T]) DeleteObject(ctx context.Context, input *s3.DeleteObjectInput, opts ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
 	if *input.Key != encodeKey(*mock.expectKey) {
 		return nil, errors.New("unexpected entity")
 	}

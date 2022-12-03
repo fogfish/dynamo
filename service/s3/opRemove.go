@@ -16,16 +16,21 @@ import (
 )
 
 // Remove discards the entity from the table
-func (db *Storage[T]) Remove(ctx context.Context, key T, config ...interface{ Constraint(T) }) error {
+func (db *Storage[T]) Remove(ctx context.Context, key T, config ...interface{ Constraint(T) }) (T, error) {
+	obj, err := db.Get(ctx, key)
+	if err != nil {
+		return db.undefined, err
+	}
+
 	req := &s3.DeleteObjectInput{
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(key)),
 	}
 
-	_, err := db.service.DeleteObject(ctx, req)
+	_, err = db.service.DeleteObject(ctx, req)
 	if err != nil {
-		return errServiceIO.New(err)
+		return db.undefined, errServiceIO.New(err)
 	}
 
-	return nil
+	return obj, nil
 }

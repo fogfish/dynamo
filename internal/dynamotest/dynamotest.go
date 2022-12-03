@@ -170,20 +170,24 @@ func TestPut[S any](
 func TestRemove[S any](
 	t *testing.T,
 	encoder Encoder[S],
-	factory func(*S) dynamo.KeyVal[Person],
+	factory func(*S, *S) dynamo.KeyVal[Person],
 ) {
 	t.Helper()
 
 	expectKey, err := encoder(fixtureKey())
 	it.Ok(t).IfNil(err)
 
+	returnVal, err := encoder(fixtureVal())
+	it.Ok(t).IfNil(err)
+
 	//
 	t.Run("RemoveSuccess", func(t *testing.T) {
-		ddb := factory(&expectKey)
+		ddb := factory(&expectKey, &returnVal)
 
-		err := ddb.Remove(context.TODO(), fixtureVal())
+		val, err := ddb.Remove(context.TODO(), fixtureVal())
 		it.Ok(t).
-			If(err).Should().Equal(nil)
+			If(err).Should().Equal(nil).
+			If(val).Should().Equal(fixtureVal())
 	})
 }
 

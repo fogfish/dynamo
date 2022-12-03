@@ -160,9 +160,13 @@ func exampleRemove(db KeyVal) {
 			Org: curie.New("test:"),
 			ID:  curie.New("person:%d", i),
 		}
-		err := db.Remove(context.Background(), &key)
-
-		fmt.Println("=[ remove ]=> ", err)
+		val, err := db.Remove(context.Background(), &key)
+		switch {
+		case err == nil:
+			fmt.Printf("=[ remove ]=> %+v\n", val)
+		default:
+			fmt.Printf("=[ remove ]=> Fail: %v\n", err)
+		}
 	}
 }
 
