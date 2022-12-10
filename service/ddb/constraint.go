@@ -14,6 +14,7 @@ package ddb
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -59,25 +60,6 @@ import (
 //
 //	name.Eq("Joe Doe")
 //	name.NotExists()
-//
-//
-// func SchemaZZ[T dynamo.Thing, A any](a string) Constraints[T, A] {
-// 	return hseq.FMap1(
-// 		generic[T](a),
-// 		mkConstraints[T, A],
-// 	)
-// }
-
-// Builds Constrains
-// func mkConstraints[T dynamo.Thing, A any](t hseq.Type[T]) Constraints[T, A] {
-// 	tag := t.Tag.Get("dynamodbav")
-// 	if tag == "" {
-// 		return Constraints[T, A]{""}
-// 	}
-
-// 	return Constraints[T, A]{strings.Split(tag, ",")[0]}
-// }
-
 type ConditionExpression[T dynamo.Thing, A any] struct{ key string }
 
 func newConditionExpression[T dynamo.Thing, A any](t hseq.Type[T]) ConditionExpression[T, A] {
@@ -157,8 +139,8 @@ func (op dyadicCondition[T, A]) Apply(
 		return
 	}
 
-	key := "#__" + op.key + "__"
-	let := ":__" + op.key + "__"
+	key := "#__c_" + op.key + "__"
+	let := ":__c_" + op.key + "__"
 	expressionAttributeValues[let] = lit
 	expressionAttributeNames[key] = op.key
 	expr := "(" + key + " " + op.op + " " + let + ")"
@@ -169,48 +151,6 @@ func (op dyadicCondition[T, A]) Apply(
 		*conditionExpression = aws.String(**conditionExpression + " and " + expr)
 	}
 }
-
-// Eq is equal constrain
-//
-//	name.Eq(x) ⟼ Field = :value
-// func (eff Constraints[T, A]) Eq(val A) Constraint[T] {
-// 	return Constraint[T]{fun: "=", key: eff.key, val: val}
-// }
-
-// Ne is non equal constraint
-//
-//	name.Ne(x) ⟼ Field <> :value
-// func (eff Constraints[T, A]) Ne(val A) Constraint[T] {
-// 	return Constraint[T]{fun: "<>", key: eff.key, val: val}
-// }
-
-// Lt is less than constraint
-//
-//	name.Lt(x) ⟼ Field < :value
-// func (eff Constraints[T, A]) Lt(val A) Constraint[T] {
-// 	return Constraint[T]{fun: "<", key: eff.key, val: val}
-// }
-
-// Le is less or equal constain
-//
-//	name.Le(x) ⟼ Field <= :value
-// func (eff Constraints[T, A]) Le(val A) Constraint[T] {
-// 	return Constraint[T]{fun: "<=", key: eff.key, val: val}
-// }
-
-// Gt is greater than constrain
-//
-//	name.Le(x) ⟼ Field > :value
-// func (eff Constraints[T, A]) Gt(val A) Constraint[T] {
-// 	return Constraint[T]{fun: ">", key: eff.key, val: val}
-// }
-
-// Ge is greater or equal constrain
-//
-//	name.Le(x) ⟼ Field >= :value
-// func (eff Constraints[T, A]) Ge(val A) Constraint[T] {
-// 	return Constraint[T]{fun: ">=", key: eff.key, val: val}
-// }
 
 // Exists attribute constrain
 //
@@ -243,7 +183,7 @@ func (op unaryCondition[T]) Apply(
 		return
 	}
 
-	key := "#__" + op.key + "__"
+	key := "#__c_" + op.key + "__"
 	expressionAttributeNames[key] = op.key
 	expr := "(" + op.op + "(" + key + ")" + ")"
 
@@ -261,6 +201,153 @@ func (ce ConditionExpression[T, A]) Is(val string) interface{ ConditionExpressio
 	}
 
 	return ce.Eq(any(val).(A))
+}
+
+// Between attribute condition
+//
+//	name.Between(a, b) ⟼ Field BETWEEN :a AND :b
+func (ce ConditionExpression[T, A]) Between(a, b A) interface{ ConditionExpression(T) } {
+	return &betweenCondition[T, A]{key: ce.key, a: a, b: b}
+}
+
+// between condition implementation
+type betweenCondition[T any, A any] struct {
+	key  string
+	a, b A
+}
+
+func (op betweenCondition[T, A]) ConditionExpression(T) {}
+
+func (op betweenCondition[T, A]) Apply(
+	conditionExpression **string,
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
+) {
+	if op.key == "" {
+		return
+	}
+
+	litA, err := attributevalue.Marshal(op.a)
+	if err != nil {
+		return
+	}
+
+	litB, err := attributevalue.Marshal(op.b)
+	if err != nil {
+		return
+	}
+
+	key := "#__c_" + op.key + "__"
+	letA := ":__c_" + op.key + "_a__"
+	letB := ":__c_" + op.key + "_b__"
+	expressionAttributeValues[letA] = litA
+	expressionAttributeValues[letB] = litB
+	expressionAttributeNames[key] = op.key
+	expr := "(" + key + " BETWEEN " + letA + " AND " + letB + ")"
+
+	if *conditionExpression == nil {
+		*conditionExpression = aws.String(expr)
+	} else {
+		*conditionExpression = aws.String(**conditionExpression + " and " + expr)
+	}
+}
+
+// In attribute condition
+//
+//	name.Between(a, b, c) ⟼ Field IN (:a, :b, :c)
+func (ce ConditionExpression[T, A]) In(seq ...A) interface{ ConditionExpression(T) } {
+	return &inCondition[T, A]{key: ce.key, seq: seq}
+}
+
+// between condition implementation
+type inCondition[T any, A any] struct {
+	key string
+	seq []A
+}
+
+func (op inCondition[T, A]) ConditionExpression(T) {}
+
+func (op inCondition[T, A]) Apply(
+	conditionExpression **string,
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
+) {
+	if op.key == "" {
+		return
+	}
+
+	key := "#__c_" + op.key + "__"
+	expressionAttributeNames[key] = op.key
+
+	lits := make([]types.AttributeValue, len(op.seq))
+	lets := make([]string, len((op.seq)))
+	for i := 0; i < len(op.seq); i++ {
+		lit, err := attributevalue.Marshal(op.seq[i])
+		if err != nil {
+			return
+		}
+		lits[i] = lit
+		lets[i] = ":__c_" + op.key + "_" + strconv.Itoa(i) + "__"
+		expressionAttributeValues[lets[i]] = lits[i]
+	}
+
+	expr := "(" + key + " IN (" + strings.Join(lets, ",") + "))"
+
+	if *conditionExpression == nil {
+		*conditionExpression = aws.String(expr)
+	} else {
+		*conditionExpression = aws.String(**conditionExpression + " and " + expr)
+	}
+}
+
+// HasPrefix attribute condition
+//
+// name.HasPrefix(x) ⟼ begins_with(Field, :value)
+func (ce ConditionExpression[T, A]) HasPrefix(val A) interface{ ConditionExpression(T) } {
+	return &functionalCondition[T, A]{fun: "begins_with", key: ce.key, val: val}
+}
+
+// Contains attribute condition
+//
+// name.Contains(x) ⟼ contains(Field, :value)
+func (ce ConditionExpression[T, A]) Contains(val A) interface{ ConditionExpression(T) } {
+	return &functionalCondition[T, A]{fun: "contains", key: ce.key, val: val}
+}
+
+// functional condition implementation
+type functionalCondition[T any, A any] struct {
+	fun string
+	key string
+	val A
+}
+
+func (op functionalCondition[T, A]) ConditionExpression(T) {}
+
+func (op functionalCondition[T, A]) Apply(
+	conditionExpression **string,
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
+) {
+	if op.key == "" {
+		return
+	}
+
+	lit, err := attributevalue.Marshal(op.val)
+	if err != nil {
+		return
+	}
+
+	key := "#__c_" + op.key + "__"
+	let := ":__c_" + op.key + "__"
+	expressionAttributeValues[let] = lit
+	expressionAttributeNames[key] = op.key
+	expr := "(" + op.fun + "(" + key + "," + let + "))"
+
+	if *conditionExpression == nil {
+		*conditionExpression = aws.String(expr)
+	} else {
+		*conditionExpression = aws.String(**conditionExpression + " and " + expr)
+	}
 }
 
 /*

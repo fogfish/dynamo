@@ -23,11 +23,11 @@ func (p Person) HashKey() curie.IRI { return p.Org }
 func (p Person) SortKey() curie.IRI { return p.ID }
 
 var (
-	Name    = ddb.SchemaX[*Person, string]("Name")
-	Age     = ddb.SchemaX[*Person, int]("Age")
-	Address = ddb.SchemaX[*Person, string]("Address")
-	Degrees = ddb.SchemaX[*Person, []string]("Degrees")
-	X       = ddb.Schema[*Person, string]("Name")
+	Name    = ddb.Schema[*Person, string]("Name").Updater()
+	Age     = ddb.Schema[*Person, int]("Age").Updater()
+	Address = ddb.Schema[*Person, string]("Address").Updater()
+	Degrees = ddb.Schema[*Person, []string]("Degrees").Updater()
+	ifName  = ddb.Schema[*Person, string]("Name").Condition()
 )
 
 func main() {
@@ -74,7 +74,7 @@ func exampleUpdateExpressionModifyingOne(db *ddb.Storage[*Person]) {
 	}
 
 	val, err := db.UpdateWith(context.Background(),
-		ddb.Expression(&key).Update(
+		ddb.Updater(&key,
 			Address.Set("Blumenstrasse 14, Berne, 3013"),
 		),
 	)
@@ -93,7 +93,7 @@ func exampleUpdateExpressionModifyingFew(db *ddb.Storage[*Person]) {
 	}
 
 	val, err := db.UpdateWith(context.Background(),
-		ddb.Expression(&key).Update(
+		ddb.Updater(&key,
 			Address.Set("Viktoriastrasse 37, Berne, 3013"),
 			Age.Set(64),
 		),
@@ -113,7 +113,7 @@ func exampleUpdateExpressionIncrement(db *ddb.Storage[*Person]) {
 	}
 
 	val, err := db.UpdateWith(context.Background(),
-		ddb.Expression(&key).Update(
+		ddb.Updater(&key,
 			Age.Inc(1),
 		),
 	)
@@ -132,10 +132,10 @@ func exampleUpdateExpressionIncrementConditional(db *ddb.Storage[*Person]) {
 	}
 
 	val, err := db.UpdateWith(context.Background(),
-		ddb.Expression(&key).Update(
+		ddb.Updater(&key,
 			Age.Inc(1),
 		),
-		X.Eq("Verner Pleishner"),
+		ifName.Eq("Verner Pleishner"),
 	)
 	if err != nil {
 		fmt.Printf("=[ update inc ]=> Failed: %v\n", err)
@@ -152,7 +152,7 @@ func exampleUpdateExpressionAppendToList(db *ddb.Storage[*Person]) {
 	}
 
 	val, err := db.UpdateWith(context.Background(),
-		ddb.Expression(&key).Update(
+		ddb.Updater(&key,
 			Degrees.Append([]string{"prof"}),
 		),
 	)
@@ -171,7 +171,7 @@ func exampleUpdateExpressionRemoveAttribute(db *ddb.Storage[*Person]) {
 	}
 
 	val, err := db.UpdateWith(context.Background(),
-		ddb.Expression(&key).Update(
+		ddb.Updater(&key,
 			Degrees.Remove(),
 		),
 	)
