@@ -47,6 +47,10 @@ The latest version of the library is available at its `main` branch. All develop
   - [Linked data](#linked-data)
   - [Type projections](#type-projections)
   - [Custom codecs for core domain types](#custom-codecs-for-core-domain-types)
+  - [DynamoDB Expressions](#dynamodb-expressions)
+    - [Projection Expression](#projection-expression)
+    - [Conditional Expression](#conditional-expression)
+    - [Update Expression](#update-expression)
   - [Optimistic Locking](#optimistic-locking)
   - [Configure DynamoDB](#configure-dynamodb)
   - [AWS S3 Support](#aws-s3-support)
@@ -346,6 +350,81 @@ func (x *dbPerson) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) erro
 }
 ```
 
+### DynamoDB Expressions
+
+In Amazon DynamoDB, there is [a concept of expressions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.html) to denote the attributes to read; indicate various conditions while doing I/O.
+
+#### Projection Expression
+[Projection expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ProjectionExpressions.html) defines attributes to be read from the table. The library automatically defines projection expression for each request. The expression is derived from the datatype definition. 
+
+```go
+// The type projects: prefix, suffix & name attributes.
+type Identity struct {
+  Org     curie.IRI `dynamodbav:"prefix,omitempty"`
+  ID      curie.IRI `dynamodbav:"suffix,omitempty"`
+  Name    string    `dynamodbav:"name,omitempty"`
+}
+
+// The type projects: prefix, suffix, name, age & address.
+type Person struct {
+  Org     curie.IRI `dynamodbav:"prefix,omitempty"`
+  ID      curie.IRI `dynamodbav:"suffix,omitempty"`
+  Name    string    `dynamodbav:"name,omitempty"`
+  Age     int       `dynamodbav:"age,omitempty"`
+  Address string    `dynamodbav:"address,omitempty"`
+}
+```
+
+#### Conditional Expression
+[Condition expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html) helps to implement conditional manipulation of items. The expression defines boolean predicate to determine which items should be modified. If the condition expression evaluates to true, the operation succeeds; otherwise, the operation fails. The library defines a special type `Schema`, which translates a Golang declaration into DynamoDB syntax:
+
+```go
+type Person struct {
+  Name    string    `dynamodbav:"name,omitempty"`
+}
+
+// defines the builder of conditional expression
+var ifName = dynamo.Schema[Person, string]("Name").Condition()
+
+db.Update(/* ... */, ifName.NotExists())
+db.Update(/* ... */, ifName.Eq("Verner Pleishner"))
+```
+
+See [constraint.go](service/ddb/constraint.go) for the list of supported conditional expressions:
+* Comparison: `Eq`, `Ne`, `Lt`, `Le`, `Gt`, `Ge`, `Is`
+* Unary checks: `Exists`, `NotExists`
+* Set checks: `Between`, `In`
+* String: `HasPrefix`, `Contains`
+
+## Update Expression
+[Update expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html) specifies how update operation will modify the attributes of an item. Unfortunately, this  abstraction do not fit into the key-value concept advertised by the library. However, update expression are useful to implement counters, set management, etc. 
+
+The `dynamo` library implements `UpdateWith` method together with simple DSL.
+
+```go
+type Person struct {
+  Name    string    `dynamodbav:"name,omitempty"`
+  Age     int       `dynamodbav:"age,omitempty"`
+}
+
+// defines the builder of updater expression
+var (
+  Name = dynamo.Schema[Person, string]("Name").Updater()
+  Age  = dynamo.Schema[Person, int]("Age").Updater()
+)
+
+db.UpdateWith(context.Background(),
+  ddb.Updater(
+    Person{
+      Org: curie.IRI("University:Kiel"),
+      ID:  curie.IRI("Professor:8980789222"),
+    },
+	  Address.Set("Viktoriastrasse 37, Berne, 3013"),
+		Age.Inc(64),
+	),
+)
+```
+
 ### Optimistic Locking
 
 Optimistic Locking is a lightweight approach to ensure causal ordering of read, write operations to database. AWS made a great post about [Optimistic Locking with Version Number](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBMapper.OptimisticLocking.html).
@@ -379,7 +458,9 @@ type Person struct {
   ID      string `dynamodbav:"suffix,omitempty"`
   Name    string `dynamodbav:"anothername,omitempty"`
 }
-var Name = dynamo.Schema[Person, string]("Name")
+
+// 
+var Name = dynamo.Schema[Person, string]("Name").Condition()
 
 val, err := db.Update(context.TODO(), &person, Name.Eq("Verner Pleishner"))
 switch err.(type) {

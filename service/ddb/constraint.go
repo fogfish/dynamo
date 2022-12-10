@@ -24,17 +24,10 @@ import (
 	"github.com/fogfish/golem/pure/hseq"
 )
 
-// Constraint is a function that applies conditional expression to storage request.
-// Each storage implements own constrains protocols. The module here defines a few
-// constrain protocol. The structure of the constrain is abstracted away from the client.
-// type Constraint[T any] struct {
-// 	fun string
-// 	key string
-// 	val any
-// }
-
-// func (Constraint[T]) Constraint(T) {}
-
+// See DynamoDB Conditional Expressions
+//
+//	https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html
+//
 // Schema declares type descriptor to express Storage I/O Constrains.
 //
 // Let's consider a following example:
@@ -52,11 +45,11 @@ import (
 // name(s) in conditional expression and Golang struct name in rest of the code.
 // It becomes confusing and hard to maintain.
 //
-// The types Effect and Schema are helpers to declare builders for conditional
+// The Schema is helpers to declare builders for conditional
 // expressions. Just declare a global variables next to type definition and
 // use them across the application.
 //
-//	var name = dynamo.Schema[Person, string]("Name")
+//	var name = dynamo.Schema[Person, string]("Name").Condition()
 //
 //	name.Eq("Joe Doe")
 //	name.NotExists()
@@ -400,67 +393,4 @@ func maybeUpdateConditionExpression[T dynamo.Thing](
 			ap.Apply(conditionExpression, expressionAttributeNames, expressionAttributeValues)
 		}
 	}
-
-	// if len(config) > 0 {
-	// 	switch c := config[0].(type) {
-	// 	case Constraint[T]:
-	// 		if c.val != nil {
-	// 			dyadic(c,
-	// 				conditionExpression,
-	// 				expressionAttributeNames,
-	// 				expressionAttributeValues,
-	// 			)
-	// 		} else {
-	// 			unary(c,
-	// 				conditionExpression,
-	// 				expressionAttributeNames,
-	// 				expressionAttributeValues,
-	// 			)
-	// 		}
-	// 	}
-	// }
 }
-
-/*
-dyadic translate expression to dynamo format
-*/
-// func dyadic[T dynamo.Thing](
-// 	op Constraint[T],
-// 	conditionExpression **string,
-// 	expressionAttributeNames map[string]string,
-// 	expressionAttributeValues map[string]types.AttributeValue,
-// ) {
-// 	if op.key == "" {
-// 		return
-// 	}
-
-// 	lit, err := attributevalue.Marshal(op.val)
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	key := "#__" + op.key + "__"
-// 	let := ":__" + op.key + "__"
-// 	expressionAttributeValues[let] = lit
-// 	expressionAttributeNames[key] = op.key
-// 	*conditionExpression = aws.String(key + " " + op.fun + " " + let)
-// }
-
-/*
-unary translate expression to dynamo format
-*/
-// func unary[T dynamo.Thing](
-// 	op Constraint[T],
-// 	conditionExpression **string,
-// 	expressionAttributeNames map[string]string,
-// 	expressionAttributeValues map[string]types.AttributeValue,
-// ) {
-// 	if op.key == "" {
-// 		return
-// 	}
-
-// 	key := "#__" + op.key + "__"
-// 	expressionAttributeNames[key] = op.key
-
-// 	*conditionExpression = aws.String(op.fun + "(" + key + ")")
-// }
