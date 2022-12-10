@@ -419,9 +419,9 @@ db.UpdateWith(context.Background(),
       Org: curie.IRI("University:Kiel"),
       ID:  curie.IRI("Professor:8980789222"),
     },
-	  Address.Set("Viktoriastrasse 37, Berne, 3013"),
-		Age.Inc(64),
-	),
+    Address.Set("Viktoriastrasse 37, Berne, 3013"),
+    Age.Inc(64),
+  ),
 )
 ```
 
@@ -459,7 +459,7 @@ type Person struct {
   Name    string `dynamodbav:"anothername,omitempty"`
 }
 
-// 
+// defines the builder of conditional expression
 var Name = dynamo.Schema[Person, string]("Name").Condition()
 
 val, err := db.Update(context.TODO(), &person, Name.Eq("Verner Pleishner"))
