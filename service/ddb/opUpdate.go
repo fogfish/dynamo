@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/fogfish/dynamo/v2"
 )
 
 // Update applies a partial patch to entity using update expression abstraction
@@ -35,23 +36,7 @@ func (db *Storage[T]) UpdateWith(ctx context.Context, expr Expr[T], opts ...inte
 		opts,
 	)
 
-	val, err := db.service.UpdateItem(ctx, req)
-	if err != nil {
-		if recoverConditionalCheckFailedException(err) {
-			return db.undefined, errPreConditionFailed(err, expr.entity,
-				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
-				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
-			)
-		}
-		return db.undefined, errServiceIO.New(err)
-	}
-
-	obj, err := db.codec.Decode(val.Attributes)
-	if err != nil {
-		return db.undefined, errInvalidEntity.New(err)
-	}
-
-	return obj, nil
+	return db.update(ctx, expr, req)
 }
 
 // Update applies a partial patch to entity and returns new values
@@ -89,10 +74,14 @@ func (db *Storage[T]) Update(ctx context.Context, entity T, config ...interface{
 		config,
 	)
 
+	return db.update(ctx, entity, req)
+}
+
+func (db *Storage[T]) update(ctx context.Context, key dynamo.Thing, req *dynamodb.UpdateItemInput) (T, error) {
 	val, err := db.service.UpdateItem(ctx, req)
 	if err != nil {
 		if recoverConditionalCheckFailedException(err) {
-			return db.undefined, errPreConditionFailed(err, entity,
+			return db.undefined, errPreConditionFailed(err, key,
 				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
 				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
 			)
