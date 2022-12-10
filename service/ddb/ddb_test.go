@@ -107,3 +107,36 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 		If(success).Should().Equal(nil).
 		IfTrue(ispcf)
 }
+
+func TestDdbUpdateWithExpression(t *testing.T) {
+	fixtureKey := map[string]types.AttributeValue{
+		"prefix": &types.AttributeValueMemberS{Value: "dead:beef"},
+		"suffix": &types.AttributeValueMemberS{Value: "1"},
+	}
+
+	fixtureVal := map[string]types.AttributeValue{
+		"age": &types.AttributeValueMemberN{Value: "64"},
+	}
+
+	returnVal := map[string]types.AttributeValue{
+		"prefix":  &types.AttributeValueMemberS{Value: "dead:beef"},
+		"suffix":  &types.AttributeValueMemberS{Value: "1"},
+		"address": &types.AttributeValueMemberS{Value: "Blumenstrasse 14, Berne, 3013"},
+		"name":    &types.AttributeValueMemberS{Value: "Verner Pleishner"},
+		"age":     &types.AttributeValueMemberN{Value: "64"},
+	}
+
+	key := person{
+		Prefix: curie.New("dead:beef"),
+		Suffix: curie.New("1"),
+	}
+	age := ddb.SchemaX[person, int]("Age")
+	db := ddbtest.UpdateItem[person](&fixtureKey, &fixtureVal, &returnVal).(*ddb.Storage[person])
+
+	_, success := db.UpdateWith(context.Background(),
+		ddb.Expression(key).Update(age.Set(64)),
+	)
+
+	it.Ok(t).
+		If(success).Should().Equal(nil)
+}

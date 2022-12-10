@@ -75,7 +75,7 @@ func SchemaX[T dynamo.Thing, A any](a string) UpdateExpression[T, A] {
 //
 //	name.Inc(x) ⟼ SET Field = :value
 func (ue UpdateExpression[T, A]) Set(val A) interface{ UpdateExpression(T) } {
-	return updateSetter[T, A]{key: ue.key, val: val}
+	return &updateSetter[T, A]{key: ue.key, val: val}
 }
 
 type updateSetter[T any, A any] struct {
@@ -108,14 +108,14 @@ func (op updateSetter[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 //
 //	name.Inc(x) ⟼ SET Field = Field + :value
 func (ue UpdateExpression[T, A]) Inc(val A) interface{ UpdateExpression(T) } {
-	return updateIncrement[T, A]{op: " + ", key: ue.key, val: val}
+	return &updateIncrement[T, A]{op: " + ", key: ue.key, val: val}
 }
 
 // Decrement attribute
 //
 //	name.Inc(x) ⟼ SET Field = Field - :value
 func (ue UpdateExpression[T, A]) Dec(val A) interface{ UpdateExpression(T) } {
-	return updateIncrement[T, A]{op: " - ", key: ue.key, val: val}
+	return &updateIncrement[T, A]{op: " - ", key: ue.key, val: val}
 }
 
 type updateIncrement[T any, A any] struct {
@@ -156,7 +156,7 @@ func (ue UpdateExpression[T, A]) Append(val A) interface{ UpdateExpression(T) } 
 //
 //	name.Inc(x) ⟼ SET Field = list_append (:value, Field)
 func (ue UpdateExpression[T, A]) Prepend(val A) interface{ UpdateExpression(T) } {
-	return updateAppender[T, A]{append: false, key: ue.key, val: val}
+	return &updateAppender[T, A]{append: false, key: ue.key, val: val}
 }
 
 type updateAppender[T any, A any] struct {
@@ -197,16 +197,16 @@ func (op updateAppender[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 //
 //	name.Remove() ⟼ REMOVE Field
 func (ue UpdateExpression[T, A]) Remove() interface{ UpdateExpression(T) } {
-	return updateRemover[T, A]{key: ue.key}
+	return &updateRemover[T]{key: ue.key}
 }
 
-type updateRemover[T any, A any] struct {
+type updateRemover[T any] struct {
 	key string
 }
 
-func (op updateRemover[T, A]) UpdateExpression(T) {}
+func (op updateRemover[T]) UpdateExpression(T) {}
 
-func (op updateRemover[T, A]) Apply(req *dynamodb.UpdateItemInput) {
+func (op updateRemover[T]) Apply(req *dynamodb.UpdateItemInput) {
 	ekey := "#__" + op.key + "__"
 
 	req.ExpressionAttributeNames[ekey] = op.key
