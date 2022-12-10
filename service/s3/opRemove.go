@@ -16,7 +16,7 @@ import (
 )
 
 // Remove discards the entity from the table
-func (db *Storage[T]) Remove(ctx context.Context, key T, config ...interface{ Constraint(T) }) (T, error) {
+func (db *Storage[T]) Remove(ctx context.Context, key T, opts ...interface{ ConditionExpression(T) }) (T, error) {
 	obj, err := db.Get(ctx, key)
 	if err != nil {
 		return db.undefined, err
