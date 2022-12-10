@@ -15,10 +15,32 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/fogfish/dynamo/v2"
 )
 
+// Update applies a partial patch to entity using update expression abstraction
+func (db *Storage[T]) UpdateWith(ctx context.Context, expression UpdateItemExpression[T], opts ...interface{ ConditionExpression(T) }) (T, error) {
+	gen, err := db.codec.Encode(expression.entity)
+	if err != nil {
+		return db.undefined, errInvalidEntity.New(err)
+	}
+	req := expression.request
+	req.Key = db.codec.KeyOnly(gen)
+	req.TableName = db.table
+	req.ReturnValues = "ALL_NEW"
+
+	maybeUpdateConditionExpression(
+		&req.ConditionExpression,
+		req.ExpressionAttributeNames,
+		req.ExpressionAttributeValues,
+		opts,
+	)
+
+	return db.update(ctx, expression.entity, req)
+}
+
 // Update applies a partial patch to entity and returns new values
-func (db *Storage[T]) Update(ctx context.Context, entity T, config ...interface{ Constraint(T) }) (T, error) {
+func (db *Storage[T]) Update(ctx context.Context, entity T, opts ...interface{ ConditionExpression(T) }) (T, error) {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
 		return db.undefined, errInvalidEntity.New(err)
@@ -49,13 +71,17 @@ func (db *Storage[T]) Update(ctx context.Context, entity T, config ...interface{
 		&req.ConditionExpression,
 		req.ExpressionAttributeNames,
 		req.ExpressionAttributeValues,
-		config,
+		opts,
 	)
 
+	return db.update(ctx, entity, req)
+}
+
+func (db *Storage[T]) update(ctx context.Context, key dynamo.Thing, req *dynamodb.UpdateItemInput) (T, error) {
 	val, err := db.service.UpdateItem(ctx, req)
 	if err != nil {
 		if recoverConditionalCheckFailedException(err) {
-			return db.undefined, errPreConditionFailed(err, entity,
+			return db.undefined, errPreConditionFailed(err, key,
 				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
 				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
 			)

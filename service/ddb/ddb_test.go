@@ -65,7 +65,7 @@ func TestDynamoDB(t *testing.T) {
 }
 
 func TestDdbPutWithConstrain(t *testing.T) {
-	name := ddb.Schema[person, string]("Name")
+	name := ddb.Schema[person, string]("Name").Condition()
 	ddb := ddbtest.Constrains[person](nil)
 
 	success := ddb.Put(context.TODO(), entityStruct(), name.Eq("xxx"))
@@ -78,7 +78,7 @@ func TestDdbPutWithConstrain(t *testing.T) {
 }
 
 func TestDdbRemoveWithConstrain(t *testing.T) {
-	name := ddb.Schema[person, string]("Name")
+	name := ddb.Schema[person, string]("Name").Condition()
 	ddb := ddbtest.Constrains[person](entityDynamo())
 
 	_, success := ddb.Remove(context.TODO(), entityStruct(), name.Eq("xxx"))
@@ -91,7 +91,7 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 }
 
 func TestDdbUpdateWithConstrain(t *testing.T) {
-	name := ddb.Schema[person, string]("Name")
+	name := ddb.Schema[person, string]("Name").Condition()
 	ddb := ddbtest.Constrains[person](entityDynamo())
 	patch := person{
 		Prefix: curie.New("dead:beef"),
@@ -106,4 +106,37 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 	it.Ok(t).
 		If(success).Should().Equal(nil).
 		IfTrue(ispcf)
+}
+
+func TestDdbUpdateWithExpression(t *testing.T) {
+	fixtureKey := map[string]types.AttributeValue{
+		"prefix": &types.AttributeValueMemberS{Value: "dead:beef"},
+		"suffix": &types.AttributeValueMemberS{Value: "1"},
+	}
+
+	fixtureVal := map[string]types.AttributeValue{
+		"age": &types.AttributeValueMemberN{Value: "64"},
+	}
+
+	returnVal := map[string]types.AttributeValue{
+		"prefix":  &types.AttributeValueMemberS{Value: "dead:beef"},
+		"suffix":  &types.AttributeValueMemberS{Value: "1"},
+		"address": &types.AttributeValueMemberS{Value: "Blumenstrasse 14, Berne, 3013"},
+		"name":    &types.AttributeValueMemberS{Value: "Verner Pleishner"},
+		"age":     &types.AttributeValueMemberN{Value: "64"},
+	}
+
+	key := person{
+		Prefix: curie.New("dead:beef"),
+		Suffix: curie.New("1"),
+	}
+	age := ddb.Schema[person, int]("Age").Updater()
+	db := ddbtest.UpdateItem[person](&fixtureKey, &fixtureVal, &returnVal).(*ddb.Storage[person])
+
+	_, success := db.UpdateWith(context.Background(),
+		ddb.Updater(key, age.Set(64)),
+	)
+
+	it.Ok(t).
+		If(success).Should().Equal(nil)
 }

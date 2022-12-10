@@ -16,7 +16,7 @@ import (
 )
 
 // Put writes entity
-func (db *Storage[T]) Put(ctx context.Context, entity T, config ...interface{ Constraint(T) }) error {
+func (db *Storage[T]) Put(ctx context.Context, entity T, opts ...interface{ ConditionExpression(T) }) error {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
 		return errInvalidEntity.New(err)
@@ -27,7 +27,7 @@ func (db *Storage[T]) Put(ctx context.Context, entity T, config ...interface{ Co
 		TableName: db.table,
 	}
 
-	names, values := maybeConditionExpression(&req.ConditionExpression, config)
+	names, values := maybeConditionExpression(&req.ConditionExpression, opts)
 	req.ExpressionAttributeValues = values
 	req.ExpressionAttributeNames = names
 

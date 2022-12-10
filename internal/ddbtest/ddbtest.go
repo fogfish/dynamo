@@ -210,7 +210,7 @@ type ddbConstrains struct {
 }
 
 func (ddbConstrains) assert(values map[string]types.AttributeValue) error {
-	value, exists := values[":__name__"]
+	value, exists := values[":__c_name__"]
 	if !exists {
 		return &types.ConditionalCheckFailedException{}
 	}
