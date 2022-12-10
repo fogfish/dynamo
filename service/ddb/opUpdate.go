@@ -17,6 +17,43 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+// Update applies a partial patch to entity using update expression abstraction
+func (db *Storage[T]) UpdateWith(ctx context.Context, expr Expr[T], opts ...interface{ Constraint(T) }) (T, error) {
+	gen, err := db.codec.Encode(expr.entity)
+	if err != nil {
+		return db.undefined, errInvalidEntity.New(err)
+	}
+	req := expr.update
+	req.Key = db.codec.KeyOnly(gen)
+	req.TableName = db.table
+	req.ReturnValues = "ALL_NEW"
+
+	maybeUpdateConditionExpression(
+		&req.ConditionExpression,
+		req.ExpressionAttributeNames,
+		req.ExpressionAttributeValues,
+		opts,
+	)
+
+	val, err := db.service.UpdateItem(ctx, req)
+	if err != nil {
+		if recoverConditionalCheckFailedException(err) {
+			return db.undefined, errPreConditionFailed(err, expr.entity,
+				strings.Contains(*req.ConditionExpression, "attribute_not_exists") || strings.Contains(*req.ConditionExpression, "="),
+				strings.Contains(*req.ConditionExpression, "attribute_exists") || strings.Contains(*req.ConditionExpression, "<>"),
+			)
+		}
+		return db.undefined, errServiceIO.New(err)
+	}
+
+	obj, err := db.codec.Decode(val.Attributes)
+	if err != nil {
+		return db.undefined, errInvalidEntity.New(err)
+	}
+
+	return obj, nil
+}
+
 // Update applies a partial patch to entity and returns new values
 func (db *Storage[T]) Update(ctx context.Context, entity T, config ...interface{ Constraint(T) }) (T, error) {
 	gen, err := db.codec.Encode(entity)
