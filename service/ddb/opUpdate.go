@@ -19,12 +19,12 @@ import (
 )
 
 // Update applies a partial patch to entity using update expression abstraction
-func (db *Storage[T]) UpdateWith(ctx context.Context, expr Expr[T], opts ...interface{ Constraint(T) }) (T, error) {
-	gen, err := db.codec.Encode(expr.entity)
+func (db *Storage[T]) UpdateWith(ctx context.Context, expression UpdateItemExpression[T], opts ...interface{ ConditionExpression(T) }) (T, error) {
+	gen, err := db.codec.Encode(expression.entity)
 	if err != nil {
 		return db.undefined, errInvalidEntity.New(err)
 	}
-	req := expr.update
+	req := expression.request
 	req.Key = db.codec.KeyOnly(gen)
 	req.TableName = db.table
 	req.ReturnValues = "ALL_NEW"
@@ -36,11 +36,11 @@ func (db *Storage[T]) UpdateWith(ctx context.Context, expr Expr[T], opts ...inte
 		opts,
 	)
 
-	return db.update(ctx, expr, req)
+	return db.update(ctx, expression.entity, req)
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *Storage[T]) Update(ctx context.Context, entity T, config ...interface{ Constraint(T) }) (T, error) {
+func (db *Storage[T]) Update(ctx context.Context, entity T, opts ...interface{ ConditionExpression(T) }) (T, error) {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
 		return db.undefined, errInvalidEntity.New(err)
@@ -71,7 +71,7 @@ func (db *Storage[T]) Update(ctx context.Context, entity T, config ...interface{
 		&req.ConditionExpression,
 		req.ExpressionAttributeNames,
 		req.ExpressionAttributeValues,
-		config,
+		opts,
 	)
 
 	return db.update(ctx, entity, req)

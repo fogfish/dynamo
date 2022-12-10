@@ -1,13 +1,13 @@
 package ddb
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/v2"
 	"github.com/fogfish/golem/pure/hseq"
 )
@@ -16,20 +16,13 @@ import (
 //
 //
 
-func Expression[T dynamo.Thing](entity T) Expr[T] {
-	return Expr[T]{entity: entity}
+type UpdateItemExpression[T dynamo.Thing] struct {
+	entity  T
+	request *dynamodb.UpdateItemInput
 }
 
-type Expr[T dynamo.Thing] struct {
-	entity T
-	update *dynamodb.UpdateItemInput
-}
-
-func (expr Expr[T]) HashKey() curie.IRI { return expr.entity.HashKey() }
-func (expr Expr[T]) SortKey() curie.IRI { return expr.entity.SortKey() }
-
-func (expr Expr[T]) Update(opts ...interface{ UpdateExpression(T) }) Expr[T] {
-	expr.update = &dynamodb.UpdateItemInput{
+func Updater[T dynamo.Thing](entity T, opts ...interface{ UpdateExpression(T) }) UpdateItemExpression[T] {
+	request := &dynamodb.UpdateItemInput{
 		ExpressionAttributeNames:  map[string]string{},
 		ExpressionAttributeValues: map[string]types.AttributeValue{},
 	}
@@ -37,15 +30,15 @@ func (expr Expr[T]) Update(opts ...interface{ UpdateExpression(T) }) Expr[T] {
 		if ap, ok := opt.(interface {
 			Apply(*dynamodb.UpdateItemInput)
 		}); ok {
-			ap.Apply(expr.update)
+			ap.Apply(request)
 		}
 	}
 
-	if len(expr.update.ExpressionAttributeValues) == 0 {
-		expr.update.ExpressionAttributeValues = nil
+	if len(request.ExpressionAttributeValues) == 0 {
+		request.ExpressionAttributeValues = nil
 	}
 
-	return expr
+	return UpdateItemExpression[T]{entity: entity, request: request}
 }
 
 //
@@ -57,18 +50,10 @@ type UpdateExpression[T dynamo.Thing, A any] struct{ key string }
 func newUpdateExpression[T dynamo.Thing, A any](t hseq.Type[T]) UpdateExpression[T, A] {
 	tag := t.Tag.Get("dynamodbav")
 	if tag == "" {
-		// TODO: Panic
-		return UpdateExpression[T, A]{""}
+		panic(fmt.Errorf("field %s of type %T do not have `dynamodbav` tag", t.Name, *new(T)))
 	}
 
 	return UpdateExpression[T, A]{strings.Split(tag, ",")[0]}
-}
-
-func SchemaX[T dynamo.Thing, A any](a string) UpdateExpression[T, A] {
-	return hseq.FMap1(
-		generic[T](a),
-		newUpdateExpression[T, A],
-	)
 }
 
 // Set attribute

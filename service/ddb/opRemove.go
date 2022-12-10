@@ -16,7 +16,7 @@ import (
 )
 
 // Remove discards the entity from the table
-func (db *Storage[T]) Remove(ctx context.Context, key T, config ...interface{ Constraint(T) }) (T, error) {
+func (db *Storage[T]) Remove(ctx context.Context, key T, opts ...interface{ ConditionExpression(T) }) (T, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
 		return db.undefined, errInvalidKey.New(err)
@@ -27,7 +27,7 @@ func (db *Storage[T]) Remove(ctx context.Context, key T, config ...interface{ Co
 		TableName:    db.table,
 		ReturnValues: "ALL_OLD",
 	}
-	names, values := maybeConditionExpression(&req.ConditionExpression, config)
+	names, values := maybeConditionExpression(&req.ConditionExpression, opts)
 	req.ExpressionAttributeValues = values
 	req.ExpressionAttributeNames = names
 

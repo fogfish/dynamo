@@ -24,14 +24,14 @@ type tConstrain struct {
 func (tConstrain) HashKey() curie.IRI { return "" }
 func (tConstrain) SortKey() curie.IRI { return "" }
 
-var Name = Schema[tConstrain, string]("Name")
+var Name = Schema[tConstrain, string]("Name").Condition()
 
 func TestConditionExpression(t *testing.T) {
 	var (
 		expr *string = nil
 	)
 
-	spec := map[string]func(string) Constraint[tConstrain]{
+	spec := map[string]func(string) interface{ ConditionExpression(tConstrain) }{
 		"=":  Name.Eq,
 		"<>": Name.Ne,
 		"<":  Name.Lt,
@@ -41,10 +41,11 @@ func TestConditionExpression(t *testing.T) {
 	}
 
 	for op, fn := range spec {
-		config := []interface{ Constraint(tConstrain) }{fn("abc")}
-		name, vals := maybeConditionExpression(&expr, config)
+		expr = nil
+		opts := []interface{ ConditionExpression(tConstrain) }{fn("abc")}
+		name, vals := maybeConditionExpression(&expr, opts)
 
-		expectExpr := fmt.Sprintf("#__anothername__ %s :__anothername__", op)
+		expectExpr := fmt.Sprintf("(#__anothername__ %s :__anothername__)", op)
 		expectName := "anothername"
 		expectVals := &types.AttributeValueMemberS{Value: "abc"}
 
@@ -60,10 +61,10 @@ func TestExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []interface{ Constraint(tConstrain) }{Name.Exists()}
-	name, vals := maybeConditionExpression(&expr, config)
+	opts := []interface{ ConditionExpression(tConstrain) }{Name.Exists()}
+	name, vals := maybeConditionExpression(&expr, opts)
 
-	expectExpr := "attribute_exists(#__anothername__)"
+	expectExpr := "(attribute_exists(#__anothername__))"
 	expectName := map[string]string{"#__anothername__": "anothername"}
 
 	it.Ok(t).
@@ -77,10 +78,10 @@ func TestNotExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []interface{ Constraint(tConstrain) }{Name.NotExists()}
-	name, vals := maybeConditionExpression(&expr, config)
+	opts := []interface{ ConditionExpression(tConstrain) }{Name.NotExists()}
+	name, vals := maybeConditionExpression(&expr, opts)
 
-	expectExpr := "attribute_not_exists(#__anothername__)"
+	expectExpr := "(attribute_not_exists(#__anothername__))"
 	expectName := map[string]string{"#__anothername__": "anothername"}
 
 	it.Ok(t).
@@ -94,10 +95,10 @@ func TestIs(t *testing.T) {
 		expr *string = nil
 	)
 
-	config := []interface{ Constraint(tConstrain) }{Name.Is("_")}
-	name, vals := maybeConditionExpression(&expr, config)
+	opts := []interface{ ConditionExpression(tConstrain) }{Name.Is("_")}
+	name, vals := maybeConditionExpression(&expr, opts)
 
-	expectExpr := "attribute_not_exists(#__anothername__)"
+	expectExpr := "(attribute_not_exists(#__anothername__))"
 	expectName := map[string]string{"#__anothername__": "anothername"}
 
 	it.Ok(t).
@@ -106,10 +107,11 @@ func TestIs(t *testing.T) {
 		If(name).Should().Equal(expectName)
 
 	//
-	config = []interface{ Constraint(tConstrain) }{Name.Is("abc")}
-	name, vals = maybeConditionExpression(&expr, config)
+	expr = nil
+	opts = []interface{ ConditionExpression(tConstrain) }{Name.Is("abc")}
+	name, vals = maybeConditionExpression(&expr, opts)
 
-	expectExpr = "#__anothername__ = :__anothername__"
+	expectExpr = "(#__anothername__ = :__anothername__)"
 	expectVals := map[string]types.AttributeValue{
 		":__anothername__": &types.AttributeValueMemberS{Value: "abc"},
 	}

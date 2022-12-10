@@ -18,17 +18,17 @@ func (tUpdatable) HashKey() curie.IRI { return "" }
 func (tUpdatable) SortKey() curie.IRI { return "" }
 
 var (
-	dslName = SchemaX[tUpdatable, string]("Name")
-	dslNone = SchemaX[tUpdatable, int]("None")
-	dslList = SchemaX[tUpdatable, []string]("List")
+	dslName = Schema[tUpdatable, string]("Name").Updater()
+	dslNone = Schema[tUpdatable, int]("None").Updater()
+	dslList = Schema[tUpdatable, []string]("List").Updater()
 )
 
 func TestUpdateExpressionModifyingOne(t *testing.T) {
 	val := tUpdatable{}
-	req := Expression(val).Update(dslName.Set("some"))
-	n := req.update.ExpressionAttributeNames
-	v := req.update.ExpressionAttributeValues
-	e := *req.update.UpdateExpression
+	dsl := Updater(val, dslName.Set("some"))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
 
 	it.Then(t).
 		Should(it.Map(n).Have("#__anothername__", "anothername")).
@@ -38,10 +38,10 @@ func TestUpdateExpressionModifyingOne(t *testing.T) {
 
 func TestUpdateExpressionModifyingFew(t *testing.T) {
 	val := tUpdatable{}
-	req := Expression(val).Update(dslName.Set("some"), dslNone.Set(1000))
-	n := req.update.ExpressionAttributeNames
-	v := req.update.ExpressionAttributeValues
-	e := *req.update.UpdateExpression
+	dsl := Updater(val, dslName.Set("some"), dslNone.Set(1000))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
 
 	it.Then(t).
 		Should(it.Map(n).Have("#__anothername__", "anothername")).
@@ -53,10 +53,10 @@ func TestUpdateExpressionModifyingFew(t *testing.T) {
 
 func TestUpdateExpressionIncrement(t *testing.T) {
 	val := tUpdatable{}
-	req := Expression(val).Update(dslNone.Inc(1))
-	n := req.update.ExpressionAttributeNames
-	v := req.update.ExpressionAttributeValues
-	e := *req.update.UpdateExpression
+	dsl := Updater(val, dslNone.Inc(1))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
 
 	it.Then(t).
 		Should(it.Map(n).Have("#__anothernone__", "anothernone")).
@@ -66,10 +66,10 @@ func TestUpdateExpressionIncrement(t *testing.T) {
 
 func TestUpdateExpressionDecrement(t *testing.T) {
 	val := tUpdatable{}
-	req := Expression(val).Update(dslNone.Dec(1))
-	n := req.update.ExpressionAttributeNames
-	v := req.update.ExpressionAttributeValues
-	e := *req.update.UpdateExpression
+	dsl := Updater(val, dslNone.Dec(1))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
 
 	it.Then(t).
 		Should(it.Map(n).Have("#__anothernone__", "anothernone")).
@@ -79,10 +79,10 @@ func TestUpdateExpressionDecrement(t *testing.T) {
 
 func TestUpdateExpressionAppend(t *testing.T) {
 	val := tUpdatable{}
-	req := Expression(val).Update(dslList.Append([]string{"a", "b", "c"}))
-	n := req.update.ExpressionAttributeNames
-	v := req.update.ExpressionAttributeValues
-	e := *req.update.UpdateExpression
+	dsl := Updater(val, dslList.Append([]string{"a", "b", "c"}))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
 
 	it.Then(t).
 		Should(it.Map(n).Have("#__anotherlist__", "anotherlist")).
@@ -92,10 +92,10 @@ func TestUpdateExpressionAppend(t *testing.T) {
 
 func TestUpdateExpressionPrepend(t *testing.T) {
 	val := tUpdatable{}
-	req := Expression(val).Update(dslList.Prepend([]string{"a", "b", "c"}))
-	n := req.update.ExpressionAttributeNames
-	v := req.update.ExpressionAttributeValues
-	e := *req.update.UpdateExpression
+	dsl := Updater(val, dslList.Prepend([]string{"a", "b", "c"}))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
 
 	it.Then(t).
 		Should(it.Map(n).Have("#__anotherlist__", "anotherlist")).
@@ -105,9 +105,9 @@ func TestUpdateExpressionPrepend(t *testing.T) {
 
 func TestUpdateExpressionRemoveAttributeOne(t *testing.T) {
 	val := tUpdatable{}
-	req := Expression(val).Update(dslName.Remove())
-	n := req.update.ExpressionAttributeNames
-	e := *req.update.UpdateExpression
+	dsl := Updater(val, dslName.Remove())
+	n := dsl.request.ExpressionAttributeNames
+	e := *dsl.request.UpdateExpression
 
 	it.Then(t).
 		Should(it.Map(n).Have("#__anothername__", "anothername")).
@@ -116,9 +116,9 @@ func TestUpdateExpressionRemoveAttributeOne(t *testing.T) {
 
 func TestUpdateExpressionRemoveAttributeFew(t *testing.T) {
 	val := tUpdatable{}
-	req := Expression(val).Update(dslName.Remove(), dslNone.Remove())
-	n := req.update.ExpressionAttributeNames
-	e := *req.update.UpdateExpression
+	dsl := Updater(val, dslName.Remove(), dslNone.Remove())
+	n := dsl.request.ExpressionAttributeNames
+	e := *dsl.request.UpdateExpression
 
 	it.Then(t).
 		Should(it.Map(n).Have("#__anothername__", "anothername")).

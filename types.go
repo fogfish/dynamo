@@ -94,9 +94,9 @@ type KeyValReader[T Thing] interface {
 KeyValWriter defines a generic key-value writer
 */
 type KeyValWriter[T Thing] interface {
-	Put(context.Context, T, ...interface{ Constraint(T) }) error
-	Remove(context.Context, T, ...interface{ Constraint(T) }) (T, error)
-	Update(context.Context, T, ...interface{ Constraint(T) }) (T, error)
+	Put(context.Context, T, ...interface{ ConditionExpression(T) }) error
+	Remove(context.Context, T, ...interface{ ConditionExpression(T) }) (T, error)
+	Update(context.Context, T, ...interface{ ConditionExpression(T) }) (T, error)
 }
 
 //-----------------------------------------------------------------------------
