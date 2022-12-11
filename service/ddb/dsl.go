@@ -24,6 +24,13 @@ import (
 //
 //
 
+func UpdateFor[T dynamo.Thing, A any](field string) UpdateExpression[T, A] {
+	return hseq.FMap1(
+		generic[T](string(field)),
+		newUpdateExpression[T, A],
+	)
+}
+
 type UpdateItemExpression[T dynamo.Thing] struct {
 	entity  T
 	request *dynamodb.UpdateItemInput

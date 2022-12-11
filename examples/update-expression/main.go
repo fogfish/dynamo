@@ -31,11 +31,11 @@ func (p Person) HashKey() curie.IRI { return p.Org }
 func (p Person) SortKey() curie.IRI { return p.ID }
 
 var (
-	Name    = ddb.Schema[*Person, string]("Name").Updater()
-	Age     = ddb.Schema[*Person, int]("Age").Updater()
-	Address = ddb.Schema[*Person, string]("Address").Updater()
-	Degrees = ddb.Schema[*Person, []string]("Degrees").Updater()
-	ifName  = ddb.Schema[*Person, string]("Name").Condition()
+	Name    = ddb.UpdateFor[*Person, string]("Name")
+	Age     = ddb.UpdateFor[*Person, int]("Age")
+	Address = ddb.UpdateFor[*Person, string]("Address")
+	Degrees = ddb.UpdateFor[*Person, []string]("Degrees")
+	ifName  = ddb.ClauseFor[*Person, string]("Name")
 )
 
 func main() {

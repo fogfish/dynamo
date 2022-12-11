@@ -53,6 +53,13 @@ import (
 //
 //	name.Eq("Joe Doe")
 //	name.NotExists()
+func ClauseFor[T dynamo.Thing, A any](schema string) ConditionExpression[T, A] {
+	return hseq.FMap1(
+		generic[T](string(schema)),
+		newConditionExpression[T, A],
+	)
+}
+
 type ConditionExpression[T dynamo.Thing, A any] struct{ key string }
 
 func newConditionExpression[T dynamo.Thing, A any](t hseq.Type[T]) ConditionExpression[T, A] {

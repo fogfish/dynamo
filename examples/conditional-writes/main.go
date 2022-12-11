@@ -30,9 +30,9 @@ func (p Person) HashKey() curie.IRI { return p.Org }
 func (p Person) SortKey() curie.IRI { return p.ID }
 
 var (
-	ifName    = ddb.Schema[*Person, string]("Name").Condition()
-	ifAge     = ddb.Schema[*Person, int]("Age").Condition()
-	ifAddress = ddb.Schema[*Person, string]("Address").Condition()
+	ifName    = ddb.ClauseFor[*Person, string]("Name")
+	ifAge     = ddb.ClauseFor[*Person, int]("Age")
+	ifAddress = ddb.ClauseFor[*Person, string]("Address")
 )
 
 func main() {

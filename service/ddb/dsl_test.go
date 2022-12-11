@@ -26,9 +26,9 @@ func (tUpdatable) HashKey() curie.IRI { return "" }
 func (tUpdatable) SortKey() curie.IRI { return "" }
 
 var (
-	dslName = Schema[tUpdatable, string]("Name").Updater()
-	dslNone = Schema[tUpdatable, int]("None").Updater()
-	dslList = Schema[tUpdatable, []string]("List").Updater()
+	dslName = UpdateFor[tUpdatable, string]("Name")
+	dslNone = UpdateFor[tUpdatable, int]("None")
+	dslList = UpdateFor[tUpdatable, []string]("List")
 )
 
 func TestUpdateExpressionModifyingOne(t *testing.T) {

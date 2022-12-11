@@ -65,7 +65,7 @@ func TestDynamoDB(t *testing.T) {
 }
 
 func TestDdbPutWithConstrain(t *testing.T) {
-	name := ddb.Schema[person, string]("Name").Condition()
+	name := ddb.ClauseFor[person, string]("Name")
 	ddb := ddbtest.Constrains[person](nil)
 
 	success := ddb.Put(context.TODO(), entityStruct(), name.Eq("xxx"))
@@ -78,7 +78,7 @@ func TestDdbPutWithConstrain(t *testing.T) {
 }
 
 func TestDdbRemoveWithConstrain(t *testing.T) {
-	name := ddb.Schema[person, string]("Name").Condition()
+	name := ddb.ClauseFor[person, string]("Name")
 	ddb := ddbtest.Constrains[person](entityDynamo())
 
 	_, success := ddb.Remove(context.TODO(), entityStruct(), name.Eq("xxx"))
@@ -91,7 +91,7 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 }
 
 func TestDdbUpdateWithConstrain(t *testing.T) {
-	name := ddb.Schema[person, string]("Name").Condition()
+	name := ddb.ClauseFor[person, string]("Name")
 	ddb := ddbtest.Constrains[person](entityDynamo())
 	patch := person{
 		Prefix: curie.New("dead:beef"),
@@ -130,7 +130,7 @@ func TestDdbUpdateWithExpression(t *testing.T) {
 		Prefix: curie.New("dead:beef"),
 		Suffix: curie.New("1"),
 	}
-	age := ddb.Schema[person, int]("Age").Updater()
+	age := ddb.UpdateFor[person, int]("Age")
 	db := ddbtest.UpdateItem[person](&fixtureKey, &fixtureVal, &returnVal).(*ddb.Storage[person])
 
 	_, success := db.UpdateWith(context.Background(),
