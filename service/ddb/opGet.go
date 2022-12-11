@@ -12,6 +12,7 @@ import (
 	"context"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 // Get item from storage
@@ -43,4 +44,46 @@ func (db *Storage[T]) Get(ctx context.Context, key T) (T, error) {
 	}
 
 	return obj, nil
+}
+
+func (db *Storage[T]) BatchGet(ctx context.Context, keys []T) ([]T, error) {
+	seq := make([]map[string]types.AttributeValue, len(keys))
+	for i := 0; i < len(keys); i++ {
+		gen, err := db.codec.EncodeKey(keys[i])
+		if err != nil {
+			return nil, errInvalidKey.New(err)
+		}
+		seq[i] = gen
+	}
+
+	req := &dynamodb.BatchGetItemInput{
+		RequestItems: map[string]types.KeysAndAttributes{
+			*db.table: {
+				Keys:                     seq,
+				ProjectionExpression:     db.schema.Projection,
+				ExpressionAttributeNames: db.schema.ExpectedAttributeNames,
+			},
+		},
+	}
+
+	val, err := db.service.BatchGetItem(ctx, req)
+	if err != nil {
+		return nil, errServiceIO.New(err)
+	}
+
+	rsp, exists := val.Responses[*db.table]
+	if !exists {
+		return make([]T, 0), nil
+	}
+
+	items := make([]T, len(rsp))
+	for i := 0; i < len(rsp); i++ {
+		obj, err := db.codec.Decode(rsp[i])
+		if err != nil {
+			return nil, errInvalidEntity.New(err)
+		}
+		items[i] = obj
+	}
+
+	return items, nil
 }
