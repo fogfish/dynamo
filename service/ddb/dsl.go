@@ -68,12 +68,20 @@ func newUpdateExpression[T dynamo.Thing, A any](t hseq.Type[T]) UpdateExpression
 //
 //	name.Inc(x) ⟼ SET Field = :value
 func (ue UpdateExpression[T, A]) Set(val A) interface{ UpdateExpression(T) } {
-	return &updateSetter[T, A]{key: ue.key, val: val}
+	return &updateSetter[T, A]{notExists: false, key: ue.key, val: val}
+}
+
+// Set attribute if not exists
+//
+//	name.Inc(x) ⟼ SET Field = if_not_exists(Field, :value)
+func (ue UpdateExpression[T, A]) SetNotExists(val A) interface{ UpdateExpression(T) } {
+	return &updateSetter[T, A]{notExists: true, key: ue.key, val: val}
 }
 
 type updateSetter[T any, A any] struct {
-	key string
-	val A
+	notExists bool
+	key       string
+	val       A
 }
 
 func (op updateSetter[T, A]) UpdateExpression(T) {}
@@ -89,11 +97,49 @@ func (op updateSetter[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 
 	req.ExpressionAttributeNames[ekey] = op.key
 	req.ExpressionAttributeValues[eval] = val
+	expr := ekey + " = " + eval
+	if op.notExists {
+		expr = ekey + " = if_not_exists(" + ekey + "," + eval + ")"
+	}
 
 	if req.UpdateExpression == nil {
-		req.UpdateExpression = aws.String("SET " + ekey + " = " + eval)
+		req.UpdateExpression = aws.String("SET " + expr)
 	} else {
-		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + ekey + " = " + eval)
+		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + expr)
+	}
+}
+
+// Add new attribute and increment value
+//
+//	name.Add(x) ⟼ ADD Field :value
+func (ue UpdateExpression[T, A]) Add(val A) interface{ UpdateExpression(T) } {
+	return &updateAdder[T, A]{key: ue.key, val: val}
+}
+
+type updateAdder[T any, A any] struct {
+	key string
+	val A
+}
+
+func (op updateAdder[T, A]) UpdateExpression(T) {}
+
+func (op updateAdder[T, A]) Apply(req *dynamodb.UpdateItemInput) {
+	val, err := attributevalue.Marshal(op.val)
+	if err != nil {
+		return
+	}
+
+	ekey := "#__" + op.key + "__"
+	eval := ":__" + op.key + "__"
+
+	req.ExpressionAttributeNames[ekey] = op.key
+	req.ExpressionAttributeValues[eval] = val
+	expr := ekey + " " + eval
+
+	if req.UpdateExpression == nil {
+		req.UpdateExpression = aws.String("ADD " + expr)
+	} else {
+		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + expr)
 	}
 }
 

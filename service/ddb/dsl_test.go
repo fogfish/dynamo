@@ -44,6 +44,19 @@ func TestUpdateExpressionModifyingOne(t *testing.T) {
 		Should(it.Equal(e, "SET #__anothername__ = :__anothername__"))
 }
 
+func TestUpdateExpressionModifyingOneNotExists(t *testing.T) {
+	val := tUpdatable{}
+	dsl := Updater(val, dslName.SetNotExists("some"))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
+
+	it.Then(t).
+		Should(it.Map(n).Have("#__anothername__", "anothername")).
+		Should(it.Map(v).Have(":__anothername__", &types.AttributeValueMemberS{Value: "some"})).
+		Should(it.Equal(e, "SET #__anothername__ = if_not_exists(#__anothername__,:__anothername__)"))
+}
+
 func TestUpdateExpressionModifyingFew(t *testing.T) {
 	val := tUpdatable{}
 	dsl := Updater(val, dslName.Set("some"), dslNone.Set(1000))
@@ -57,6 +70,19 @@ func TestUpdateExpressionModifyingFew(t *testing.T) {
 		Should(it.Map(v).Have(":__anothername__", &types.AttributeValueMemberS{Value: "some"})).
 		Should(it.Map(v).Have(":__anothernone__", &types.AttributeValueMemberN{Value: "1000"})).
 		Should(it.Equal(e, "SET #__anothername__ = :__anothername__,#__anothernone__ = :__anothernone__"))
+}
+
+func TestUpdateExpressionAdd(t *testing.T) {
+	val := tUpdatable{}
+	dsl := Updater(val, dslNone.Add(1))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
+
+	it.Then(t).
+		Should(it.Map(n).Have("#__anothernone__", "anothernone")).
+		Should(it.Map(v).Have(":__anothernone__", &types.AttributeValueMemberN{Value: "1"})).
+		Should(it.Equal(e, "ADD #__anothernone__ :__anothernone__"))
 }
 
 func TestUpdateExpressionIncrement(t *testing.T) {
