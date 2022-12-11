@@ -16,21 +16,9 @@ import (
 	"github.com/fogfish/golem/pure/hseq"
 )
 
-type Schema[T dynamo.Thing, A any] string
-
-func (schema Schema[T, A]) Updater() UpdateExpression[T, A] {
-	return hseq.FMap1(
-		generic[T](string(schema)),
-		newUpdateExpression[T, A],
-	)
-}
-
-func (schema Schema[T, A]) Condition() ConditionExpression[T, A] {
-	return hseq.FMap1(
-		generic[T](string(schema)),
-		newConditionExpression[T, A],
-	)
-}
+//
+// Internal data structure to manage type schema
+//
 
 // generic[T] filters hseq.Generic[T] list with defined fields
 func generic[T any](fs ...string) hseq.Seq[T] {
@@ -44,10 +32,6 @@ func generic[T any](fs ...string) hseq.Seq[T] {
 	}
 	return seq
 }
-
-//
-// Internal data structure to manage type schema
-//
 
 // Schema is utility that decodes type into projection expression
 type schema[T dynamo.Thing] struct {

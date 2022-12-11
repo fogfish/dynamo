@@ -24,7 +24,7 @@ type tConstrain struct {
 func (tConstrain) HashKey() curie.IRI { return "" }
 func (tConstrain) SortKey() curie.IRI { return "" }
 
-var Name = Schema[tConstrain, string]("Name").Condition()
+var Name = ClauseFor[tConstrain, string]("Name")
 
 func TestConditionExpression(t *testing.T) {
 	var (
