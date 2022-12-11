@@ -32,7 +32,7 @@ func (p Person) HashKey() curie.IRI { return p.Org }
 func (p Person) SortKey() curie.IRI { return p.ID }
 
 // KeyVal is type synonym
-type KeyVal dynamo.KeyVal[*Person]
+type KeyVal = *ddb.Storage[*Person]
 
 func main() {
 	db := ddb.Must(
@@ -48,6 +48,7 @@ func main() {
 
 	examplePut(db)
 	exampleGet(db)
+	exampleBatchGet(db)
 	exampleUpdate(db)
 	exampleMatch(db)
 	exampleMatchWithCursor(db)
@@ -91,6 +92,27 @@ func exampleGet(db KeyVal) {
 		default:
 			fmt.Printf("=[ get ]=> Fail: %v\n", err)
 		}
+	}
+}
+
+func exampleBatchGet(db KeyVal) {
+	keys := make([]*Person, n)
+	for i := 0; i < n; i++ {
+		keys[i] = &Person{
+			Org: curie.New("test:"),
+			ID:  curie.New("person:%d", i),
+		}
+	}
+
+	seq, err := db.BatchGet(context.Background(), keys)
+	if err != nil {
+		fmt.Printf("=[ batch get ]=> failed %v\n", err)
+		return
+	}
+
+	fmt.Println("=[ batch get ]=>")
+	for _, x := range seq {
+		fmt.Printf("\t%+v\n", x)
 	}
 }
 
