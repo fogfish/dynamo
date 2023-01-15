@@ -29,11 +29,11 @@ var (
 	dslName       = UpdateFor[tUpdatable, string]("Name")
 	dslNameString = UpdateFor[tUpdatable, string]()
 
-	dslNone    = UpdateFor[tUpdatable, int]("None")
-	dslNoneInt = UpdateFor[tUpdatable, int]()
+	dslNone = UpdateFor[tUpdatable, int]("None")
+	// dslNoneInt = UpdateFor[tUpdatable, int]()
 
-	dslList      = UpdateFor[tUpdatable, []string]("List")
-	dslListSlice = UpdateFor[tUpdatable, []string]()
+	dslList = UpdateFor[tUpdatable, []string]("List")
+	// dslListSlice = UpdateFor[tUpdatable, []string]()
 )
 
 func TestUpdateExpressionModifyingOne(t *testing.T) {
