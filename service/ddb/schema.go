@@ -20,19 +20,6 @@ import (
 // Internal data structure to manage type schema
 //
 
-// generic[T] filters hseq.Generic[T] list with defined fields
-func generic[T any](fs ...string) hseq.Seq[T] {
-	seq := make(hseq.Seq[T], 0)
-	for _, t := range hseq.Generic[T]() {
-		for _, f := range fs {
-			if t.Name == f {
-				seq = append(seq, t)
-			}
-		}
-	}
-	return seq
-}
-
 // Schema is utility that decodes type into projection expression
 type schema[T dynamo.Thing] struct {
 	ExpectedAttributeNames map[string]string
@@ -41,10 +28,14 @@ type schema[T dynamo.Thing] struct {
 
 func newSchema[T dynamo.Thing]() *schema[T] {
 	seq := hseq.FMap(
-		hseq.Generic[T](),
+		hseq.New[T](),
 		func(t hseq.Type[T]) string {
-			name := t.StructField.Tag.Get("dynamodbav")
-			return strings.Split(name, ",")[0]
+			tag := t.StructField.Tag.Get("dynamodbav")
+			key := strings.Split(tag, ",")
+			if len(key) == 0 {
+				return t.Name
+			}
+			return key[0]
 		},
 	)
 

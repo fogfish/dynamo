@@ -24,11 +24,16 @@ import (
 //
 //
 
-func UpdateFor[T dynamo.Thing, A any](field string) UpdateExpression[T, A] {
-	return hseq.FMap1(
-		generic[T](string(field)),
-		newUpdateExpression[T, A],
-	)
+func UpdateFor[T dynamo.Thing, A any](attr ...string) UpdateExpression[T, A] {
+	var seq hseq.Seq[T]
+
+	if len(attr) == 0 {
+		seq = hseq.New1[T, A]()
+	} else {
+		seq = hseq.New[T](attr[0])
+	}
+
+	return hseq.FMap1(seq, newUpdateExpression[T, A])
 }
 
 type UpdateItemExpression[T dynamo.Thing] struct {

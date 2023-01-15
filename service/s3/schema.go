@@ -21,7 +21,7 @@ Schema is utility that merges two struct
 type schema[T dynamo.Thing] struct{ hseq.Seq[T] }
 
 func newSchema[T dynamo.Thing]() *schema[T] {
-	return &schema[T]{hseq.Generic[T]()}
+	return &schema[T]{hseq.New[T]()}
 }
 
 func (schema schema[T]) Merge(a, b T) (c T) {
@@ -48,9 +48,9 @@ func (schema schema[T]) Merge(a, b T) (c T) {
 	}
 
 	for _, f := range schema.Seq {
-		fa := va.FieldByIndex(f.Index)
-		fb := vb.FieldByIndex(f.Index)
-		fc := vc.FieldByIndex(f.Index)
+		fa := va.FieldByName(f.Name)
+		fb := vb.FieldByName(f.Name)
+		fc := vc.FieldByName(f.Name)
 
 		switch {
 		case !fa.IsZero():

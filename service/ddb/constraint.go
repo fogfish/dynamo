@@ -49,15 +49,23 @@ import (
 // expressions. Just declare a global variables next to type definition and
 // use them across the application.
 //
-//	var name = dynamo.Schema[Person, string]("Name").Condition()
+//	var (
+//		name = dynamo.ClauseFor[Person, string]("Name")
+//		addr = dynamo.ClauseFor[Person, Address]()
+//	)
 //
 //	name.Eq("Joe Doe")
 //	name.NotExists()
-func ClauseFor[T dynamo.Thing, A any](schema string) ConditionExpression[T, A] {
-	return hseq.FMap1(
-		generic[T](string(schema)),
-		newConditionExpression[T, A],
-	)
+func ClauseFor[T dynamo.Thing, A any](attr ...string) ConditionExpression[T, A] {
+	var seq hseq.Seq[T]
+
+	if len(attr) == 0 {
+		seq = hseq.New1[T, A]()
+	} else {
+		seq = hseq.New[T](attr[0])
+	}
+
+	return hseq.FMap1(seq, newConditionExpression[T, A])
 }
 
 type ConditionExpression[T dynamo.Thing, A any] struct{ key string }
