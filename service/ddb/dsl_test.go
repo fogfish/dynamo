@@ -26,22 +26,33 @@ func (tUpdatable) HashKey() curie.IRI { return "" }
 func (tUpdatable) SortKey() curie.IRI { return "" }
 
 var (
-	dslName = UpdateFor[tUpdatable, string]("Name")
-	dslNone = UpdateFor[tUpdatable, int]("None")
-	dslList = UpdateFor[tUpdatable, []string]("List")
+	dslName       = UpdateFor[tUpdatable, string]("Name")
+	dslNameString = UpdateFor[tUpdatable, string]()
+
+	dslNone    = UpdateFor[tUpdatable, int]("None")
+	dslNoneInt = UpdateFor[tUpdatable, int]()
+
+	dslList      = UpdateFor[tUpdatable, []string]("List")
+	dslListSlice = UpdateFor[tUpdatable, []string]()
 )
 
 func TestUpdateExpressionModifyingOne(t *testing.T) {
-	val := tUpdatable{}
-	dsl := Updater(val, dslName.Set("some"))
-	n := dsl.request.ExpressionAttributeNames
-	v := dsl.request.ExpressionAttributeValues
-	e := *dsl.request.UpdateExpression
+	for _, dslExpr := range []interface{ UpdateExpression(tUpdatable) }{
+		dslName.Set("some"),
+		dslNameString.Set("some"),
+	} {
+		val := tUpdatable{}
+		dsl := Updater(val, dslExpr)
+		n := dsl.request.ExpressionAttributeNames
+		v := dsl.request.ExpressionAttributeValues
+		e := *dsl.request.UpdateExpression
 
-	it.Then(t).
-		Should(it.Map(n).Have("#__anothername__", "anothername")).
-		Should(it.Map(v).Have(":__anothername__", &types.AttributeValueMemberS{Value: "some"})).
-		Should(it.Equal(e, "SET #__anothername__ = :__anothername__"))
+		it.Then(t).Should(
+			it.Map(n).Have("#__anothername__", "anothername"),
+			it.Map(v).Have(":__anothername__", &types.AttributeValueMemberS{Value: "some"}),
+			it.Equal(e, "SET #__anothername__ = :__anothername__"),
+		)
+	}
 }
 
 func TestUpdateExpressionModifyingOneNotExists(t *testing.T) {
