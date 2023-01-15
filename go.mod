@@ -10,9 +10,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.1
 	github.com/fogfish/curie v1.7.1
 	github.com/fogfish/errors v0.1.0
-	github.com/fogfish/golem v0.8.5
+	github.com/fogfish/golem v0.9.0
 	github.com/fogfish/it v0.9.1
-	github.com/fogfish/it/v2 v2.0.0-20220827053314-ff49ca642fd4
+	github.com/fogfish/it/v2 v2.0.1
 )
 
 require (

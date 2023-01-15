@@ -63,7 +63,7 @@ func Codec[T dynamo.Thing, A any](a string) CodecOf[T, A] {
 // generic[T] filters hseq.Generic[T] list with defined fields
 func genCodec[T any](fs ...string) hseq.Seq[T] {
 	seq := make(hseq.Seq[T], 0)
-	for _, t := range hseq.Generic[T]() {
+	for _, t := range hseq.New[T]() {
 		for _, f := range fs {
 			if t.Name == f {
 				seq = append(seq, t)
