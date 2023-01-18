@@ -74,7 +74,7 @@ func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (*Storage[T], 
 		table:   table,
 		index:   index,
 		codec:   newCodec[T](uri),
-		schema:  newSchema[T](),
+		schema:  newSchema[T](conf.WithStrictType),
 	}, nil
 }
 

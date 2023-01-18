@@ -16,13 +16,15 @@ import "github.com/fogfish/curie"
 
 // Config options for the client
 type Config struct {
-	Service  any
-	Prefixes curie.Prefixes
+	Service        any
+	Prefixes       curie.Prefixes
+	WithStrictType bool
 }
 
 func NewConfig() Config {
 	return Config{
-		Prefixes: curie.Namespaces{},
+		Prefixes:       curie.Namespaces{},
+		WithStrictType: true,
 	}
 }
 
@@ -40,5 +42,12 @@ func WithService(service any) Option {
 func WithPrefixes(prefixes curie.Prefixes) Option {
 	return func(conf *Config) {
 		conf.Prefixes = prefixes
+	}
+}
+
+// WithTypeSchema demand that storage schema "knows" all type attributes
+func WithStrictType(use bool) Option {
+	return func(conf *Config) {
+		conf.WithStrictType = use
 	}
 }

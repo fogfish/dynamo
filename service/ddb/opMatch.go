@@ -18,12 +18,25 @@ import (
 )
 
 // Match applies a pattern matching to elements in the table
+func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...interface{ MatchOpt() }) ([]T, error) {
+	gen, err := db.codec.EncodeKey(key)
+	if err != nil {
+		return nil, errInvalidKey.New(err)
+	}
+	return db.match(ctx, gen, opts)
+}
+
+// Match applies a pattern matching to elements in the table
 func (db *Storage[T]) Match(ctx context.Context, key T, opts ...interface{ MatchOpt() }) ([]T, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
 		return nil, errInvalidKey.New(err)
 	}
+	return db.match(ctx, gen, opts)
+}
 
+// Match applies a pattern matching to elements in the table
+func (db *Storage[T]) match(ctx context.Context, gen map[string]types.AttributeValue, opts []interface{ MatchOpt() }) ([]T, error) {
 	suffix, isSuffix := gen[db.codec.skSuffix]
 	switch v := suffix.(type) {
 	case *types.AttributeValueMemberS:
@@ -38,7 +51,7 @@ func (db *Storage[T]) Match(ctx context.Context, key T, opts ...interface{ Match
 		expr = expr + " and begins_with(" + db.codec.skSuffix + ", :__" + db.codec.skSuffix + "__)"
 	}
 
-	q := db.reqQuery(gen, expr, opts...)
+	q := db.reqQuery(gen, expr, opts)
 	val, err := db.service.Query(ctx, q)
 	if err != nil {
 		return nil, errServiceIO.New(err)
@@ -59,7 +72,7 @@ func (db *Storage[T]) Match(ctx context.Context, key T, opts ...interface{ Match
 func (db *Storage[T]) reqQuery(
 	gen map[string]types.AttributeValue,
 	expr string,
-	opts ...interface{ MatchOpt() },
+	opts []interface{ MatchOpt() },
 ) *dynamodb.QueryInput {
 	var (
 		limit             *int32                          = nil
@@ -67,8 +80,8 @@ func (db *Storage[T]) reqQuery(
 	)
 	for _, opt := range opts {
 		switch v := opt.(type) {
-		case dynamo.Limit:
-			limit = aws.Int32(int32(v))
+		case interface{ Limit() int32 }:
+			limit = aws.Int32(v.Limit())
 		case dynamo.Thing:
 			prefix := v.HashKey()
 			suffix := v.SortKey()
@@ -87,7 +100,7 @@ func (db *Storage[T]) reqQuery(
 		}
 	}
 
-	return &dynamodb.QueryInput{
+	req := &dynamodb.QueryInput{
 		KeyConditionExpression:    aws.String(expr),
 		ExpressionAttributeValues: exprOf(gen),
 		ProjectionExpression:      db.schema.Projection,
@@ -97,6 +110,10 @@ func (db *Storage[T]) reqQuery(
 		Limit:                     limit,
 		ExclusiveStartKey:         exclusiveStartKey,
 	}
+
+	// if (db)
+
+	return req
 }
 
 func exprOf(gen map[string]types.AttributeValue) (val map[string]types.AttributeValue) {

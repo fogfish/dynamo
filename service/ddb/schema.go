@@ -26,7 +26,11 @@ type schema[T dynamo.Thing] struct {
 	Projection             *string
 }
 
-func newSchema[T dynamo.Thing]() *schema[T] {
+func newSchema[T dynamo.Thing](withStrictType bool) *schema[T] {
+	if !withStrictType {
+		return &schema[T]{}
+	}
+
 	seq := hseq.FMap(
 		hseq.New[T](),
 		func(t hseq.Type[T]) string {

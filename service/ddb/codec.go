@@ -208,7 +208,7 @@ func newCodec[T dynamo.Thing](uri *dynamo.URL) *codec[T] {
 }
 
 // EncodeKey to dynamo representation
-func (codec codec[T]) EncodeKey(key T) (map[string]types.AttributeValue, error) {
+func (codec codec[T]) EncodeKey(key dynamo.Thing) (map[string]types.AttributeValue, error) {
 	hashkey := key.HashKey()
 	if hashkey == "" {
 		return nil, fmt.Errorf("invalid key of %T, hashkey cannot be empty", key)

@@ -59,9 +59,13 @@ type KeyValPattern[T Thing] interface {
 }
 
 // Limit option for Match
-type Limit int32
+func Limit(v int32) interface{ MatchOpt() } { return limit(v) }
 
-func (Limit) MatchOpt() {}
+type limit int32
+
+func (limit) MatchOpt() {}
+
+func (limit limit) Limit() int32 { return int32(limit) }
 
 // Cursor option for Match
 func Cursor(c Thing) interface{ MatchOpt() } { return cursor{c} }
