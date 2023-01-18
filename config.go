@@ -21,6 +21,8 @@ type Config struct {
 	WithStrictType bool
 }
 
+func (*Config) Config() {}
+
 func NewConfig() Config {
 	return Config{
 		Prefixes:       curie.Namespaces{},
@@ -29,25 +31,34 @@ func NewConfig() Config {
 }
 
 // Option type to configure the connection
-type Option func(cfg *Config)
+type Option func(cfg interface{ Config() })
 
 // Configure AWS Service for the client
 func WithService(service any) Option {
-	return func(conf *Config) {
-		conf.Service = service
+	return func(conf interface{ Config() }) {
+		switch c := conf.(type) {
+		case *Config:
+			c.Service = service
+		}
 	}
 }
 
 // WithPrefixes defines prefixes for CURIEs
 func WithPrefixes(prefixes curie.Prefixes) Option {
-	return func(conf *Config) {
-		conf.Prefixes = prefixes
+	return func(conf interface{ Config() }) {
+		switch c := conf.(type) {
+		case *Config:
+			c.Prefixes = prefixes
+		}
 	}
 }
 
 // WithTypeSchema demand that storage schema "knows" all type attributes
 func WithStrictType(use bool) Option {
-	return func(conf *Config) {
-		conf.WithStrictType = use
+	return func(conf interface{ Config() }) {
+		switch c := conf.(type) {
+		case *Config:
+			c.WithStrictType = use
+		}
 	}
 }
