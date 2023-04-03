@@ -55,6 +55,7 @@ type KeyValGetter[T Thing] interface {
 
 // KeyValPattern defines simple pattern matching lookup I/O
 type KeyValPattern[T Thing] interface {
+	MatchKey(context.Context, Thing, ...interface{ MatchOpt() }) ([]T, error)
 	Match(context.Context, T, ...interface{ MatchOpt() }) ([]T, error)
 }
 
