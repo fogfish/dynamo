@@ -17,7 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"reflect"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -76,7 +76,7 @@ func (mock *s3GetObject[T]) GetObject(ctx context.Context, input *s3.GetObjectIn
 
 	val, _ := json.Marshal(mock.returnVal)
 	return &s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader(val)),
+		Body: io.NopCloser(bytes.NewReader(val)),
 	}, nil
 }
 
@@ -202,7 +202,7 @@ func (mock *s3GetListObjects[T]) GetObject(ctx context.Context, input *s3.GetObj
 
 	val, _ := json.Marshal(mock.returnVal)
 	return &s3.GetObjectOutput{
-		Body: ioutil.NopCloser(bytes.NewReader(val)),
+		Body: io.NopCloser(bytes.NewReader(val)),
 	}, nil
 }
 
