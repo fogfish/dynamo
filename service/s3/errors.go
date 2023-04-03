@@ -13,13 +13,13 @@ import (
 	"fmt"
 
 	"github.com/fogfish/dynamo/v2"
-	xerrors "github.com/fogfish/errors"
+	"github.com/fogfish/faults"
 )
 
 const (
-	errInvalidConnectorURL = xerrors.Safe1[string]("invalid connector url %s")
-	errServiceIO           = xerrors.Type("service i/o failed")
-	errInvalidEntity       = xerrors.Type("invalid entity")
+	errInvalidConnectorURL = faults.Safe1[string]("invalid connector url %s")
+	errServiceIO           = faults.Type("service i/o failed")
+	errInvalidEntity       = faults.Type("invalid entity")
 )
 
 // NotFound is an error to handle unknown elements

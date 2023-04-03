@@ -12,7 +12,7 @@ import (
 	"reflect"
 
 	"github.com/fogfish/dynamo/v2"
-	"github.com/fogfish/golem/pure/hseq"
+	"github.com/fogfish/golem/hseq"
 )
 
 /*
