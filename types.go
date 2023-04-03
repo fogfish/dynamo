@@ -55,13 +55,18 @@ type KeyValGetter[T Thing] interface {
 
 // KeyValPattern defines simple pattern matching lookup I/O
 type KeyValPattern[T Thing] interface {
+	MatchKey(context.Context, Thing, ...interface{ MatchOpt() }) ([]T, error)
 	Match(context.Context, T, ...interface{ MatchOpt() }) ([]T, error)
 }
 
 // Limit option for Match
-type Limit int32
+func Limit(v int32) interface{ MatchOpt() } { return limit(v) }
 
-func (Limit) MatchOpt() {}
+type limit int32
+
+func (limit) MatchOpt() {}
+
+func (limit limit) Limit() int32 { return int32(limit) }
 
 // Cursor option for Match
 func Cursor(c Thing) interface{ MatchOpt() } { return cursor{c} }
@@ -76,9 +81,7 @@ func (cursor) MatchOpt() {}
 //
 //-----------------------------------------------------------------------------
 
-/*
-KeyValReader a generic key-value trait to read domain objects
-*/
+// KeyValReader a generic key-value trait to read domain objects
 type KeyValReader[T Thing] interface {
 	KeyValGetter[T]
 	KeyValPattern[T]
@@ -90,9 +93,7 @@ type KeyValReader[T Thing] interface {
 //
 //-----------------------------------------------------------------------------
 
-/*
-KeyValWriter defines a generic key-value writer
-*/
+// KeyValWriter defines a generic key-value writer
 type KeyValWriter[T Thing] interface {
 	Put(context.Context, T, ...interface{ ConditionExpression(T) }) error
 	Remove(context.Context, T, ...interface{ ConditionExpression(T) }) (T, error)
@@ -105,9 +106,7 @@ type KeyValWriter[T Thing] interface {
 //
 //-----------------------------------------------------------------------------
 
-/*
-KeyVal is a generic key-value trait to access domain objects.
-*/
+// KeyVal is a generic key-value trait to access domain objects.
 type KeyVal[T Thing] interface {
 	KeyValReader[T]
 	KeyValWriter[T]
@@ -115,7 +114,7 @@ type KeyVal[T Thing] interface {
 
 //-----------------------------------------------------------------------------
 //
-// External Services
+// Utility types
 //
 //-----------------------------------------------------------------------------
 

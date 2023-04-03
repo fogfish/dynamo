@@ -270,13 +270,28 @@ func TestMatch[S any](
 	})
 
 	//
+	t.Run("MatchKey", func(t *testing.T) {
+		ddb := factory(&expectKey, 5, &returnVal, nil)
+
+		seq, err := ddb.MatchKey(context.Background(), fixtureKeyHashOnly())
+
+		it.Ok(t).
+			If(err).Should().Equal(nil).
+			If(len(seq)).Should().Equal(5)
+
+		for _, val := range seq {
+			it.Ok(t).If(val).Should().Equal(fixtureVal())
+		}
+	})
+
+	//
 	t.Run("MatchWithCursor", func(t *testing.T) {
 		expectKeyFull, err := encoder(fixtureKey())
 		it.Ok(t).IfNil(err)
 
 		ddb := factory(&expectKey, 2, &returnVal, &expectKeyFull)
 
-		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
+		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly(), dynamo.Limit(2))
 		it.Ok(t).IfNil(err)
 
 		cursor0 := seq[1]
