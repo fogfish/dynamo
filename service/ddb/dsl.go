@@ -140,16 +140,14 @@ func (op updateSetter[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 //	name.Add(x) ⟼ ADD Field :value
 func (ue UpdateExpression[T, A]) Add(val A) interface{ UpdateExpression(T) } {
 	return &updateAdder[T, A]{
-		setOf: ue.setOf,
-		key:   ue.key,
-		val:   val,
+		key: ue.key,
+		val: val,
 	}
 }
 
 type updateAdder[T any, A any] struct {
-	setOf string
-	key   string
-	val   A
+	key string
+	val A
 }
 
 func (op updateAdder[T, A]) UpdateExpression(T) {}
