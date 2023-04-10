@@ -36,11 +36,6 @@ func (db *Storage[T]) UpdateWith(ctx context.Context, expression UpdateItemExpre
 		opts,
 	)
 
-	// fmt.Printf("\n\n%s\n", *req.UpdateExpression)
-	// for k, v := range req.ExpressionAttributeValues {
-	// 	fmt.Printf("%s => %+v\n", k, v)
-	// }
-
 	return db.update(ctx, expression.entity, req)
 }
 
