@@ -110,10 +110,11 @@ func TestUpdateExpressionStringSetUnion(t *testing.T) {
 	v := dsl.request.ExpressionAttributeValues
 	e := *dsl.request.UpdateExpression
 
-	it.Then(t).
-		Should(it.Map(n).Have("#__anothersset__", "anothersset")).
-		Should(it.Map(v).Have(":__anothersset__", &types.AttributeValueMemberSS{Value: []string{"foo", "bar"}})).
-		Should(it.Equal(e, "ADD #__anothersset__ :__anothersset__"))
+	it.Then(t).Should(
+		it.Map(n).Have("#__anothersset__", "anothersset"),
+		it.Map(v).Have(":__anothersset__", &types.AttributeValueMemberSS{Value: []string{"foo", "bar"}}),
+		it.Equal(e, "ADD #__anothersset__ :__anothersset__"),
+	)
 }
 
 func TestUpdateExpressionStringSetMinus(t *testing.T) {
@@ -123,10 +124,11 @@ func TestUpdateExpressionStringSetMinus(t *testing.T) {
 	v := dsl.request.ExpressionAttributeValues
 	e := *dsl.request.UpdateExpression
 
-	it.Then(t).
-		Should(it.Map(n).Have("#__anothersset__", "anothersset")).
-		Should(it.Map(v).Have(":__anothersset__", &types.AttributeValueMemberSS{Value: []string{"foo", "bar"}})).
-		Should(it.Equal(e, "DELETE #__anothersset__ :__anothersset__"))
+	it.Then(t).Should(
+		it.Map(n).Have("#__anothersset__", "anothersset"),
+		it.Map(v).Have(":__anothersset__", &types.AttributeValueMemberSS{Value: []string{"foo", "bar"}}),
+		it.Equal(e, "DELETE #__anothersset__ :__anothersset__"),
+	)
 }
 
 func TestUpdateExpressionNumberSetUnion(t *testing.T) {
@@ -136,10 +138,11 @@ func TestUpdateExpressionNumberSetUnion(t *testing.T) {
 	v := dsl.request.ExpressionAttributeValues
 	e := *dsl.request.UpdateExpression
 
-	it.Then(t).
-		Should(it.Map(n).Have("#__anothernset__", "anothernset")).
-		Should(it.Map(v).Have(":__anothernset__", &types.AttributeValueMemberNS{Value: []string{"10", "20"}})).
-		Should(it.Equal(e, "ADD #__anothernset__ :__anothernset__"))
+	it.Then(t).Should(
+		it.Map(n).Have("#__anothernset__", "anothernset"),
+		it.Map(v).Have(":__anothernset__", &types.AttributeValueMemberNS{Value: []string{"10", "20"}}),
+		it.Equal(e, "ADD #__anothernset__ :__anothernset__"),
+	)
 }
 
 func TestUpdateExpressionBinarySetUnion(t *testing.T) {
@@ -149,10 +152,11 @@ func TestUpdateExpressionBinarySetUnion(t *testing.T) {
 	v := dsl.request.ExpressionAttributeValues
 	e := *dsl.request.UpdateExpression
 
-	it.Then(t).
-		Should(it.Map(n).Have("#__anotherbset__", "anotherbset")).
-		Should(it.Map(v).Have(":__anotherbset__", &types.AttributeValueMemberBS{Value: [][]byte{[]byte("foo"), []byte("bar")}})).
-		Should(it.Equal(e, "ADD #__anotherbset__ :__anotherbset__"))
+	it.Then(t).Should(
+		it.Map(n).Have("#__anotherbset__", "anotherbset"),
+		it.Map(v).Have(":__anotherbset__", &types.AttributeValueMemberBS{Value: [][]byte{[]byte("foo"), []byte("bar")}}),
+		it.Equal(e, "ADD #__anotherbset__ :__anotherbset__"),
+	)
 }
 
 func TestUpdateExpressionIncrement(t *testing.T) {
