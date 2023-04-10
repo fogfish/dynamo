@@ -20,6 +20,9 @@ type tUpdatable struct {
 	Name string   `dynamodbav:"anothername,omitempty"`
 	None int      `dynamodbav:"anothernone,omitempty"`
 	List []string `dynamodbav:"anotherlist,omitempty"`
+	SSet []string `dynamodbav:"anothersset,omitempty,stringset"`
+	NSet []int    `dynamodbav:"anothernset,omitempty,numberset"`
+	BSet [][]byte `dynamodbav:"anotherbset,omitempty,binaryset"`
 }
 
 func (tUpdatable) HashKey() curie.IRI { return "" }
@@ -34,6 +37,10 @@ var (
 
 	dslList = UpdateFor[tUpdatable, []string]("List")
 	// dslListSlice = UpdateFor[tUpdatable, []string]()
+
+	dslSSet = UpdateFor[tUpdatable, []string]("SSet")
+	dslNSet = UpdateFor[tUpdatable, []int]("NSet")
+	dslBSet = UpdateFor[tUpdatable, [][]byte]("BSet")
 )
 
 func TestUpdateExpressionModifyingOne(t *testing.T) {
@@ -94,6 +101,62 @@ func TestUpdateExpressionAdd(t *testing.T) {
 		Should(it.Map(n).Have("#__anothernone__", "anothernone")).
 		Should(it.Map(v).Have(":__anothernone__", &types.AttributeValueMemberN{Value: "1"})).
 		Should(it.Equal(e, "ADD #__anothernone__ :__anothernone__"))
+}
+
+func TestUpdateExpressionStringSetUnion(t *testing.T) {
+	val := tUpdatable{}
+	dsl := Updater(val, dslSSet.Union([]string{"foo", "bar"}))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
+
+	it.Then(t).Should(
+		it.Map(n).Have("#__anothersset__", "anothersset"),
+		it.Map(v).Have(":__anothersset__", &types.AttributeValueMemberSS{Value: []string{"foo", "bar"}}),
+		it.Equal(e, "ADD #__anothersset__ :__anothersset__"),
+	)
+}
+
+func TestUpdateExpressionStringSetMinus(t *testing.T) {
+	val := tUpdatable{}
+	dsl := Updater(val, dslSSet.Minus([]string{"foo", "bar"}))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
+
+	it.Then(t).Should(
+		it.Map(n).Have("#__anothersset__", "anothersset"),
+		it.Map(v).Have(":__anothersset__", &types.AttributeValueMemberSS{Value: []string{"foo", "bar"}}),
+		it.Equal(e, "DELETE #__anothersset__ :__anothersset__"),
+	)
+}
+
+func TestUpdateExpressionNumberSetUnion(t *testing.T) {
+	val := tUpdatable{}
+	dsl := Updater(val, dslNSet.Union([]int{10, 20}))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
+
+	it.Then(t).Should(
+		it.Map(n).Have("#__anothernset__", "anothernset"),
+		it.Map(v).Have(":__anothernset__", &types.AttributeValueMemberNS{Value: []string{"10", "20"}}),
+		it.Equal(e, "ADD #__anothernset__ :__anothernset__"),
+	)
+}
+
+func TestUpdateExpressionBinarySetUnion(t *testing.T) {
+	val := tUpdatable{}
+	dsl := Updater(val, dslBSet.Union([][]byte{[]byte("foo"), []byte("bar")}))
+	n := dsl.request.ExpressionAttributeNames
+	v := dsl.request.ExpressionAttributeValues
+	e := *dsl.request.UpdateExpression
+
+	it.Then(t).Should(
+		it.Map(n).Have("#__anotherbset__", "anotherbset"),
+		it.Map(v).Have(":__anotherbset__", &types.AttributeValueMemberBS{Value: [][]byte{[]byte("foo"), []byte("bar")}}),
+		it.Equal(e, "ADD #__anotherbset__ :__anotherbset__"),
+	)
 }
 
 func TestUpdateExpressionIncrement(t *testing.T) {

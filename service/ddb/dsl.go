@@ -65,7 +65,10 @@ func Updater[T dynamo.Thing](entity T, opts ...interface{ UpdateExpression(T) })
 //
 //
 
-type UpdateExpression[T dynamo.Thing, A any] struct{ key string }
+type UpdateExpression[T dynamo.Thing, A any] struct {
+	key   string
+	setOf string
+}
 
 func newUpdateExpression[T dynamo.Thing, A any](t hseq.Type[T]) UpdateExpression[T, A] {
 	tag := t.Tag.Get("dynamodbav")
@@ -73,7 +76,18 @@ func newUpdateExpression[T dynamo.Thing, A any](t hseq.Type[T]) UpdateExpression
 		panic(fmt.Errorf("field %s of type %T do not have `dynamodbav` tag", t.Name, *new(T)))
 	}
 
-	return UpdateExpression[T, A]{strings.Split(tag, ",")[0]}
+	seq := strings.Split(tag, ",")
+	setOf := ""
+	switch {
+	case strings.Contains(tag, "stringset"):
+		setOf = "string"
+	case strings.Contains(tag, "numberset"):
+		setOf = "number"
+	case strings.Contains(tag, "binaryset"):
+		setOf = "binary"
+	}
+
+	return UpdateExpression[T, A]{key: seq[0], setOf: setOf}
 }
 
 // Set attribute
@@ -125,7 +139,10 @@ func (op updateSetter[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 //
 //	name.Add(x) ⟼ ADD Field :value
 func (ue UpdateExpression[T, A]) Add(val A) interface{ UpdateExpression(T) } {
-	return &updateAdder[T, A]{key: ue.key, val: val}
+	return &updateAdder[T, A]{
+		key: ue.key,
+		val: val,
+	}
 }
 
 type updateAdder[T any, A any] struct {
@@ -152,6 +169,127 @@ func (op updateAdder[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 		req.UpdateExpression = aws.String("ADD " + expr)
 	} else {
 		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + expr)
+	}
+}
+
+// Add elements to set
+//
+//	name.Union(x) ⟼ ADD Field :value
+func (ue UpdateExpression[T, A]) Union(val A) interface{ UpdateExpression(T) } {
+	return &updateSetOf[T, A]{
+		op:    "ADD",
+		setOf: ue.setOf,
+		key:   ue.key,
+		val:   val,
+	}
+}
+
+// Delete elements from set
+//
+//	name.Minus(x) ⟼ ADD Field :value
+func (ue UpdateExpression[T, A]) Minus(val A) interface{ UpdateExpression(T) } {
+	return &updateSetOf[T, A]{
+		op:    "DELETE",
+		setOf: ue.setOf,
+		key:   ue.key,
+		val:   val,
+	}
+}
+
+type updateSetOf[T any, A any] struct {
+	op    string
+	setOf string
+	key   string
+	val   A
+}
+
+func (op updateSetOf[T, A]) UpdateExpression(T) {}
+
+func (op updateSetOf[T, A]) Apply(req *dynamodb.UpdateItemInput) {
+	val, err := op.encodeValue()
+	if err != nil {
+		return
+	}
+
+	ekey := "#__" + op.key + "__"
+	eval := ":__" + op.key + "__"
+
+	req.ExpressionAttributeNames[ekey] = op.key
+	req.ExpressionAttributeValues[eval] = val
+	expr := ekey + " " + eval
+
+	if req.UpdateExpression == nil {
+		req.UpdateExpression = aws.String(op.op + " " + expr)
+	} else {
+		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + expr)
+	}
+}
+
+func (op updateSetOf[T, A]) encodeValue() (types.AttributeValue, error) {
+	val, err := attributevalue.Marshal(op.val)
+	if err != nil {
+		return nil, err
+	}
+
+	// ADD is not defined for the list
+	// By default set is encoded as list
+	switch op.setOf {
+	case "string":
+		return op.encodeValueSS(val)
+	case "number":
+		return op.encodeValueNS(val)
+	case "binary":
+		return op.encodeValueBS(val)
+	default:
+		return val, nil
+	}
+}
+
+func (op updateSetOf[T, A]) encodeValueSS(val types.AttributeValue) (types.AttributeValue, error) {
+	switch vv := val.(type) {
+	case *types.AttributeValueMemberL:
+		set := &types.AttributeValueMemberSS{Value: []string{}}
+		for _, x := range vv.Value {
+			switch vx := x.(type) {
+			case *types.AttributeValueMemberS:
+				set.Value = append(set.Value, vx.Value)
+			}
+		}
+		return set, nil
+	default:
+		return val, nil
+	}
+}
+
+func (op updateSetOf[T, A]) encodeValueNS(val types.AttributeValue) (types.AttributeValue, error) {
+	switch vv := val.(type) {
+	case *types.AttributeValueMemberL:
+		set := &types.AttributeValueMemberNS{Value: []string{}}
+		for _, x := range vv.Value {
+			switch vx := x.(type) {
+			case *types.AttributeValueMemberN:
+				set.Value = append(set.Value, vx.Value)
+			}
+		}
+		return set, nil
+	default:
+		return val, nil
+	}
+}
+
+func (op updateSetOf[T, A]) encodeValueBS(val types.AttributeValue) (types.AttributeValue, error) {
+	switch vv := val.(type) {
+	case *types.AttributeValueMemberL:
+		set := &types.AttributeValueMemberBS{Value: [][]byte{}}
+		for _, x := range vv.Value {
+			switch vx := x.(type) {
+			case *types.AttributeValueMemberB:
+				set.Value = append(set.Value, vx.Value)
+			}
+		}
+		return set, nil
+	default:
+		return val, nil
 	}
 }
 
