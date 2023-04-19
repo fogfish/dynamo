@@ -23,7 +23,7 @@ type KeyVal[T dynamo.Thing] interface {
   Get(T) (T, error)
   Remove(T) (T, error)
   Update(T) (T, error)
-  Match(T) []T
+  Match(T) ([]T, error)
 }
 ```
 
@@ -218,19 +218,16 @@ Hierarchical structures is the way to organize collections, lists, sets, etc. Th
 
 ```go
 // 1. Set the limit on the stream 
-seq := db.Match(context.TODO(),
+seq, cursor, err := db.Match(context.TODO(),
   Message{Thread: "thread:A", ID: "C"},
   dynamo.Limit(25),
 )
 
-// 2. Read cursor value
-cursor := seq[len(seq)-1]
-
-// 3. Continue I/O with a new stream, supply the cursor
+// 2. Continue I/O with a new stream, supply the cursor
 seq := db.Match(context.TODO(),
   Message{Thread: "thread:A", ID: "C"},
   dynamo.Limit(25),
-  dynamo.Cursor(cursor),
+  cursor,
 )
 ```
 
@@ -384,7 +381,7 @@ type Person struct {
 }
 
 // defines the builder of conditional expression
-var ifName = dynamo.Schema[Person, string]("Name").Condition()
+var ifName = ddb.ClauseFor[Person, string]("Name")
 
 db.Update(/* ... */, ifName.NotExists())
 db.Update(/* ... */, ifName.Eq("Verner Pleishner"))
@@ -409,8 +406,8 @@ type Person struct {
 
 // defines the builder of updater expression
 var (
-  Name = dynamo.Schema[Person, string]("Name").Updater()
-  Age  = dynamo.Schema[Person, int]("Age").Updater()
+  Name = ddb.UpdateFor[Person, string]("Name")
+  Age  = ddb.UpdateFor[Person, int]("Age")
 )
 
 db.UpdateWith(context.Background(),
@@ -460,7 +457,7 @@ type Person struct {
 }
 
 // defines the builder of conditional expression
-var Name = dynamo.Schema[Person, string]("Name").Condition()
+var Name = ddb.ClauseFor[Person, string]("Name")
 
 val, err := db.Update(context.TODO(), &person, Name.Eq("Verner Pleishner"))
 switch err.(type) {
