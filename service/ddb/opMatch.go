@@ -14,29 +14,30 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/v2"
 )
 
 // Match applies a pattern matching to elements in the table
-func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...interface{ MatchOpt() }) ([]T, error) {
+func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
-		return nil, errInvalidKey.New(err)
+		return nil, nil, errInvalidKey.New(err)
 	}
 	return db.match(ctx, gen, opts)
 }
 
 // Match applies a pattern matching to elements in the table
-func (db *Storage[T]) Match(ctx context.Context, key T, opts ...interface{ MatchOpt() }) ([]T, error) {
+func (db *Storage[T]) Match(ctx context.Context, key T, opts ...dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
-		return nil, errInvalidKey.New(err)
+		return nil, nil, errInvalidKey.New(err)
 	}
 	return db.match(ctx, gen, opts)
 }
 
 // Match applies a pattern matching to elements in the table
-func (db *Storage[T]) match(ctx context.Context, gen map[string]types.AttributeValue, opts []interface{ MatchOpt() }) ([]T, error) {
+func (db *Storage[T]) match(ctx context.Context, gen map[string]types.AttributeValue, opts []dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
 	suffix, isSuffix := gen[db.codec.skSuffix]
 	switch v := suffix.(type) {
 	case *types.AttributeValueMemberS:
@@ -54,19 +55,19 @@ func (db *Storage[T]) match(ctx context.Context, gen map[string]types.AttributeV
 	q := db.reqQuery(gen, expr, opts)
 	val, err := db.service.Query(ctx, q)
 	if err != nil {
-		return nil, errServiceIO.New(err)
+		return nil, nil, errServiceIO.New(err)
 	}
 
 	seq := make([]T, val.Count)
 	for i := 0; i < int(val.Count); i++ {
 		obj, err := db.codec.Decode(val.Items[i])
 		if err != nil {
-			return nil, errInvalidEntity.New(err)
+			return nil, nil, errInvalidEntity.New(err)
 		}
 		seq[i] = obj
 	}
 
-	return seq, nil
+	return seq, lastKeyToCursor(db.codec, val), nil
 }
 
 func (db *Storage[T]) reqQuery(
@@ -111,8 +112,6 @@ func (db *Storage[T]) reqQuery(
 		ExclusiveStartKey:         exclusiveStartKey,
 	}
 
-	// if (db)
-
 	return req
 }
 
@@ -129,4 +128,36 @@ func exprOf(gen map[string]types.AttributeValue) (val map[string]types.Attribute
 	}
 
 	return
+}
+
+type cursor struct{ hashKey, sortKey string }
+
+func (c cursor) HashKey() curie.IRI { return curie.IRI(c.hashKey) }
+func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }
+
+func lastKeyToCursor[T dynamo.Thing](codec *codec[T], val *dynamodb.QueryOutput) dynamo.MatchOpt {
+	if val.LastEvaluatedKey == nil {
+		return nil
+	}
+
+	var hkey, skey string
+
+	key := val.LastEvaluatedKey
+	prefix, isPrefix := key[codec.pkPrefix]
+	if isPrefix {
+		switch v := prefix.(type) {
+		case *types.AttributeValueMemberS:
+			hkey = v.Value
+		}
+	}
+
+	suffix, isSuffix := key[codec.skSuffix]
+	if isSuffix {
+		switch v := suffix.(type) {
+		case *types.AttributeValueMemberS:
+			skey = v.Value
+		}
+	}
+
+	return dynamo.Cursor(&cursor{hashKey: hkey, sortKey: skey})
 }

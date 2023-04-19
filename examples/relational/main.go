@@ -85,13 +85,11 @@ func fetchArticle(db dynamo.KeyVal[Article]) error {
 	return stdio(article)
 }
 
-/*
-As a reader I want to list all articles written by the author ...
-*/
+// As a reader I want to list all articles written by the author ...
 func lookupArticlesByAuthor(db dynamo.KeyVal[Article], author string) error {
 	log.Printf("==> lookup articles by author: %s\n", author)
 
-	seq, err := db.Match(context.Background(), Article{
+	seq, _, err := db.Match(context.Background(), Article{
 		Author: curie.New("author:%s", author),
 		ID:     curie.New("article:"),
 	})
@@ -103,13 +101,11 @@ func lookupArticlesByAuthor(db dynamo.KeyVal[Article], author string) error {
 	return stdio(seq)
 }
 
-/*
-As a reader I want to look up articles titles for given keywords ...
-*/
+// As a reader I want to look up articles titles for given keywords ...
 func lookupArticlesByKeyword(db dynamo.KeyVal[Keyword], keyword string) error {
 	log.Printf("==> lookup articles by keyword: %s\n", keyword)
 
-	seq, err := db.Match(context.Background(),
+	seq, _, err := db.Match(context.Background(),
 		Keyword{
 			HKey: curie.New("keyword:%s", keyword),
 		},
@@ -122,13 +118,11 @@ func lookupArticlesByKeyword(db dynamo.KeyVal[Keyword], keyword string) error {
 	return stdio(seq)
 }
 
-/*
-As a reader I want to look up articles titles written by the author for a given keyword
-*/
+// As a reader I want to look up articles titles written by the author for a given keyword
 func lookupArticlesByKeywordAuthor(db dynamo.KeyVal[Keyword], keyword, author string) error {
 	log.Printf("==> lookup articles by keyword %s and author: %s\n", keyword, author)
 
-	seq, err := db.Match(context.Background(),
+	seq, _, err := db.Match(context.Background(),
 		Keyword{
 			HKey: curie.New("keyword:%s", keyword),
 			SKey: curie.New("article:%s", author),
@@ -142,13 +136,11 @@ func lookupArticlesByKeywordAuthor(db dynamo.KeyVal[Keyword], keyword, author st
 	return stdio(seq)
 }
 
-/*
-As a reader I want to look up all keywords of the article ...
-*/
+// As a reader I want to look up all keywords of the article ...
 func fetchArticleKeywords(db dynamo.KeyVal[Keyword]) error {
 	log.Printf("==> lookup keyword for An axiomatization of set theory\n")
 
-	seq, err := db.Match(context.Background(),
+	seq, _, err := db.Match(context.Background(),
 		Keyword{
 			HKey: curie.New("article:%s/%s", "neumann", "theory_of_set"),
 			SKey: curie.New("keyword:"),
@@ -162,13 +154,11 @@ func fetchArticleKeywords(db dynamo.KeyVal[Keyword]) error {
 	return stdio(seq)
 }
 
-/*
-As a reader I want to look up all articles for a given category in chronological order ...
-*/
+// As a reader I want to look up all articles for a given category in chronological order ...
 func lookupArticlesByCategory(db dynamo.KeyVal[Category], category string) error {
 	log.Printf("==> lookup articles by category: %s\n", category)
 
-	seq, err := db.Match(context.Background(),
+	seq, _, err := db.Match(context.Background(),
 		Category{
 			Category: category,
 		},
@@ -181,13 +171,11 @@ func lookupArticlesByCategory(db dynamo.KeyVal[Category], category string) error
 	return stdio(seq)
 }
 
-/*
-As a reader I want to list all articles written by the author in chronological order ...
-*/
+// As a reader I want to list all articles written by the author in chronological order ...
 func lookupByAuthorOrderedByTime(db dynamo.KeyVal[Article], author string) error {
 	log.Printf("==> lookup articles in chronological order: %s", author)
 
-	seq, err := db.Match(context.Background(),
+	seq, _, err := db.Match(context.Background(),
 		Article{
 			Author: curie.New("author:%s", author),
 		},
@@ -260,9 +248,7 @@ func articlesOfLeonardKleinrock(
 	return nil
 }
 
-/*
-As an author I want to register a profile ...
-*/
+// As an author I want to register a profile ...
 func registerAuthor(db dynamo.KeyVal[Author], id, name string) error {
 	log.Printf("==> register: %s", name)
 
@@ -274,9 +260,7 @@ func registerAuthor(db dynamo.KeyVal[Author], id, name string) error {
 	return nil
 }
 
-/*
-As an author I want to publish an article to the system ...
-*/
+// As an author I want to publish an article to the system ...
 func publishArticle(
 	dba dynamo.KeyVal[Article],
 	dbk dynamo.KeyVal[Keyword],

@@ -47,20 +47,23 @@ type KeyValGetter[T Thing] interface {
 	Get(context.Context, T) (T, error)
 }
 
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 //
-// Storage Pattern Matcher
+// # Storage Pattern Matcher
 //
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+// type alias for interface{ MatchOpt() }
+type MatchOpt = interface{ MatchOpt() }
 
 // KeyValPattern defines simple pattern matching lookup I/O
 type KeyValPattern[T Thing] interface {
-	MatchKey(context.Context, Thing, ...interface{ MatchOpt() }) ([]T, error)
-	Match(context.Context, T, ...interface{ MatchOpt() }) ([]T, error)
+	MatchKey(context.Context, Thing, ...MatchOpt) ([]T, MatchOpt, error)
+	Match(context.Context, T, ...MatchOpt) ([]T, MatchOpt, error)
 }
 
 // Limit option for Match
-func Limit(v int32) interface{ MatchOpt() } { return limit(v) }
+func Limit(v int32) MatchOpt { return limit(v) }
 
 type limit int32
 
@@ -69,7 +72,7 @@ func (limit) MatchOpt() {}
 func (limit limit) Limit() int32 { return int32(limit) }
 
 // Cursor option for Match
-func Cursor(c Thing) interface{ MatchOpt() } { return cursor{c} }
+func Cursor(c Thing) MatchOpt { return cursor{c} }
 
 type cursor struct{ Thing }
 

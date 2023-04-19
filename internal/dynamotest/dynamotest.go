@@ -235,7 +235,7 @@ func TestMatch[S any](
 	t.Run("MatchNone", func(t *testing.T) {
 		ddb := factory(&expectKey, 0, &returnVal, nil)
 
-		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
+		seq, _, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
 
 		it.Ok(t).
 			IfNil(err).
@@ -246,7 +246,7 @@ func TestMatch[S any](
 	t.Run("MatchOne", func(t *testing.T) {
 		ddb := factory(&expectKey, 1, &returnVal, nil)
 
-		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
+		seq, _, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
 
 		it.Ok(t).
 			If(err).Should().Equal(nil).
@@ -258,7 +258,7 @@ func TestMatch[S any](
 	t.Run("MatchMany", func(t *testing.T) {
 		ddb := factory(&expectKey, 5, &returnVal, nil)
 
-		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
+		seq, _, err := ddb.Match(context.Background(), fixtureKeyHashOnly())
 
 		it.Ok(t).
 			If(err).Should().Equal(nil).
@@ -273,7 +273,7 @@ func TestMatch[S any](
 	t.Run("MatchKey", func(t *testing.T) {
 		ddb := factory(&expectKey, 5, &returnVal, nil)
 
-		seq, err := ddb.MatchKey(context.Background(), fixtureKeyHashOnly())
+		seq, _, err := ddb.MatchKey(context.Background(), fixtureKeyHashOnly())
 
 		it.Ok(t).
 			If(err).Should().Equal(nil).
@@ -291,17 +291,17 @@ func TestMatch[S any](
 
 		ddb := factory(&expectKey, 2, &returnVal, &expectKeyFull)
 
-		seq, err := ddb.Match(context.Background(), fixtureKeyHashOnly(), dynamo.Limit(2))
+		_, cursor0, err := ddb.Match(context.Background(), fixtureKeyHashOnly(), dynamo.Limit(2))
 		it.Ok(t).IfNil(err)
 
-		cursor0 := seq[1]
-		keys0 := filepath.Join(string(cursor0.HashKey()), string(cursor0.SortKey()))
+		thing0 := cursor0.(dynamo.Thing)
+		keys0 := filepath.Join(string(thing0.HashKey()), string(thing0.SortKey()))
 
-		seq, err = ddb.Match(context.Background(), fixtureKey(), dynamo.Cursor(cursor0))
+		_, cursor1, err := ddb.Match(context.Background(), fixtureKey(), cursor0)
 		it.Ok(t).IfNil(err)
 
-		cursor1 := seq[1]
-		keys1 := filepath.Join(string(cursor1.HashKey()), string(cursor1.SortKey()))
+		thing1 := cursor1.(dynamo.Thing)
+		keys1 := filepath.Join(string(thing1.HashKey()), string(thing1.SortKey()))
 
 		it.Ok(t).
 			If(string(keys0)).Equal("dead:beef/1").

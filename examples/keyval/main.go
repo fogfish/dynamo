@@ -135,7 +135,7 @@ func exampleUpdate(db KeyVal) {
 
 func exampleMatch(db KeyVal) {
 	key := Person{Org: curie.New("test:")}
-	seq, err := db.Match(context.Background(), &key)
+	seq, _, err := db.Match(context.Background(), &key)
 	if err != nil {
 		fmt.Printf("=[ match ]=> %v\n", err)
 		return
@@ -150,7 +150,7 @@ func exampleMatch(db KeyVal) {
 func exampleMatchWithCursor(db KeyVal) {
 	// first batch
 	key := Person{Org: curie.New("test:")}
-	seq, err := db.Match(context.Background(), &key, dynamo.Limit(2))
+	seq, cur, err := db.Match(context.Background(), &key, dynamo.Limit(2))
 	if err != nil {
 		fmt.Printf("=[ match 1st ]=> %v\n", err)
 		return
@@ -162,8 +162,7 @@ func exampleMatchWithCursor(db KeyVal) {
 	}
 
 	// second batch
-	cur := seq[len(seq)-1]
-	seq, err = db.Match(context.Background(), &key, dynamo.Cursor(cur))
+	seq, _, err = db.Match(context.Background(), &key, cur)
 	if err != nil {
 		fmt.Printf("=[ match 2nd ]=> %v\n", err)
 		return

@@ -14,23 +14,24 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/v2"
 )
 
-func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...interface{ MatchOpt() }) ([]T, error) {
+func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
 	req := db.reqListObjects(key, opts)
 	return db.match(ctx, req)
 }
 
-func (db *Storage[T]) Match(ctx context.Context, key T, opts ...interface{ MatchOpt() }) ([]T, error) {
+func (db *Storage[T]) Match(ctx context.Context, key T, opts ...dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
 	req := db.reqListObjects(key, opts)
 	return db.match(ctx, req)
 }
 
-func (db *Storage[T]) match(ctx context.Context, req *s3.ListObjectsV2Input) ([]T, error) {
+func (db *Storage[T]) match(ctx context.Context, req *s3.ListObjectsV2Input) ([]T, dynamo.MatchOpt, error) {
 	val, err := db.service.ListObjectsV2(context.Background(), req)
 	if err != nil {
-		return nil, errServiceIO.New(err)
+		return nil, nil, errServiceIO.New(err)
 	}
 
 	seq := make([]T, val.KeyCount)
@@ -41,22 +42,22 @@ func (db *Storage[T]) match(ctx context.Context, req *s3.ListObjectsV2Input) ([]
 		}
 		val, err := db.service.GetObject(ctx, req)
 		if err != nil {
-			return nil, errServiceIO.New(err)
+			return nil, nil, errServiceIO.New(err)
 		}
 
 		var head T
 		err = json.NewDecoder(val.Body).Decode(&head)
 		if err != nil {
-			return nil, errInvalidEntity.New(err)
+			return nil, nil, errInvalidEntity.New(err)
 		}
 
 		seq[i] = head
 	}
 
-	return seq, nil
+	return seq, lastKeyToCursor(val), nil
 }
 
-func (db *Storage[T]) reqListObjects(key dynamo.Thing, opts []interface{ MatchOpt() }) *s3.ListObjectsV2Input {
+func (db *Storage[T]) reqListObjects(key dynamo.Thing, opts []dynamo.MatchOpt) *s3.ListObjectsV2Input {
 	var (
 		limit  int32   = 1000
 		cursor *string = nil
@@ -76,4 +77,17 @@ func (db *Storage[T]) reqListObjects(key dynamo.Thing, opts []interface{ MatchOp
 		Prefix:     aws.String(db.codec.EncodeKey(key)),
 		StartAfter: cursor,
 	}
+}
+
+type cursor struct{ hashKey, sortKey string }
+
+func (c cursor) HashKey() curie.IRI { return curie.IRI(c.hashKey) }
+func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }
+
+func lastKeyToCursor(val *s3.ListObjectsV2Output) dynamo.MatchOpt {
+	if val.KeyCount == 0 || val.NextContinuationToken == nil {
+		return nil
+	}
+
+	return dynamo.Cursor(&cursor{hashKey: *val.Contents[val.KeyCount-1].Key})
 }
