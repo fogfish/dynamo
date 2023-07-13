@@ -34,7 +34,7 @@ func TestConditionExpression(t *testing.T) {
 		expr *string = nil
 	)
 
-	spec := map[string]func(string) interface{ ConditionExpression(tConstrain) }{
+	spec := map[string]func(string) interface{ WriterOpt(tConstrain) }{
 		"=":  Name.Eq,
 		"<>": Name.Ne,
 		"<":  Name.Lt,
@@ -45,7 +45,7 @@ func TestConditionExpression(t *testing.T) {
 
 	for op, fn := range spec {
 		expr = nil
-		opts := []interface{ ConditionExpression(tConstrain) }{fn("abc")}
+		opts := []interface{ WriterOpt(tConstrain) }{fn("abc")}
 		name, vals := maybeConditionExpression(&expr, opts)
 
 		expectExpr := fmt.Sprintf("(#__c_anothername__ %s :__c_anothername__)", op)
@@ -64,7 +64,7 @@ func TestExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	opts := []interface{ ConditionExpression(tConstrain) }{Name.Exists()}
+	opts := []interface{ WriterOpt(tConstrain) }{Name.Exists()}
 	name, vals := maybeConditionExpression(&expr, opts)
 
 	expectExpr := "(attribute_exists(#__c_anothername__))"
@@ -81,7 +81,7 @@ func TestNotExists(t *testing.T) {
 		expr *string = nil
 	)
 
-	opts := []interface{ ConditionExpression(tConstrain) }{Name.NotExists()}
+	opts := []interface{ WriterOpt(tConstrain) }{Name.NotExists()}
 	name, vals := maybeConditionExpression(&expr, opts)
 
 	expectExpr := "(attribute_not_exists(#__c_anothername__))"
@@ -98,7 +98,7 @@ func TestBetween(t *testing.T) {
 		expr *string = nil
 	)
 
-	opts := []interface{ ConditionExpression(tConstrain) }{Name.Between("abc", "def")}
+	opts := []interface{ WriterOpt(tConstrain) }{Name.Between("abc", "def")}
 	name, vals := maybeConditionExpression(&expr, opts)
 
 	expectExpr := "(#__c_anothername__ BETWEEN :__c_anothername_a__ AND :__c_anothername_b__)"
@@ -119,7 +119,7 @@ func TestIn(t *testing.T) {
 		expr *string = nil
 	)
 
-	opts := []interface{ ConditionExpression(tConstrain) }{Name.In("abc", "def", "foo")}
+	opts := []interface{ WriterOpt(tConstrain) }{Name.In("abc", "def", "foo")}
 	name, vals := maybeConditionExpression(&expr, opts)
 
 	expectExpr := "(#__c_anothername__ IN (:__c_anothername_0__,:__c_anothername_1__,:__c_anothername_2__))"
@@ -141,7 +141,7 @@ func TestHasPrefix(t *testing.T) {
 		expr *string = nil
 	)
 
-	opts := []interface{ ConditionExpression(tConstrain) }{Name.HasPrefix("abc")}
+	opts := []interface{ WriterOpt(tConstrain) }{Name.HasPrefix("abc")}
 	name, vals := maybeConditionExpression(&expr, opts)
 
 	expectExpr := "(begins_with(#__c_anothername__,:__c_anothername__))"
@@ -161,7 +161,7 @@ func TestContains(t *testing.T) {
 		expr *string = nil
 	)
 
-	opts := []interface{ ConditionExpression(tConstrain) }{Name.Contains("abc")}
+	opts := []interface{ WriterOpt(tConstrain) }{Name.Contains("abc")}
 	name, vals := maybeConditionExpression(&expr, opts)
 
 	expectExpr := "(contains(#__c_anothername__,:__c_anothername__))"
@@ -181,7 +181,7 @@ func TestIs(t *testing.T) {
 		expr *string = nil
 	)
 
-	opts := []interface{ ConditionExpression(tConstrain) }{Name.Is("_")}
+	opts := []interface{ WriterOpt(tConstrain) }{Name.Is("_")}
 	name, vals := maybeConditionExpression(&expr, opts)
 
 	expectExpr := "(attribute_not_exists(#__c_anothername__))"
@@ -194,7 +194,7 @@ func TestIs(t *testing.T) {
 
 	//
 	expr = nil
-	opts = []interface{ ConditionExpression(tConstrain) }{Name.Is("abc")}
+	opts = []interface{ WriterOpt(tConstrain) }{Name.Is("abc")}
 	name, vals = maybeConditionExpression(&expr, opts)
 
 	expectExpr = "(#__c_anothername__ = :__c_anothername__)"

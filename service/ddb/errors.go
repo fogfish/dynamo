@@ -12,15 +12,15 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v3"
 	"github.com/fogfish/faults"
 )
 
 const (
-	errInvalidConnectorURL = faults.Safe1[string]("invalid connector url %s")
-	errServiceIO           = faults.Type("service i/o failed")
-	errInvalidKey          = faults.Type("invalid key")
-	errInvalidEntity       = faults.Type("invalid entity")
+	errUndefinedTable = faults.Type("undefined DynamoDB table")
+	errServiceIO      = faults.Type("service i/o failed")
+	errInvalidKey     = faults.Type("invalid key")
+	errInvalidEntity  = faults.Type("invalid entity")
 )
 
 // NotFound is an error to handle unknown elements

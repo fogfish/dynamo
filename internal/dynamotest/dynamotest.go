@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v3"
 	"github.com/fogfish/it"
 )
 
@@ -291,7 +291,7 @@ func TestMatch[S any](
 
 		ddb := factory(&expectKey, 2, &returnVal, &expectKeyFull)
 
-		_, cursor0, err := ddb.Match(context.Background(), fixtureKeyHashOnly(), dynamo.Limit(2))
+		_, cursor0, err := ddb.Match(context.Background(), fixtureKeyHashOnly(), dynamo.Limit[Person](2))
 		it.Ok(t).IfNil(err)
 
 		thing0 := cursor0.(dynamo.Thing)

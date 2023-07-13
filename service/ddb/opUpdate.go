@@ -15,11 +15,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v3"
 )
 
 // Update applies a partial patch to entity using update expression abstraction
-func (db *Storage[T]) UpdateWith(ctx context.Context, expression UpdateItemExpression[T], opts ...interface{ ConditionExpression(T) }) (T, error) {
+func (db *Storage[T]) UpdateWith(ctx context.Context, expression UpdateItemExpression[T], opts ...interface{ WriterOpt(T) }) (T, error) {
 	gen, err := db.codec.Encode(expression.entity)
 	if err != nil {
 		return db.undefined, errInvalidEntity.New(err)
@@ -40,7 +40,7 @@ func (db *Storage[T]) UpdateWith(ctx context.Context, expression UpdateItemExpre
 }
 
 // Update applies a partial patch to entity and returns new values
-func (db *Storage[T]) Update(ctx context.Context, entity T, opts ...interface{ ConditionExpression(T) }) (T, error) {
+func (db *Storage[T]) Update(ctx context.Context, entity T, opts ...interface{ WriterOpt(T) }) (T, error) {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
 		return db.undefined, errInvalidEntity.New(err)

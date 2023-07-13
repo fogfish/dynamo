@@ -16,7 +16,7 @@ import (
 )
 
 // Put writes entity
-func (db *Storage[T]) Put(ctx context.Context, entity T, opts ...interface{ ConditionExpression(T) }) error {
+func (db *Storage[T]) Put(ctx context.Context, entity T, opts ...interface{ WriterOpt(T) }) error {
 	gen, err := db.codec.Encode(entity)
 	if err != nil {
 		return errInvalidEntity.New(err)

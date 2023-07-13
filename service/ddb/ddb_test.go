@@ -15,9 +15,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2/internal/ddbtest"
-	"github.com/fogfish/dynamo/v2/internal/dynamotest"
-	"github.com/fogfish/dynamo/v2/service/ddb"
+	"github.com/fogfish/dynamo/v3/internal/ddbtest"
+	"github.com/fogfish/dynamo/v3/internal/dynamotest"
+	"github.com/fogfish/dynamo/v3/service/ddb"
 	"github.com/fogfish/it"
 )
 
@@ -56,6 +56,10 @@ func codec(p dynamotest.Person) (map[string]types.AttributeValue, error) {
 	return attributevalue.MarshalMap(p)
 }
 
+func TestNew(t *testing.T) {
+	api, err := ddb.New[dynamotest.Person](ddb.WithTable("abc"))
+	it.Ok(t).IfNil(err).IfNotNil(api)
+}
 func TestDynamoDB(t *testing.T) {
 	dynamotest.TestGet(t, codec, ddbtest.GetItem[dynamotest.Person])
 	dynamotest.TestPut(t, codec, ddbtest.PutItem[dynamotest.Person])

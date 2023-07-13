@@ -11,7 +11,7 @@ package s3
 import (
 	"reflect"
 
-	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v3"
 	"github.com/fogfish/golem/hseq"
 )
 

@@ -20,8 +20,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	"github.com/fogfish/dynamo/v2"
-	ddbapi "github.com/fogfish/dynamo/v2/service/ddb"
+	"github.com/fogfish/curie"
+	"github.com/fogfish/dynamo/v3"
+	ddbapi "github.com/fogfish/dynamo/v3/service/ddb"
 )
 
 /*
@@ -29,7 +30,15 @@ mock factory
 */
 func mock[T dynamo.Thing](mock ddbapi.DynamoDB) dynamo.KeyVal[T] {
 	return ddbapi.Must(
-		ddbapi.New[T]("ddb:///test", dynamo.WithService(mock)),
+		ddbapi.New[T](
+			ddbapi.WithTable("test"),
+			ddbapi.WithGlobalSecondaryIndex(""),
+			ddbapi.WithService(mock),
+			ddbapi.WithPrefixes(curie.Namespaces{}),
+			ddbapi.WithHashKey("prefix"),
+			ddbapi.WithSortKey("suffix"),
+			ddbapi.WithStrictType(true),
+		),
 	)
 }
 

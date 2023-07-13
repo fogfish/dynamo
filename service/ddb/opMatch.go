@@ -15,11 +15,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v3"
 )
 
 // Match applies a pattern matching to elements in the table
-func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
+func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...interface{ MatcherOpt(T) }) ([]T, interface{ MatcherOpt(T) }, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
 		return nil, nil, errInvalidKey.New(err)
@@ -28,7 +28,7 @@ func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...dy
 }
 
 // Match applies a pattern matching to elements in the table
-func (db *Storage[T]) Match(ctx context.Context, key T, opts ...dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
+func (db *Storage[T]) Match(ctx context.Context, key T, opts ...interface{ MatcherOpt(T) }) ([]T, interface{ MatcherOpt(T) }, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
 		return nil, nil, errInvalidKey.New(err)
@@ -37,7 +37,7 @@ func (db *Storage[T]) Match(ctx context.Context, key T, opts ...dynamo.MatchOpt)
 }
 
 // Match applies a pattern matching to elements in the table
-func (db *Storage[T]) match(ctx context.Context, gen map[string]types.AttributeValue, opts []dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
+func (db *Storage[T]) match(ctx context.Context, gen map[string]types.AttributeValue, opts []interface{ MatcherOpt(T) }) ([]T, interface{ MatcherOpt(T) }, error) {
 	suffix, isSuffix := gen[db.codec.skSuffix]
 	switch v := suffix.(type) {
 	case *types.AttributeValueMemberS:
@@ -73,7 +73,7 @@ func (db *Storage[T]) match(ctx context.Context, gen map[string]types.AttributeV
 func (db *Storage[T]) reqQuery(
 	gen map[string]types.AttributeValue,
 	expr string,
-	opts []interface{ MatchOpt() },
+	opts []interface{ MatcherOpt(T) },
 ) *dynamodb.QueryInput {
 	var (
 		limit             *int32                          = nil
@@ -135,7 +135,7 @@ type cursor struct{ hashKey, sortKey string }
 func (c cursor) HashKey() curie.IRI { return curie.IRI(c.hashKey) }
 func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }
 
-func lastKeyToCursor[T dynamo.Thing](codec *codec[T], val *dynamodb.QueryOutput) dynamo.MatchOpt {
+func lastKeyToCursor[T dynamo.Thing](codec *codec[T], val *dynamodb.QueryOutput) interface{ MatcherOpt(T) } {
 	if val.LastEvaluatedKey == nil {
 		return nil
 	}
@@ -159,5 +159,5 @@ func lastKeyToCursor[T dynamo.Thing](codec *codec[T], val *dynamodb.QueryOutput)
 		}
 	}
 
-	return dynamo.Cursor(&cursor{hashKey: hkey, sortKey: skey})
+	return dynamo.Cursor[T](&cursor{hashKey: hkey, sortKey: skey})
 }

@@ -19,7 +19,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v3"
 	"github.com/fogfish/golem/hseq"
 )
 
@@ -200,10 +200,10 @@ type codec[T dynamo.Thing] struct {
 	undefined T
 }
 
-func newCodec[T dynamo.Thing](uri *dynamo.URL) *codec[T] {
+func newCodec[T dynamo.Thing](conf *Options) *codec[T] {
 	return &codec[T]{
-		pkPrefix: uri.Query("prefix", "prefix"),
-		skSuffix: uri.Query("suffix", "suffix"),
+		pkPrefix: conf.hashKey,
+		skSuffix: conf.sortKey,
 	}
 }
 

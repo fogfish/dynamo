@@ -10,22 +10,11 @@ package ddb
 
 import (
 	"context"
-	"net/url"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v3"
 )
-
-// DynamoDB declares interface of original AWS DynamoDB API used by the library
-type DynamoDB interface {
-	GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
-	PutItem(context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
-	DeleteItem(context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
-	UpdateItem(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
-	Query(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
-	BatchGetItem(context.Context, *dynamodb.BatchGetItemInput, ...func(*dynamodb.Options)) (*dynamodb.BatchGetItemOutput, error)
-}
 
 // Storage type
 type Storage[T dynamo.Thing] struct {
@@ -46,44 +35,39 @@ func Must[T dynamo.Thing](keyval *Storage[T], err error) *Storage[T] {
 }
 
 // New creates instance of DynamoDB api
-func New[T dynamo.Thing](connector string, opts ...dynamo.Option) (*Storage[T], error) {
-	conf := dynamo.NewConfig()
+func New[T dynamo.Thing](opts ...Option) (*Storage[T], error) {
+	conf := defaultOptions()
 	for _, opt := range opts {
-		opt(&conf)
+		opt(conf)
 	}
 
-	aws, err := newService(&conf)
+	aws, err := newService(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	var table, index *string
-	uri, err := newURI(connector)
-	if err != nil || len(uri.Path) < 2 {
-		return nil, errInvalidConnectorURL.New(nil, connector)
+	table := conf.table
+	if table == "" {
+		return nil, errUndefinedTable.New(nil)
 	}
 
-	seq := uri.Segments()
-	table = &seq[0]
-	if len(seq) > 1 {
-		index = &seq[1]
+	var index *string
+	if conf.index != "" {
+		index = &conf.index
 	}
 
 	return &Storage[T]{
 		service: aws,
-		table:   table,
+		table:   &table,
 		index:   index,
-		codec:   newCodec[T](uri),
-		schema:  newSchema[T](conf.WithStrictType),
+		codec:   newCodec[T](conf),
+		schema:  newSchema[T](conf.useStrictType),
 	}, nil
 }
 
-func newService(conf *dynamo.Config) (DynamoDB, error) {
-	if conf.Service != nil {
-		service, ok := conf.Service.(DynamoDB)
-		if ok {
-			return service, nil
-		}
+func newService(conf *Options) (DynamoDB, error) {
+	if conf.service != nil {
+		return conf.service, nil
 	}
 
 	aws, err := config.LoadDefaultConfig(context.Background())
@@ -92,13 +76,4 @@ func newService(conf *dynamo.Config) (DynamoDB, error) {
 	}
 
 	return dynamodb.NewFromConfig(aws), nil
-}
-
-func newURI(uri string) (*dynamo.URL, error) {
-	spec, err := url.Parse(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	return (*dynamo.URL)(spec), nil
 }
