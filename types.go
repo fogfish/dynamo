@@ -14,8 +14,6 @@ package dynamo
 
 import (
 	"context"
-	"net/url"
-	"strings"
 
 	"github.com/fogfish/curie"
 )
@@ -113,33 +111,4 @@ type KeyValWriter[T Thing] interface {
 type KeyVal[T Thing] interface {
 	KeyValReader[T]
 	KeyValWriter[T]
-}
-
-//-----------------------------------------------------------------------------
-//
-// Utility types
-//
-//-----------------------------------------------------------------------------
-
-// URL custom type with helper functions
-type URL url.URL
-
-func (uri *URL) String() string {
-	return (*url.URL)(uri).String()
-}
-
-// query parameters
-func (uri *URL) Query(key, def string) string {
-	val := (*url.URL)(uri).Query().Get(key)
-
-	if val == "" {
-		return def
-	}
-
-	return val
-}
-
-// path segments of length
-func (uri *URL) Segments() []string {
-	return strings.Split((*url.URL)(uri).Path, "/")[1:]
 }
