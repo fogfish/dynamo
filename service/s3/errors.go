@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	errInvalidConnectorURL = faults.Safe1[string]("invalid connector url %s")
-	errServiceIO           = faults.Type("service i/o failed")
-	errInvalidEntity       = faults.Type("invalid entity")
+	errUndefinedBucket = faults.Type("undefined S3 bucket")
+	errServiceIO       = faults.Type("service i/o failed")
+	errInvalidEntity   = faults.Type("invalid entity")
 )
 
 // NotFound is an error to handle unknown elements

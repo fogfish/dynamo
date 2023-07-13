@@ -14,7 +14,6 @@ import (
 	"os"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
 	"github.com/fogfish/dynamo/v2/service/ddb"
 )
 
@@ -40,8 +39,9 @@ var (
 
 func main() {
 	db := ddb.Must(
-		ddb.New[*Person](os.Args[1],
-			dynamo.WithPrefixes(
+		ddb.New[*Person](
+			ddb.WithTable(os.Args[1]),
+			ddb.WithPrefixes(
 				curie.Namespaces{
 					"test":   "t/kv",
 					"person": "person/",

@@ -29,7 +29,7 @@ mock factory
 */
 func mock[T dynamo.Thing](mock ddbapi.DynamoDB) dynamo.KeyVal[T] {
 	return ddbapi.Must(
-		ddbapi.New[T]("ddb:///test", dynamo.WithService(mock)),
+		ddbapi.New[T](ddbapi.WithTable("test"), ddbapi.WithService(mock)),
 	)
 }
 

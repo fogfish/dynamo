@@ -36,8 +36,9 @@ type KeyVal = *ddb.Storage[*Person]
 
 func main() {
 	db := ddb.Must(
-		ddb.New[*Person](os.Args[1],
-			dynamo.WithPrefixes(
+		ddb.New[*Person](
+			ddb.WithTable(os.Args[1]),
+			ddb.WithPrefixes(
 				curie.Namespaces{
 					"test":   "t/kv",
 					"person": "person/",
@@ -172,7 +173,6 @@ func exampleMatchWithCursor(db KeyVal) {
 	for _, x := range seq {
 		fmt.Printf("\t%+v\n", x)
 	}
-
 }
 
 func exampleRemove(db KeyVal) {

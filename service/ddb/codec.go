@@ -200,10 +200,10 @@ type codec[T dynamo.Thing] struct {
 	undefined T
 }
 
-func newCodec[T dynamo.Thing](uri *dynamo.URL) *codec[T] {
+func newCodec[T dynamo.Thing](conf *Config) *codec[T] {
 	return &codec[T]{
-		pkPrefix: uri.Query("prefix", "prefix"),
-		skSuffix: uri.Query("suffix", "suffix"),
+		pkPrefix: conf.hashKey,
+		skSuffix: conf.sortKey,
 	}
 }
 

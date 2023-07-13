@@ -22,12 +22,21 @@ func main() {
 	//
 	// create DynamoDB clients for the main table (ddb), local secondary index (lsi),
 	// global secondary index (gsi)
-	db := ddb.Must(ddb.New[Author]("ddb:///example-dynamo-relational"))
-	dba := ddb.Must(ddb.New[Article]("ddb:///example-dynamo-relational"))
-	dbk := ddb.Must(ddb.New[Keyword]("ddb:///example-dynamo-relational"))
+	db := ddb.Must(ddb.New[Author](ddb.WithTable("example-dynamo-relational")))
+	dba := ddb.Must(ddb.New[Article](ddb.WithTable("example-dynamo-relational")))
+	dbk := ddb.Must(ddb.New[Keyword](ddb.WithTable("example-dynamo-relational")))
 
-	lsi := ddb.Must(ddb.New[Article]("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year"))
-	gsi := ddb.Must(ddb.New[Category]("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"))
+	lsi := ddb.Must(ddb.New[Article](
+		ddb.WithTable("example-dynamo-relational"),
+		ddb.WithGlobalSecondaryIndex("example-dynamo-relational-year"),
+		ddb.WithSortKey("year"),
+	))
+	gsi := ddb.Must(ddb.New[Category](
+		ddb.WithTable("example-dynamo-relational"),
+		ddb.WithGlobalSecondaryIndex("example-dynamo-relational-category-year"),
+		ddb.WithHashKey("category"),
+		ddb.WithSortKey("year"),
+	))
 
 	//
 	// As an author I want to register a profile ...

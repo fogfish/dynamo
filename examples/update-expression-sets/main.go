@@ -32,7 +32,9 @@ var (
 
 func main() {
 	db := ddb.Must(
-		ddb.New[Tag](os.Args[1]),
+		ddb.New[Tag](
+			ddb.WithTable(os.Args[1]),
+		),
 	)
 
 	exampleCreateTags(db)

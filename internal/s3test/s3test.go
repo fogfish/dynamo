@@ -31,7 +31,7 @@ import (
 
 func mock[T dynamo.Thing](mock s3api.S3) dynamo.KeyVal[T] {
 	return s3api.Must(
-		s3api.New[T]("s3:///test", dynamo.WithService(mock)),
+		s3api.New[T](s3api.WithBucket("test"), s3api.WithService(mock)),
 	)
 }
 
