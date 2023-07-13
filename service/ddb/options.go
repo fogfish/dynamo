@@ -18,10 +18,10 @@ type DynamoDB interface {
 }
 
 // Option type to configure the S3
-type Option func(*Config)
+type Option func(*Options)
 
 // Config Options
-type Config struct {
+type Options struct {
 	prefixes      curie.Prefixes
 	table         string
 	index         string
@@ -32,8 +32,8 @@ type Config struct {
 }
 
 // NewConfig creates Config with default options
-func defaultConfig() *Config {
-	return &Config{
+func defaultOptions() *Options {
+	return &Options{
 		prefixes: curie.Namespaces{},
 		hashKey:  "prefix",
 		sortKey:  "suffix",
@@ -42,49 +42,49 @@ func defaultConfig() *Config {
 
 // WithPrefixes defines prefixes for CURIEs
 func WithPrefixes(prefixes curie.Prefixes) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.prefixes = prefixes
 	}
 }
 
 // WithTable defines dynamodb table
 func WithTable(table string) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.table = table
 	}
 }
 
 // WithTable defines dynamodb table
 func WithGlobalSecondaryIndex(index string) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.index = index
 	}
 }
 
 // WithHashKey defines custom name of HashKey, default one is "prefix"
 func WithHashKey(hashKey string) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.hashKey = hashKey
 	}
 }
 
 // WithHashKey defines custom name of SortKey, default one is "suffix"
 func WithSortKey(sortKey string) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.sortKey = sortKey
 	}
 }
 
 // WithTypeSchema demand that storage schema "knows" all type attributes
 func WithStrictType(strict bool) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.useStrictType = strict
 	}
 }
 
 // Configure AWS Service for broker instance
 func WithService(service DynamoDB) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.service = service
 	}
 }

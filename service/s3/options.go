@@ -24,39 +24,39 @@ type S3 interface {
 }
 
 // Option type to configure the S3
-type Option func(*Config)
+type Option func(*Options)
 
 // Config Options
-type Config struct {
+type Options struct {
 	prefixes curie.Prefixes
 	bucket   string
 	service  S3
 }
 
 // NewConfig creates Config with default options
-func defaultConfig() *Config {
-	return &Config{
+func defaultOptions() *Options {
+	return &Options{
 		prefixes: curie.Namespaces{},
 	}
 }
 
 // WithPrefixes defines prefixes for CURIEs
 func WithPrefixes(prefixes curie.Prefixes) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.prefixes = prefixes
 	}
 }
 
 // WithBucket defined bucket for I/O
 func WithBucket(bucket string) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.bucket = bucket
 	}
 }
 
 // Configure AWS Service for broker instance
 func WithService(service S3) Option {
-	return func(c *Config) {
+	return func(c *Options) {
 		c.service = service
 	}
 }

@@ -200,7 +200,7 @@ type codec[T dynamo.Thing] struct {
 	undefined T
 }
 
-func newCodec[T dynamo.Thing](conf *Config) *codec[T] {
+func newCodec[T dynamo.Thing](conf *Options) *codec[T] {
 	return &codec[T]{
 		pkPrefix: conf.hashKey,
 		skSuffix: conf.sortKey,

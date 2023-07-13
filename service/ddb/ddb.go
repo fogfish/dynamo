@@ -36,7 +36,7 @@ func Must[T dynamo.Thing](keyval *Storage[T], err error) *Storage[T] {
 
 // New creates instance of DynamoDB api
 func New[T dynamo.Thing](opts ...Option) (*Storage[T], error) {
-	conf := defaultConfig()
+	conf := defaultOptions()
 	for _, opt := range opts {
 		opt(conf)
 	}
@@ -65,7 +65,7 @@ func New[T dynamo.Thing](opts ...Option) (*Storage[T], error) {
 	}, nil
 }
 
-func newService(conf *Config) (DynamoDB, error) {
+func newService(conf *Options) (DynamoDB, error) {
 	if conf.service != nil {
 		return conf.service, nil
 	}
