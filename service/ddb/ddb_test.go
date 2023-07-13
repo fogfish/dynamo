@@ -56,6 +56,10 @@ func codec(p dynamotest.Person) (map[string]types.AttributeValue, error) {
 	return attributevalue.MarshalMap(p)
 }
 
+func TestNew(t *testing.T) {
+	api, err := ddb.New[dynamotest.Person](ddb.WithTable("abc"))
+	it.Ok(t).IfNil(err).IfNotNil(api)
+}
 func TestDynamoDB(t *testing.T) {
 	dynamotest.TestGet(t, codec, ddbtest.GetItem[dynamotest.Person])
 	dynamotest.TestPut(t, codec, ddbtest.PutItem[dynamotest.Person])

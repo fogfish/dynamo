@@ -15,11 +15,17 @@ import (
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/v2/internal/dynamotest"
 	"github.com/fogfish/dynamo/v2/internal/s3test"
+	"github.com/fogfish/dynamo/v2/service/s3"
 	"github.com/fogfish/it"
 )
 
 func codec(p dynamotest.Person) (dynamotest.Person, error) {
 	return p, nil
+}
+
+func TestNew(t *testing.T) {
+	api, err := s3.New[dynamotest.Person](s3.WithBucket("abc"))
+	it.Ok(t).IfNil(err).IfNotNil(api)
 }
 
 func TestS3(t *testing.T) {
