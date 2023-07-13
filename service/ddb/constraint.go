@@ -85,42 +85,42 @@ func newConditionExpression[T dynamo.Thing, A any](t hseq.Type[T]) ConditionExpr
 // Eq is equal condition
 //
 //	name.Eq(x) ⟼ Field = :value
-func (ce ConditionExpression[T, A]) Eq(val A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Eq(val A) interface{ WriterOpt(T) } {
 	return &dyadicCondition[T, A]{op: "=", key: ce.key, val: val}
 }
 
 // Ne is non equal condition
 //
 //	name.Ne(x) ⟼ Field <> :value
-func (ce ConditionExpression[T, A]) Ne(val A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Ne(val A) interface{ WriterOpt(T) } {
 	return &dyadicCondition[T, A]{op: "<>", key: ce.key, val: val}
 }
 
 // Lt is less than constraint
 //
 //	name.Lt(x) ⟼ Field < :value
-func (ce ConditionExpression[T, A]) Lt(val A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Lt(val A) interface{ WriterOpt(T) } {
 	return &dyadicCondition[T, A]{op: "<", key: ce.key, val: val}
 }
 
 // Le is less or equal constain
 //
 //	name.Le(x) ⟼ Field <= :value
-func (ce ConditionExpression[T, A]) Le(val A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Le(val A) interface{ WriterOpt(T) } {
 	return &dyadicCondition[T, A]{op: "<=", key: ce.key, val: val}
 }
 
 // Gt is greater than constrain
 //
 //	name.Le(x) ⟼ Field > :value
-func (ce ConditionExpression[T, A]) Gt(val A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Gt(val A) interface{ WriterOpt(T) } {
 	return &dyadicCondition[T, A]{op: ">", key: ce.key, val: val}
 }
 
 // Ge is greater or equal constrain
 //
 //	name.Le(x) ⟼ Field >= :value
-func (ce ConditionExpression[T, A]) Ge(val A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Ge(val A) interface{ WriterOpt(T) } {
 	return &dyadicCondition[T, A]{op: ">=", key: ce.key, val: val}
 }
 
@@ -131,7 +131,7 @@ type dyadicCondition[T any, A any] struct {
 	val A
 }
 
-func (op dyadicCondition[T, A]) ConditionExpression(T) {}
+func (op dyadicCondition[T, A]) WriterOpt(T) {}
 
 func (op dyadicCondition[T, A]) Apply(
 	conditionExpression **string,
@@ -163,14 +163,14 @@ func (op dyadicCondition[T, A]) Apply(
 // Exists attribute constrain
 //
 //	name.Exists(x) ⟼ attribute_exists(name)
-func (ce ConditionExpression[T, A]) Exists() interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Exists() interface{ WriterOpt(T) } {
 	return &unaryCondition[T]{op: "attribute_exists", key: ce.key}
 }
 
 // NotExists attribute constrain
 //
 //	name.NotExists(x) ⟼ attribute_not_exists(name)
-func (ce ConditionExpression[T, A]) NotExists() interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) NotExists() interface{ WriterOpt(T) } {
 	return &unaryCondition[T]{op: "attribute_not_exists", key: ce.key}
 }
 
@@ -180,7 +180,7 @@ type unaryCondition[T any] struct {
 	key string
 }
 
-func (op unaryCondition[T]) ConditionExpression(T) {}
+func (op unaryCondition[T]) WriterOpt(T) {}
 
 func (op unaryCondition[T]) Apply(
 	conditionExpression **string,
@@ -203,7 +203,7 @@ func (op unaryCondition[T]) Apply(
 }
 
 // Is matches either Eq or NotExists if value is not defined
-func (ce ConditionExpression[T, A]) Is(val string) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Is(val string) interface{ WriterOpt(T) } {
 	if val == "_" {
 		return ce.NotExists()
 	}
@@ -214,7 +214,7 @@ func (ce ConditionExpression[T, A]) Is(val string) interface{ ConditionExpressio
 // Between attribute condition
 //
 //	name.Between(a, b) ⟼ Field BETWEEN :a AND :b
-func (ce ConditionExpression[T, A]) Between(a, b A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Between(a, b A) interface{ WriterOpt(T) } {
 	return &betweenCondition[T, A]{key: ce.key, a: a, b: b}
 }
 
@@ -224,7 +224,7 @@ type betweenCondition[T any, A any] struct {
 	a, b A
 }
 
-func (op betweenCondition[T, A]) ConditionExpression(T) {}
+func (op betweenCondition[T, A]) WriterOpt(T) {}
 
 func (op betweenCondition[T, A]) Apply(
 	conditionExpression **string,
@@ -263,7 +263,7 @@ func (op betweenCondition[T, A]) Apply(
 // In attribute condition
 //
 //	name.Between(a, b, c) ⟼ Field IN (:a, :b, :c)
-func (ce ConditionExpression[T, A]) In(seq ...A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) In(seq ...A) interface{ WriterOpt(T) } {
 	return &inCondition[T, A]{key: ce.key, seq: seq}
 }
 
@@ -273,7 +273,7 @@ type inCondition[T any, A any] struct {
 	seq []A
 }
 
-func (op inCondition[T, A]) ConditionExpression(T) {}
+func (op inCondition[T, A]) WriterOpt(T) {}
 
 func (op inCondition[T, A]) Apply(
 	conditionExpression **string,
@@ -311,14 +311,14 @@ func (op inCondition[T, A]) Apply(
 // HasPrefix attribute condition
 //
 // name.HasPrefix(x) ⟼ begins_with(Field, :value)
-func (ce ConditionExpression[T, A]) HasPrefix(val A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) HasPrefix(val A) interface{ WriterOpt(T) } {
 	return &functionalCondition[T, A]{fun: "begins_with", key: ce.key, val: val}
 }
 
 // Contains attribute condition
 //
 // name.Contains(x) ⟼ contains(Field, :value)
-func (ce ConditionExpression[T, A]) Contains(val A) interface{ ConditionExpression(T) } {
+func (ce ConditionExpression[T, A]) Contains(val A) interface{ WriterOpt(T) } {
 	return &functionalCondition[T, A]{fun: "contains", key: ce.key, val: val}
 }
 
@@ -329,7 +329,7 @@ type functionalCondition[T any, A any] struct {
 	val A
 }
 
-func (op functionalCondition[T, A]) ConditionExpression(T) {}
+func (op functionalCondition[T, A]) WriterOpt(T) {}
 
 func (op functionalCondition[T, A]) Apply(
 	conditionExpression **string,
@@ -363,7 +363,7 @@ Internal implementation of conditional expressions for dynamo db
 */
 func maybeConditionExpression[T dynamo.Thing](
 	conditionExpression **string,
-	opts []interface{ ConditionExpression(T) },
+	opts []interface{ WriterOpt(T) },
 ) (
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
@@ -399,7 +399,7 @@ func maybeUpdateConditionExpression[T dynamo.Thing](
 	conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
-	opts []interface{ ConditionExpression(T) },
+	opts []interface{ WriterOpt(T) },
 ) {
 	for _, opt := range opts {
 		if ap, ok := opt.(interface {

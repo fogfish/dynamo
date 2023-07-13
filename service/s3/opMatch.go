@@ -18,17 +18,17 @@ import (
 	"github.com/fogfish/dynamo/v2"
 )
 
-func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
+func (db *Storage[T]) MatchKey(ctx context.Context, key dynamo.Thing, opts ...interface{ MatcherOpt(T) }) ([]T, interface{ MatcherOpt(T) }, error) {
 	req := db.reqListObjects(key, opts)
 	return db.match(ctx, req)
 }
 
-func (db *Storage[T]) Match(ctx context.Context, key T, opts ...dynamo.MatchOpt) ([]T, dynamo.MatchOpt, error) {
+func (db *Storage[T]) Match(ctx context.Context, key T, opts ...interface{ MatcherOpt(T) }) ([]T, interface{ MatcherOpt(T) }, error) {
 	req := db.reqListObjects(key, opts)
 	return db.match(ctx, req)
 }
 
-func (db *Storage[T]) match(ctx context.Context, req *s3.ListObjectsV2Input) ([]T, dynamo.MatchOpt, error) {
+func (db *Storage[T]) match(ctx context.Context, req *s3.ListObjectsV2Input) ([]T, interface{ MatcherOpt(T) }, error) {
 	val, err := db.service.ListObjectsV2(context.Background(), req)
 	if err != nil {
 		return nil, nil, errServiceIO.New(err)
@@ -54,10 +54,10 @@ func (db *Storage[T]) match(ctx context.Context, req *s3.ListObjectsV2Input) ([]
 		seq[i] = head
 	}
 
-	return seq, lastKeyToCursor(val), nil
+	return seq, lastKeyToCursor[T](val), nil
 }
 
-func (db *Storage[T]) reqListObjects(key dynamo.Thing, opts []dynamo.MatchOpt) *s3.ListObjectsV2Input {
+func (db *Storage[T]) reqListObjects(key dynamo.Thing, opts []interface{ MatcherOpt(T) }) *s3.ListObjectsV2Input {
 	var (
 		limit  int32   = 1000
 		cursor *string = nil
@@ -84,10 +84,10 @@ type cursor struct{ hashKey, sortKey string }
 func (c cursor) HashKey() curie.IRI { return curie.IRI(c.hashKey) }
 func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }
 
-func lastKeyToCursor(val *s3.ListObjectsV2Output) dynamo.MatchOpt {
+func lastKeyToCursor[T dynamo.Thing](val *s3.ListObjectsV2Output) interface{ MatcherOpt(T) } {
 	if val.KeyCount == 0 || val.NextContinuationToken == nil {
 		return nil
 	}
 
-	return dynamo.Cursor(&cursor{hashKey: *val.Contents[val.KeyCount-1].Key})
+	return dynamo.Cursor[T](&cursor{hashKey: *val.Contents[val.KeyCount-1].Key})
 }

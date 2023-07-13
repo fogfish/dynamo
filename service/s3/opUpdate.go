@@ -19,7 +19,7 @@ import (
 )
 
 // Update applies a partial patch to entity and returns new values
-func (db *Storage[T]) Update(ctx context.Context, entity T, opts ...interface{ ConditionExpression(T) }) (T, error) {
+func (db *Storage[T]) Update(ctx context.Context, entity T, opts ...interface{ WriterOpt(T) }) (T, error) {
 	req := &s3.GetObjectInput{
 		Bucket: db.bucket,
 		Key:    aws.String(db.codec.EncodeKey(entity)),

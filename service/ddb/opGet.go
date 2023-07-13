@@ -16,7 +16,7 @@ import (
 )
 
 // Get item from storage
-func (db *Storage[T]) Get(ctx context.Context, key T) (T, error) {
+func (db *Storage[T]) Get(ctx context.Context, key T, opts ...interface{ GetterOpt(T) }) (T, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
 		return db.undefined, errInvalidKey.New(err)
@@ -46,7 +46,7 @@ func (db *Storage[T]) Get(ctx context.Context, key T) (T, error) {
 	return obj, nil
 }
 
-func (db *Storage[T]) BatchGet(ctx context.Context, keys []T) ([]T, error) {
+func (db *Storage[T]) BatchGet(ctx context.Context, keys []T, opts ...interface{ GetterOpt(T) }) ([]T, error) {
 	seq := make([]map[string]types.AttributeValue, len(keys))
 	for i := 0; i < len(keys); i++ {
 		gen, err := db.codec.EncodeKey(keys[i])

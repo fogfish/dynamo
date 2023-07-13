@@ -40,9 +40,9 @@ type Thing interface {
 //
 //-----------------------------------------------------------------------------
 
-// KeyValGetter defines read by key notation
-type KeyValGetter[T Thing] interface {
-	Get(context.Context, T) (T, error)
+// Getter defines read by key notation
+type Getter[T Thing] interface {
+	Get(context.Context, T, ...interface{ GetterOpt(T) }) (T, error)
 }
 
 // -----------------------------------------------------------------------------
@@ -51,30 +51,11 @@ type KeyValGetter[T Thing] interface {
 //
 // -----------------------------------------------------------------------------
 
-// type alias for interface{ MatchOpt() }
-type MatchOpt = interface{ MatchOpt() }
-
 // KeyValPattern defines simple pattern matching lookup I/O
-type KeyValPattern[T Thing] interface {
-	MatchKey(context.Context, Thing, ...MatchOpt) ([]T, MatchOpt, error)
-	Match(context.Context, T, ...MatchOpt) ([]T, MatchOpt, error)
+type Matcher[T Thing] interface {
+	MatchKey(context.Context, Thing, ...interface{ MatcherOpt(T) }) ([]T, interface{ MatcherOpt(T) }, error)
+	Match(context.Context, T, ...interface{ MatcherOpt(T) }) ([]T, interface{ MatcherOpt(T) }, error)
 }
-
-// Limit option for Match
-func Limit(v int32) MatchOpt { return limit(v) }
-
-type limit int32
-
-func (limit) MatchOpt() {}
-
-func (limit limit) Limit() int32 { return int32(limit) }
-
-// Cursor option for Match
-func Cursor(c Thing) MatchOpt { return cursor{c} }
-
-type cursor struct{ Thing }
-
-func (cursor) MatchOpt() {}
 
 //-----------------------------------------------------------------------------
 //
@@ -83,9 +64,9 @@ func (cursor) MatchOpt() {}
 //-----------------------------------------------------------------------------
 
 // KeyValReader a generic key-value trait to read domain objects
-type KeyValReader[T Thing] interface {
-	KeyValGetter[T]
-	KeyValPattern[T]
+type Reader[T Thing] interface {
+	Getter[T]
+	Matcher[T]
 }
 
 //-----------------------------------------------------------------------------
@@ -94,11 +75,11 @@ type KeyValReader[T Thing] interface {
 //
 //-----------------------------------------------------------------------------
 
-// KeyValWriter defines a generic key-value writer
-type KeyValWriter[T Thing] interface {
-	Put(context.Context, T, ...interface{ ConditionExpression(T) }) error
-	Remove(context.Context, T, ...interface{ ConditionExpression(T) }) (T, error)
-	Update(context.Context, T, ...interface{ ConditionExpression(T) }) (T, error)
+// Writer defines a generic key-value writer
+type Writer[T Thing] interface {
+	Put(context.Context, T, ...interface{ WriterOpt(T) }) error
+	Remove(context.Context, T, ...interface{ WriterOpt(T) }) (T, error)
+	Update(context.Context, T, ...interface{ WriterOpt(T) }) (T, error)
 }
 
 //-----------------------------------------------------------------------------
@@ -109,6 +90,28 @@ type KeyValWriter[T Thing] interface {
 
 // KeyVal is a generic key-value trait to access domain objects.
 type KeyVal[T Thing] interface {
-	KeyValReader[T]
-	KeyValWriter[T]
+	Reader[T]
+	Writer[T]
 }
+
+//-----------------------------------------------------------------------------
+//
+// Options
+//
+//-----------------------------------------------------------------------------
+
+// Limit option for Match
+func Limit[T Thing](v int32) interface{ MatcherOpt(T) } { return limit[T](v) }
+
+type limit[T Thing] int32
+
+func (limit[T]) MatcherOpt(T) {}
+
+func (limit limit[T]) Limit() int32 { return int32(limit) }
+
+// Cursor option for Match
+func Cursor[T Thing](c Thing) interface{ MatcherOpt(T) } { return cursor[T]{c} }
+
+type cursor[T Thing] struct{ Thing }
+
+func (cursor[T]) MatcherOpt(T) {}

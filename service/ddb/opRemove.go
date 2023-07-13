@@ -16,7 +16,7 @@ import (
 )
 
 // Remove discards the entity from the table
-func (db *Storage[T]) Remove(ctx context.Context, key T, opts ...interface{ ConditionExpression(T) }) (T, error) {
+func (db *Storage[T]) Remove(ctx context.Context, key T, opts ...interface{ WriterOpt(T) }) (T, error) {
 	gen, err := db.codec.EncodeKey(key)
 	if err != nil {
 		return db.undefined, errInvalidKey.New(err)
