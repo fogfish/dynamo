@@ -37,7 +37,7 @@ func mock[T dynamo.Thing](mock ddbapi.DynamoDB) dynamo.KeyVal[T] {
 			ddbapi.WithPrefixes(curie.Namespaces{}),
 			ddbapi.WithHashKey("prefix"),
 			ddbapi.WithSortKey("suffix"),
-			ddbapi.WithStrictType(false),
+			ddbapi.WithStrictType(true),
 		),
 	)
 }
