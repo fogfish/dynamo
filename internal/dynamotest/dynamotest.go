@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v3"
 	"github.com/fogfish/it"
 )
 

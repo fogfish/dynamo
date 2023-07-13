@@ -15,9 +15,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2/internal/ddbtest"
-	"github.com/fogfish/dynamo/v2/internal/dynamotest"
-	"github.com/fogfish/dynamo/v2/service/ddb"
+	"github.com/fogfish/dynamo/v3/internal/ddbtest"
+	"github.com/fogfish/dynamo/v3/internal/dynamotest"
+	"github.com/fogfish/dynamo/v3/service/ddb"
 	"github.com/fogfish/it"
 )
 

@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
+	"github.com/fogfish/dynamo/v3"
 )
 
 // Match applies a pattern matching to elements in the table

@@ -1,4 +1,4 @@
-module github.com/fogfish/dynamo/v2
+module github.com/fogfish/dynamo/v3
 
 go 1.20
 

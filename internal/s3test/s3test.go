@@ -25,8 +25,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
-	s3api "github.com/fogfish/dynamo/v2/service/s3"
+	"github.com/fogfish/dynamo/v3"
+	s3api "github.com/fogfish/dynamo/v3/service/s3"
 )
 
 func mock[T dynamo.Thing](mock s3api.S3) dynamo.KeyVal[T] {

@@ -14,7 +14,7 @@ import (
 	"os"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2/service/ddb"
+	"github.com/fogfish/dynamo/v3/service/ddb"
 )
 
 type Person struct {

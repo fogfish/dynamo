@@ -15,8 +15,8 @@ import (
 	"os"
 
 	"github.com/fogfish/curie"
-	"github.com/fogfish/dynamo/v2"
-	"github.com/fogfish/dynamo/v2/service/ddb"
+	"github.com/fogfish/dynamo/v3"
+	"github.com/fogfish/dynamo/v3/service/ddb"
 )
 
 // Person type demonstrates composition of core type with db one
