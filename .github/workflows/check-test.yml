@@ -13,6 +13,11 @@ on:
       - main
       - /refs/heads/main
 
+  workflow_run:
+    workflows: ["deps"]
+    types:
+      - completed
+
 jobs:
 
   unit:

@@ -5,6 +5,11 @@ on:
       - opened
       - synchronize
 
+  workflow_run:
+    workflows: ["deps"]
+    types:
+      - completed
+
 jobs:
   label:
     permissions:
