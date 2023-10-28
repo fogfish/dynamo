@@ -118,6 +118,12 @@
   aliases: []
   description: request GitHub Action to deploy 
 
+- name: "[A] check"
+  color: "ffccf1"
+  aliases: []
+  description: request GitHub Action to run check
+
+
 ##
 ## [#] Package / Category labels
 - name: "[#] ci/cd"
