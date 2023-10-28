@@ -10,8 +10,10 @@ on:
       - /refs/heads/go-update-deps
 
 jobs:
+  deps:
+    permissions:
+      pull-requests: write
 
-  code:
     runs-on: ubuntu-latest
     steps:
 
