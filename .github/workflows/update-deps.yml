@@ -22,3 +22,5 @@ jobs:
         with:
           destination_branch: "main"
           source_branch: "go-update-deps"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
