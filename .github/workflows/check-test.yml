@@ -12,6 +12,8 @@ on:
     branches:
       - main
       - /refs/heads/main
+      - go-update-deps
+      - /refs/heads/go-update-deps
 
 jobs:
 
