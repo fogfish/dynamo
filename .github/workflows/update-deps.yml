@@ -11,10 +11,6 @@ on:
 
 jobs:
   deps:
-    permissions: write-all
-      # actions: write
-      # pull-requests: write
-
     runs-on: ubuntu-latest
     steps:
 
@@ -25,5 +21,4 @@ jobs:
         with:
           destination_branch: "main"
           source_branch: "go-update-deps"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
