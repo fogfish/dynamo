@@ -11,9 +11,9 @@ on:
 
 jobs:
   deps:
-    permissions:
-      actions: write
-      pull-requests: write
+    permissions: write-all
+      # actions: write
+      # pull-requests: write
 
     runs-on: ubuntu-latest
     steps:
