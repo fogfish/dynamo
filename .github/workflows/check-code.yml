@@ -7,13 +7,14 @@ on:
     types:
       - opened
       - synchronize
-      - labeled
-  
+
+  push:
+    branches:
+      - go-update-deps
+      - /refs/heads/go-update-deps
 
 jobs:
   code:
-    if: github.event.label.name == '[A] check'
-
     runs-on: ubuntu-latest
     steps:
 

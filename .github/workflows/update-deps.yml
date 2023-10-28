@@ -20,9 +20,3 @@ jobs:
         with:
           destination_branch: "main"
           source_branch: "go-update-deps"
-
-      - uses: actions-ecosystem/action-add-labels@v1
-        with:
-          number: ${{steps.open-pull-request.outputs.pr_number}}
-          labels: |
-            '[A] check'
