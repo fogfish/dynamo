@@ -12,7 +12,7 @@ on:
 jobs:
   deps:
     permissions:
-      pull-requests: write
+      actions: write
 
     runs-on: ubuntu-latest
     steps:
