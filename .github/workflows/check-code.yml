@@ -7,13 +7,11 @@ on:
     types:
       - opened
       - synchronize
+      - labeled
   
-  workflow_run:
-    workflows: ["deps"]
-    types:
-      - completed
 
 jobs:
+  if: github.event.label.name == '[@] check'
 
   code:
     runs-on: ubuntu-latest

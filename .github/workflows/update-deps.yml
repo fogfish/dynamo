@@ -20,3 +20,8 @@ jobs:
         with:
           destination_branch: "main"
           source_branch: "go-update-deps"
+
+      - uses: buildsville/add-remove-label@v1
+        with:
+          token: ${{secrets.GITHUB_TOKEN}}
+          label: '[@] check'
