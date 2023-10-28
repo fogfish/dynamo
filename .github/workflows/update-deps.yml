@@ -1,3 +1,4 @@
+
 ##
 ## Open PullRequest to update dependency
 ##
@@ -5,8 +6,8 @@ name: deps
 on:
   push:
     branches:
-      - update-deps
-      - /refs/heads/update-deps
+      - go-update-deps
+      - /refs/heads/go-update-deps
 
 jobs:
 
@@ -20,4 +21,4 @@ jobs:
         uses: diillson/auto-pull-request@v1.0.1
         with:
           destination_branch: "main"
-          source_branch: "update-deps"
+          source_branch: "go-update-deps"
