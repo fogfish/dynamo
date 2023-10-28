@@ -1,4 +1,3 @@
-
 ##
 ## Open PullRequest to update dependency
 ##
@@ -11,22 +10,19 @@ on:
 
 jobs:
   deps:
-    permissions:
-      contents: read
-      pull-requests: write
-
     runs-on: ubuntu-latest
     steps:
 
       - uses: actions/checkout@v4
 
       - uses: diillson/auto-pull-request@v1.0.1
+        id: open-pull-request
         with:
           destination_branch: "main"
           source_branch: "go-update-deps"
 
-      - uses: buildsville/add-remove-label@v1
+      - uses: actions-ecosystem/action-add-labels@v1
         with:
-          token: ${{secrets.GITHUB_TOKEN}}
-          label: '[A] check'
-          type: add
+          number: ${{steps.open-pull-request.outputs.pr_number}}
+          labels: |
+            '[A] check'

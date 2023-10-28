@@ -11,9 +11,9 @@ on:
   
 
 jobs:
-  if: (github.event.label.name == '[A] check')
-
   code:
+    if: github.event.label.name == '[A] check'
+
     runs-on: ubuntu-latest
     steps:
 
