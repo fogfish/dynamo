@@ -222,7 +222,7 @@ func (mock *s3GetListObjects[T]) ListObjectsV2(ctx context.Context, input *s3.Li
 	}
 
 	return &s3.ListObjectsV2Output{
-		KeyCount:              int32(mock.returnLen),
+		KeyCount:              aws.Int32(int32(mock.returnLen)),
 		Contents:              seq,
 		NextContinuationToken: lastEvaluatedKey,
 	}, nil
