@@ -34,8 +34,8 @@ func (db *Storage[T]) match(ctx context.Context, req *s3.ListObjectsV2Input) ([]
 		return nil, nil, errServiceIO.New(err)
 	}
 
-	seq := make([]T, val.KeyCount)
-	for i := 0; i < int(val.KeyCount); i++ {
+	seq := make([]T, aws.ToInt32(val.KeyCount))
+	for i := 0; i < int(aws.ToInt32(val.KeyCount)); i++ {
 		req := &s3.GetObjectInput{
 			Bucket: db.bucket,
 			Key:    val.Contents[i].Key,
@@ -73,7 +73,7 @@ func (db *Storage[T]) reqListObjects(key dynamo.Thing, opts []interface{ Matcher
 
 	return &s3.ListObjectsV2Input{
 		Bucket:     db.bucket,
-		MaxKeys:    limit,
+		MaxKeys:    aws.Int32(limit),
 		Prefix:     aws.String(db.codec.EncodeKey(key)),
 		StartAfter: cursor,
 	}
@@ -85,9 +85,11 @@ func (c cursor) HashKey() curie.IRI { return curie.IRI(c.hashKey) }
 func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }
 
 func lastKeyToCursor[T dynamo.Thing](val *s3.ListObjectsV2Output) interface{ MatcherOpt(T) } {
-	if val.KeyCount == 0 || val.NextContinuationToken == nil {
+	count := aws.ToInt32(val.KeyCount)
+
+	if count == 0 || val.NextContinuationToken == nil {
 		return nil
 	}
 
-	return dynamo.Cursor[T](&cursor{hashKey: *val.Contents[val.KeyCount-1].Key})
+	return dynamo.Cursor[T](&cursor{hashKey: *val.Contents[count-1].Key})
 }
