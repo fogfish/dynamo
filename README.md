@@ -546,8 +546,16 @@ The build and testing process requires [Go](https://golang.org) version 1.13 or 
 ```bash
 git clone https://github.com/fogfish/dynamo
 cd dynamo
-go test
+go test ./...
+staticcheck ./...
 ```
+
+Update dependency with [go-check-updates](https://github.com/fogfish/go-check-updates)
+
+```bash
+go-check-updates
+go-check-updates -u --push github
+``` 
 
 ### commit message
 
