@@ -9,6 +9,7 @@ The library implements a simple key-value abstraction to store algebraic, linked
 [![Coverage Status](https://coveralls.io/repos/github/fogfish/dynamo/badge.svg?branch=main)](https://coveralls.io/github/fogfish/dynamo?branch=main)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fogfish/dynamo/v3)](https://goreportcard.com/report/github.com/fogfish/dynamo/v3)
 [![Maintainability](https://api.codeclimate.com/v1/badges/8a8746f9cbaba81bb44b/maintainability)](https://codeclimate.com/github/fogfish/dynamo/maintainability)
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/avelino/awesome-go)
 
 
 ## Inspiration
