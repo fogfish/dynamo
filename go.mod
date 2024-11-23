@@ -1,6 +1,6 @@
 module github.com/fogfish/dynamo/v3
 
-go 1.22
+go 1.20
 
 
 require (
