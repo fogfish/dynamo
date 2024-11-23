@@ -12,6 +12,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
@@ -24,7 +25,7 @@ func (db *Storage[T]) Remove(ctx context.Context, key T, opts ...interface{ Writ
 
 	req := &dynamodb.DeleteItemInput{
 		Key:          gen,
-		TableName:    db.table,
+		TableName:    aws.String(db.table),
 		ReturnValues: "ALL_OLD",
 	}
 	names, values := maybeConditionExpression(&req.ConditionExpression, opts)

@@ -17,10 +17,9 @@ import (
 )
 
 const (
-	errUndefinedTable = faults.Type("undefined DynamoDB table")
-	errServiceIO      = faults.Type("service i/o failed")
-	errInvalidKey     = faults.Type("invalid key")
-	errInvalidEntity  = faults.Type("invalid entity")
+	errServiceIO     = faults.Type("service i/o failed")
+	errInvalidKey    = faults.Type("invalid key")
+	errInvalidEntity = faults.Type("invalid entity")
 )
 
 // NotFound is an error to handle unknown elements

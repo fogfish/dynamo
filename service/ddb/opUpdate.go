@@ -26,7 +26,7 @@ func (db *Storage[T]) UpdateWith(ctx context.Context, expression UpdateItemExpre
 	}
 	req := expression.request
 	req.Key = db.codec.KeyOnly(gen)
-	req.TableName = db.table
+	req.TableName = aws.String(db.table)
 	req.ReturnValues = "ALL_NEW"
 
 	maybeUpdateConditionExpression(
@@ -63,7 +63,7 @@ func (db *Storage[T]) Update(ctx context.Context, entity T, opts ...interface{ W
 		ExpressionAttributeNames:  names,
 		ExpressionAttributeValues: values,
 		UpdateExpression:          expression,
-		TableName:                 db.table,
+		TableName:                 aws.String(db.table),
 		ReturnValues:              "ALL_NEW",
 	}
 

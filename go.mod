@@ -13,6 +13,7 @@ require (
 	github.com/fogfish/golem/hseq v1.2.0
 	github.com/fogfish/it v1.0.0
 	github.com/fogfish/it/v2 v2.0.2
+	github.com/fogfish/opts v0.0.4
 )
 
 require (
@@ -33,5 +34,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.1 // indirect
 	github.com/aws/smithy-go v1.22.1 // indirect
+	github.com/fogfish/golem/optics v0.13.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 )
