@@ -8,7 +8,6 @@ The library implements a simple key-value abstraction to store algebraic, linked
 [![Git Hub](https://img.shields.io/github/last-commit/fogfish/dynamo.svg)](https://github.com/fogfish/dynamo)
 [![Coverage Status](https://coveralls.io/repos/github/fogfish/dynamo/badge.svg?branch=main)](https://coveralls.io/github/fogfish/dynamo?branch=main)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fogfish/dynamo/v3)](https://goreportcard.com/report/github.com/fogfish/dynamo/v3)
-[![Maintainability](https://api.codeclimate.com/v1/badges/8a8746f9cbaba81bb44b/maintainability)](https://codeclimate.com/github/fogfish/dynamo/maintainability)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/avelino/awesome-go)
 
 
@@ -39,22 +38,28 @@ The library requires Go **1.18** or later due to usage of [generics](https://go.
 The latest version of the library is available at its `main` branch. All development, including new features and bug fixes, take place on the `main` branch using forking and pull requests as described in contribution guidelines. The stable version is available via Golang modules.
 
 
-- [Getting Started](#getting-started)
-  - [Data types definition](#data-types-definition)
-  - [DynamoDB IO](#dynamodb-io)
-  - [Error Handling](#error-handling)
-  - [Hierarchical structures](#hierarchical-structures)
-  - [Sequences and Pagination](#sequences-and-pagination)
-  - [Linked data](#linked-data)
-  - [Type projections](#type-projections)
-  - [Custom codecs for core domain types](#custom-codecs-for-core-domain-types)
-  - [DynamoDB Expressions](#dynamodb-expressions)
-    - [Projection Expression](#projection-expression)
-    - [Conditional Expression](#conditional-expression)
-    - [Update Expression](#update-expression)
-  - [Optimistic Locking](#optimistic-locking)
-  - [Configure DynamoDB](#configure-dynamodb)
-  - [AWS S3 Support](#aws-s3-support)
+- [dynamo](#dynamo)
+  - [Inspiration](#inspiration)
+  - [Getting started](#getting-started)
+    - [Data types definition](#data-types-definition)
+    - [DynamoDB I/O](#dynamodb-io)
+    - [Error Handling](#error-handling)
+    - [Hierarchical structures](#hierarchical-structures)
+    - [Sequences and Pagination](#sequences-and-pagination)
+    - [Linked data](#linked-data)
+    - [Type projections](#type-projections)
+    - [Custom codecs for core domain types](#custom-codecs-for-core-domain-types)
+    - [DynamoDB Expressions](#dynamodb-expressions)
+      - [Projection Expression](#projection-expression)
+      - [Conditional Expression](#conditional-expression)
+  - [Update Expression](#update-expression)
+    - [Optimistic Locking](#optimistic-locking)
+    - [Configure DynamoDB](#configure-dynamodb)
+    - [AWS S3 Support](#aws-s3-support)
+  - [How To Contribute](#how-to-contribute)
+    - [commit message](#commit-message)
+    - [bugs](#bugs)
+  - [License](#license)
 
 
 ### Data types definition
