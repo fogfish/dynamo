@@ -134,7 +134,6 @@ type dyadicCondition[T any, A any] struct {
 func (op dyadicCondition[T, A]) WriterOpt(T) {}
 
 func (op dyadicCondition[T, A]) Apply(
-	// conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
 ) string {
@@ -154,12 +153,6 @@ func (op dyadicCondition[T, A]) Apply(
 	expr := "(" + key + " " + op.op + " " + let + ")"
 
 	return expr
-
-	// if *conditionExpression == nil {
-	// 	*conditionExpression = aws.String(expr)
-	// } else {
-	// 	*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	// }
 }
 
 // Exists attribute constrain
@@ -185,7 +178,6 @@ type unaryCondition[T any] struct {
 func (op unaryCondition[T]) WriterOpt(T) {}
 
 func (op unaryCondition[T]) Apply(
-	// conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
 ) string {
@@ -198,11 +190,6 @@ func (op unaryCondition[T]) Apply(
 	expr := "(" + op.op + "(" + key + ")" + ")"
 
 	return expr
-	// if *conditionExpression == nil {
-	// 	*conditionExpression = aws.String(expr)
-	// } else {
-	// 	*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	// }
 }
 
 // Is matches either Eq or NotExists if value is not defined
@@ -230,7 +217,6 @@ type betweenCondition[T any, A any] struct {
 func (op betweenCondition[T, A]) WriterOpt(T) {}
 
 func (op betweenCondition[T, A]) Apply(
-	// conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
 ) string {
@@ -257,11 +243,6 @@ func (op betweenCondition[T, A]) Apply(
 	expr := "(" + key + " BETWEEN " + letA + " AND " + letB + ")"
 
 	return expr
-	// if *conditionExpression == nil {
-	// 	*conditionExpression = aws.String(expr)
-	// } else {
-	// 	*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	// }
 }
 
 // In attribute condition
@@ -280,7 +261,6 @@ type inCondition[T any, A any] struct {
 func (op inCondition[T, A]) WriterOpt(T) {}
 
 func (op inCondition[T, A]) Apply(
-	// conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
 ) string {
@@ -306,12 +286,6 @@ func (op inCondition[T, A]) Apply(
 	expr := "(" + key + " IN (" + strings.Join(lets, ",") + "))"
 
 	return expr
-
-	// if *conditionExpression == nil {
-	// 	*conditionExpression = aws.String(expr)
-	// } else {
-	// 	*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	// }
 }
 
 // HasPrefix attribute condition
@@ -338,7 +312,6 @@ type functionalCondition[T any, A any] struct {
 func (op functionalCondition[T, A]) WriterOpt(T) {}
 
 func (op functionalCondition[T, A]) Apply(
-	// conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
 ) string {
@@ -358,11 +331,6 @@ func (op functionalCondition[T, A]) Apply(
 	expr := "(" + op.fun + "(" + key + "," + let + "))"
 
 	return expr
-	// if *conditionExpression == nil {
-	// 	*conditionExpression = aws.String(expr)
-	// } else {
-	// 	*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	// }
 }
 
 // Optimistic defines optimistic concurrency control (aka optimistic lock) condition
@@ -384,7 +352,6 @@ type or[T any] struct {
 func (op or[T]) WriterOpt(T) {}
 
 func (op or[T]) Apply(
-	// conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
 ) string {
@@ -398,11 +365,6 @@ func (op or[T]) Apply(
 	}
 
 	return strings.Join(expr, " or ")
-	// if *conditionExpression == nil {
-	// 	*conditionExpression = expr
-	// } else {
-	// 	*conditionExpression = aws.String(**conditionExpression + " and " + *expr)
-	// }
 }
 
 // Internal implementation of conditional expressions for dynamo db

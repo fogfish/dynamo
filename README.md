@@ -398,6 +398,18 @@ See [constraint.go](service/ddb/constraint.go) for the list of supported conditi
 * Unary checks: `Exists`, `NotExists`
 * Set checks: `Between`, `In`
 * String: `HasPrefix`, `Contains`
+* Concurrency control: `Optimistic`
+
+The library support composition of constraints with logical predicates
+
+```go
+// listing multiple constraints builds AND expression 
+db.Update(/* ... */, ifName.HasPrefix("Verner"), ifName.Contains("Pleishner"))
+
+// using Or grouping builds OR expression
+db.Update(/* ... */, ddb.Or(ifName.NotExists(), ifName.Eq("Verner Pleishner")))
+```
+
 
 ## Update Expression
 [Update expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html) specifies how update operation will modify the attributes of an item. Unfortunately, this  abstraction do not fit into the key-value concept advertised by the library. However, update expression are useful to implement counters, set management, etc. 
@@ -474,6 +486,12 @@ case dynamo.PreConditionFailed:
 default:
   // other i/o error
 }
+```
+
+The library also implement an optimistic locking constraint `Optimistic` as combinator of `NotExists` or `Eq`.
+
+```go
+db.Put(context.TODO(), &person, Name.Optimistic("Verner Pleishner"))
 ```
 
 See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for all supported constraints.
