@@ -37,7 +37,7 @@ func (db *Storage[T]) match(ctx context.Context, req *s3.ListObjectsV2Input) ([]
 	seq := make([]T, aws.ToInt32(val.KeyCount))
 	for i := 0; i < int(aws.ToInt32(val.KeyCount)); i++ {
 		req := &s3.GetObjectInput{
-			Bucket: db.bucket,
+			Bucket: aws.String(db.bucket),
 			Key:    val.Contents[i].Key,
 		}
 		val, err := db.service.GetObject(ctx, req)
@@ -72,7 +72,7 @@ func (db *Storage[T]) reqListObjects(key dynamo.Thing, opts []interface{ Matcher
 	}
 
 	return &s3.ListObjectsV2Input{
-		Bucket:     db.bucket,
+		Bucket:     aws.String(db.bucket),
 		MaxKeys:    aws.Int32(limit),
 		Prefix:     aws.String(db.codec.EncodeKey(key)),
 		StartAfter: cursor,

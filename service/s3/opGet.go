@@ -19,7 +19,7 @@ import (
 // Get item from storage
 func (db *Storage[T]) Get(ctx context.Context, key T, opts ...interface{ GetterOpt(T) }) (T, error) {
 	req := &s3.GetObjectInput{
-		Bucket: db.bucket,
+		Bucket: aws.String(db.bucket),
 		Key:    aws.String(db.codec.EncodeKey(key)),
 	}
 

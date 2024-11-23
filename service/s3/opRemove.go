@@ -23,7 +23,7 @@ func (db *Storage[T]) Remove(ctx context.Context, key T, opts ...interface{ Writ
 	}
 
 	req := &s3.DeleteObjectInput{
-		Bucket: db.bucket,
+		Bucket: aws.String(db.bucket),
 		Key:    aws.String(db.codec.EncodeKey(key)),
 	}
 
