@@ -47,10 +47,41 @@ func main() {
 		),
 	)
 
+	examplePutOptimisticLock(db)
+	exampleRemoveWithCondition(db)
+
 	examplePutWithCondition(db)
 	exampleUpdateWithConditionOne(db)
 	exampleUpdateWithConditionFew(db)
 	exampleRemoveWithCondition(db)
+}
+
+func examplePutOptimisticLock(db *ddb.Storage[*Person]) {
+	val := Person{
+		Org:  curie.New("test:"),
+		ID:   curie.New("person:%d", 1),
+		Name: "Verner Pleishner",
+	}
+	err := db.Put(context.Background(), &val, ifName.Optimistic("Verner Pleishner"))
+	if err != nil {
+		fmt.Printf("=[ put ]=> Failed: %v\n", err)
+		return
+	}
+
+	fmt.Printf("=[ put ]=> %+v\n", val)
+
+	val = Person{
+		Org:  curie.New("test:"),
+		ID:   curie.New("person:%d", 1),
+		Name: "Prof. Verner Pleishner",
+	}
+	err = db.Put(context.Background(), &val, ifName.Optimistic("Verner Pleishner"))
+	if err != nil {
+		fmt.Printf("=[ put ]=> Failed: %v\n", err)
+		return
+	}
+
+	fmt.Printf("=[ put ]=> %+v\n", val)
 }
 
 func examplePutWithCondition(db *ddb.Storage[*Person]) {
@@ -116,5 +147,4 @@ func exampleRemoveWithCondition(db *ddb.Storage[*Person]) {
 	}
 
 	fmt.Printf("=[ remove ]=> %+v\n", val)
-
 }
