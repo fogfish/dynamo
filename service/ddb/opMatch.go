@@ -106,8 +106,8 @@ func (db *Storage[T]) reqQuery(
 		ExpressionAttributeValues: exprOf(gen),
 		ProjectionExpression:      db.schema.Projection,
 		ExpressionAttributeNames:  db.schema.ExpectedAttributeNames,
-		TableName:                 db.table,
-		IndexName:                 db.index,
+		TableName:                 aws.String(db.table),
+		IndexName:                 aws.String(db.index),
 		Limit:                     limit,
 		ExclusiveStartKey:         exclusiveStartKey,
 	}

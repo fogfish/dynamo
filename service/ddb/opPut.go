@@ -12,6 +12,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
@@ -24,7 +25,7 @@ func (db *Storage[T]) Put(ctx context.Context, entity T, opts ...interface{ Writ
 
 	req := &dynamodb.PutItemInput{
 		Item:      gen,
-		TableName: db.table,
+		TableName: aws.String(db.table),
 	}
 
 	names, values := maybeConditionExpression(&req.ConditionExpression, opts)

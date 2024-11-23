@@ -25,7 +25,7 @@ func (db *Storage[T]) Put(ctx context.Context, entity T, opts ...interface{ Writ
 	}
 
 	req := &s3.PutObjectInput{
-		Bucket: db.bucket,
+		Bucket: aws.String(db.bucket),
 		Key:    aws.String(db.codec.EncodeKey(entity)),
 		Body:   bytes.NewReader(gen),
 	}

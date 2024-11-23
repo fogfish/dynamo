@@ -11,6 +11,7 @@ package ddb
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
@@ -24,7 +25,7 @@ func (db *Storage[T]) Get(ctx context.Context, key T, opts ...interface{ GetterO
 
 	req := &dynamodb.GetItemInput{
 		Key:                      gen,
-		TableName:                db.table,
+		TableName:                aws.String(db.table),
 		ProjectionExpression:     db.schema.Projection,
 		ExpressionAttributeNames: db.schema.ExpectedAttributeNames,
 	}
@@ -58,7 +59,7 @@ func (db *Storage[T]) BatchGet(ctx context.Context, keys []T, opts ...interface{
 
 	req := &dynamodb.BatchGetItemInput{
 		RequestItems: map[string]types.KeysAndAttributes{
-			*db.table: {
+			db.table: {
 				Keys:                     seq,
 				ProjectionExpression:     db.schema.Projection,
 				ExpressionAttributeNames: db.schema.ExpectedAttributeNames,
@@ -71,7 +72,7 @@ func (db *Storage[T]) BatchGet(ctx context.Context, keys []T, opts ...interface{
 		return nil, errServiceIO.New(err)
 	}
 
-	rsp, exists := val.Responses[*db.table]
+	rsp, exists := val.Responses[db.table]
 	if !exists {
 		return make([]T, 0), nil
 	}

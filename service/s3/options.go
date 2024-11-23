@@ -11,8 +11,11 @@ package s3
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/fogfish/curie"
+	"github.com/fogfish/opts"
 )
 
 // S3 declares AWS API used by the library
@@ -24,7 +27,7 @@ type S3 interface {
 }
 
 // Option type to configure the S3
-type Option func(*Options)
+type Option = opts.Option[Options]
 
 // Config Options
 type Options struct {
@@ -33,30 +36,50 @@ type Options struct {
 	service  S3
 }
 
+func (c *Options) checkRequired() error {
+	return opts.Required(c,
+		WithBucket(""),
+	)
+}
+
+var (
+	// Set S3 bucket  for session, the option is required
+	WithBucket = opts.ForName[Options, string]("bucket")
+
+	// Configure CURIE prefixes
+	WithPrefixes = opts.ForType[Options, curie.Prefixes]()
+
+	// Set DynamoDB client for the client
+	WithService = opts.ForType[Options, S3]()
+
+	// Set DynamoDB client for the client
+	WithS3 = opts.ForType[Options, S3]()
+
+	// Configure client's DynamoDB to use provided the aws.Config
+	WithConfig = opts.FMap(optsFromConfig)
+
+	// Use default aws.Config for all DynamoDB clients
+	WithDefaultS3 = opts.From(optsDefaultS3)
+)
+
 // NewConfig creates Config with default options
-func defaultOptions() *Options {
-	return &Options{
+func optsDefault() Options {
+	return Options{
 		prefixes: curie.Namespaces{},
 	}
 }
 
-// WithPrefixes defines prefixes for CURIEs
-func WithPrefixes(prefixes curie.Prefixes) Option {
-	return func(c *Options) {
-		c.prefixes = prefixes
+func optsDefaultS3(c *Options) error {
+	cfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		return err
 	}
+	return optsFromConfig(c, cfg)
 }
 
-// WithBucket defined bucket for I/O
-func WithBucket(bucket string) Option {
-	return func(c *Options) {
-		c.bucket = bucket
+func optsFromConfig(c *Options, cfg aws.Config) error {
+	if c.service == nil {
+		c.service = s3.NewFromConfig(cfg)
 	}
-}
-
-// Configure AWS Service for broker instance
-func WithService(service S3) Option {
-	return func(c *Options) {
-		c.service = service
-	}
+	return nil
 }

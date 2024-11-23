@@ -9,16 +9,12 @@
 package s3
 
 import (
-	"context"
-
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/fogfish/dynamo/v3"
+	"github.com/fogfish/opts"
 )
 
 type Storage[T dynamo.Thing] struct {
-	service   S3
-	bucket    *string
+	Options
 	codec     *codec[T]
 	schema    *schema[T]
 	undefined T
@@ -34,39 +30,21 @@ func Must[T dynamo.Thing](keyval *Storage[T], err error) *Storage[T] {
 }
 
 // New creates instance of S3 api
-func New[T dynamo.Thing](opts ...Option) (*Storage[T], error) {
-	conf := defaultOptions()
-	for _, opt := range opts {
-		opt(conf)
-	}
-
-	aws, err := newService(conf)
-	if err != nil {
+func New[T dynamo.Thing](opt ...Option) (*Storage[T], error) {
+	conf := optsDefault()
+	if err := opts.Apply(&conf, opt); err != nil {
 		return nil, err
 	}
 
-	bucket := conf.bucket
-	if bucket == "" {
-		return nil, errUndefinedBucket.New(nil)
+	if conf.service == nil {
+		if err := optsDefaultS3(&conf); err != nil {
+			return nil, err
+		}
 	}
 
 	return &Storage[T]{
-		service: aws,
-		bucket:  &bucket,
+		Options: conf,
 		codec:   newCodec[T](conf.prefixes),
 		schema:  newSchema[T](),
-	}, nil
-}
-
-func newService(conf *Options) (S3, error) {
-	if conf.service != nil {
-		return conf.service, nil
-	}
-
-	aws, err := config.LoadDefaultConfig(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	return s3.NewFromConfig(aws), nil
+	}, conf.checkRequired()
 }
