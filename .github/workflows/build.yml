@@ -1,21 +1,13 @@
-##
-## Unit Tests & Coverage
-##
-name: test
+name: build
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
-
   push:
     branches:
-      - go-update-deps
-      - /refs/heads/go-update-deps
+      - main
+      - /refs/heads/main
 
 jobs:
 
-  unit:
+  build:
     runs-on: ubuntu-latest
     steps:
 
@@ -37,3 +29,16 @@ jobs:
         continue-on-error: true
         with:
           path-to-profile: profile.cov
+
+      - uses: reecetech/version-increment@2023.10.2
+        id: version
+        with:
+          scheme: semver
+          increment: patch
+
+      - name: publish
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.v-version }}
+          git push origin -u ${{ steps.version.outputs.v-version }}
