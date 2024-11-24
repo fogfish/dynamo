@@ -227,3 +227,47 @@ func TestOptimistic(t *testing.T) {
 		If(vals).Should().Equal(expectVals).
 		If(name).Should().Equal(expectName)
 }
+
+func TestOneOf(t *testing.T) {
+	var (
+		expr *string = nil
+	)
+
+	opts := []interface{ WriterOpt(tConstrain) }{
+		OneOf(Name.NotExists(), Name.Eq("abc")),
+	}
+	name, vals := maybeConditionExpression(&expr, opts)
+
+	expectExpr := "(attribute_not_exists(#__c_anothername__)) or (#__c_anothername__ = :__c_anothername__)"
+	expectName := map[string]string{"#__c_anothername__": "anothername"}
+	expectVals := map[string]types.AttributeValue{
+		":__c_anothername__": &types.AttributeValueMemberS{Value: "abc"},
+	}
+
+	it.Ok(t).
+		If(*expr).Should().Equal(expectExpr).
+		If(vals).Should().Equal(expectVals).
+		If(name).Should().Equal(expectName)
+}
+
+func TestAllOf(t *testing.T) {
+	var (
+		expr *string = nil
+	)
+
+	opts := []interface{ WriterOpt(tConstrain) }{
+		AllOf(Name.NotExists(), Name.Eq("abc")),
+	}
+	name, vals := maybeConditionExpression(&expr, opts)
+
+	expectExpr := "(attribute_not_exists(#__c_anothername__)) and (#__c_anothername__ = :__c_anothername__)"
+	expectName := map[string]string{"#__c_anothername__": "anothername"}
+	expectVals := map[string]types.AttributeValue{
+		":__c_anothername__": &types.AttributeValueMemberS{Value: "abc"},
+	}
+
+	it.Ok(t).
+		If(*expr).Should().Equal(expectExpr).
+		If(vals).Should().Equal(expectVals).
+		If(name).Should().Equal(expectName)
+}

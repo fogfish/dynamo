@@ -333,25 +333,33 @@ func (op functionalCondition[T, A]) Apply(
 	return expr
 }
 
-// Optimistic defines optimistic concurrency control (aka optimistic lock) condition
+// Optimistic defines optimistic concurrency control (aka optimistic lock) condition.
 //
-//	name.Optimistic(x) ⟼ (Field = :value) or ()
+//	name.Optimistic(x) ⟼ (Field = :value) or (attribute_not_exists(name))
 func (ce ConditionExpression[T, A]) Optimistic(val A) interface{ WriterOpt(T) } {
-	return Or(ce.NotExists(), ce.Eq(val))
+	return OneOf(ce.NotExists(), ce.Eq(val))
 }
 
-// Or condition for put/update constraint
-func Or[T any](seq ...interface{ WriterOpt(T) }) interface{ WriterOpt(T) } {
-	return &or[T]{seq: seq}
+// OneOf joins multiple constraint into higher-order constraint that is true
+// when one of defined is true (aka OR logical expression)
+func OneOf[T any](seq ...interface{ WriterOpt(T) }) interface{ WriterOpt(T) } {
+	return &join[T]{op: " or ", seq: seq}
 }
 
-type or[T any] struct {
+// AllOf joins multiple constraint into higher-order constraint that is true
+// when all of defined is true (aka AND logical expression)
+func AllOf[T any](seq ...interface{ WriterOpt(T) }) interface{ WriterOpt(T) } {
+	return &join[T]{op: " and ", seq: seq}
+}
+
+type join[T any] struct {
+	op  string
 	seq []interface{ WriterOpt(T) }
 }
 
-func (op or[T]) WriterOpt(T) {}
+func (op join[T]) WriterOpt(T) {}
 
-func (op or[T]) Apply(
+func (op join[T]) Apply(
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
 ) string {
@@ -364,7 +372,7 @@ func (op or[T]) Apply(
 		}
 	}
 
-	return strings.Join(expr, " or ")
+	return strings.Join(expr, op.op)
 }
 
 // Internal implementation of conditional expressions for dynamo db

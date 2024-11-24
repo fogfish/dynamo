@@ -400,16 +400,23 @@ See [constraint.go](service/ddb/constraint.go) for the list of supported conditi
 * String: `HasPrefix`, `Contains`
 * Concurrency control: `Optimistic`
 
-The library support composition of constraints with logical predicates
+The conditional expressions are composable using `OneOf` or `AllOf` expression. `OneOf` joins multiple constraint into higher-order constraint that is true when one of defined is true. It is OR expression. `AllOf` is conjunctive join. 
 
 ```go
-// listing multiple constraints builds AND expression 
-db.Update(/* ... */, ifName.HasPrefix("Verner"), ifName.Contains("Pleishner"))
+db.Update(/* ... */,
+  ddb.OneOf(
+    ifName.NotExists(),
+    ifName.Eq("Verner Pleishner"),
+  ),
+)
 
-// using Or grouping builds OR expression
-db.Update(/* ... */, ddb.Or(ifName.NotExists(), ifName.Eq("Verner Pleishner")))
+db.Update(/* ... */,
+  ddb.AllOf(
+    ifName.HasPrefix("Verner"),
+    ifName.Contains("Pleishner"),
+  ),
+)
 ```
-
 
 ## Update Expression
 [Update expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html) specifies how update operation will modify the attributes of an item. Unfortunately, this  abstraction do not fit into the key-value concept advertised by the library. However, update expression are useful to implement counters, set management, etc. 
@@ -488,10 +495,10 @@ default:
 }
 ```
 
-The library also implement an optimistic locking constraint `Optimistic` as combinator of `NotExists` or `Eq`.
+The library provides helper function to implement the concurency control. The optimistic locking constraint `Optimistic` is built-in `OneOf` combinator for `NotExists` or `Eq`.
 
 ```go
-db.Put(context.TODO(), &person, Name.Optimistic("Verner Pleishner"))
+db.Put(/* ... */, Name.Optimistic("Verner Pleishner"))
 ```
 
 See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for all supported constraints.
