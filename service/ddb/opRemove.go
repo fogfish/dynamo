@@ -14,6 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 // Remove discards the entity from the table
@@ -49,4 +50,42 @@ func (db *Storage[T]) Remove(ctx context.Context, key T, opts ...interface{ Writ
 	}
 
 	return obj, nil
+}
+
+// Remove multiple items at once
+func (db *Storage[T]) BatchRemove(ctx context.Context, keys []T, opts ...interface{ WriterOpt(T) }) ([]T, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	seq := make([]types.WriteRequest, len(keys))
+	for i := 0; i < len(keys); i++ {
+		gen, err := db.codec.EncodeKey(keys[i])
+		if err != nil {
+			return nil, errInvalidEntity.New(err)
+		}
+		seq[i] = types.WriteRequest{DeleteRequest: &types.DeleteRequest{Key: gen}}
+	}
+
+	req := &dynamodb.BatchWriteItemInput{
+		RequestItems: map[string][]types.WriteRequest{
+			db.table: seq,
+		},
+	}
+
+	val, err := db.service.BatchWriteItem(ctx, req)
+	if err != nil {
+		return nil, errServiceIO.New(err)
+	}
+
+	if len(val.UnprocessedItems) != 0 {
+		items := val.UnprocessedItems[db.table]
+		fails := make([]T, len(items))
+		for i, r := range items {
+			fails[i], _ = db.codec.Decode(r.PutRequest.Item)
+		}
+		return fails, errBatchPartialIO.New(nil)
+	}
+
+	return nil, nil
 }

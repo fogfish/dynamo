@@ -14,6 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 // Put writes entity
@@ -44,4 +45,42 @@ func (db *Storage[T]) Put(ctx context.Context, entity T, opts ...interface{ Writ
 	}
 
 	return nil
+}
+
+// Put multiple items at once
+func (db *Storage[T]) BatchPut(ctx context.Context, entities []T, opts ...interface{ WriterOpt(T) }) ([]T, error) {
+	if len(entities) == 0 {
+		return nil, nil
+	}
+
+	seq := make([]types.WriteRequest, len(entities))
+	for i := 0; i < len(entities); i++ {
+		gen, err := db.codec.Encode(entities[i])
+		if err != nil {
+			return nil, errInvalidEntity.New(err)
+		}
+		seq[i] = types.WriteRequest{PutRequest: &types.PutRequest{Item: gen}}
+	}
+
+	req := &dynamodb.BatchWriteItemInput{
+		RequestItems: map[string][]types.WriteRequest{
+			db.table: seq,
+		},
+	}
+
+	val, err := db.service.BatchWriteItem(ctx, req)
+	if err != nil {
+		return nil, errServiceIO.New(err)
+	}
+
+	if len(val.UnprocessedItems) != 0 {
+		items := val.UnprocessedItems[db.table]
+		fails := make([]T, len(items))
+		for i, r := range items {
+			fails[i], _ = db.codec.Decode(r.PutRequest.Item)
+		}
+		return fails, errBatchPartialIO.New(nil)
+	}
+
+	return nil, nil
 }

@@ -13,12 +13,13 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/fogfish/curie"
 	"github.com/fogfish/dynamo/v3/internal/ddbtest"
 	"github.com/fogfish/dynamo/v3/internal/dynamotest"
 	"github.com/fogfish/dynamo/v3/service/ddb"
-	"github.com/fogfish/it"
+	"github.com/fogfish/it/v2"
 )
 
 type person struct {
@@ -42,6 +43,13 @@ func entityStruct() person {
 	}
 }
 
+func entityStructKey() person {
+	return person{
+		Prefix: curie.New("dead:beef"),
+		Suffix: curie.New("1"),
+	}
+}
+
 func entityDynamo() map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
 		"prefix":  &types.AttributeValueMemberS{Value: "dead:beef"},
@@ -52,13 +60,22 @@ func entityDynamo() map[string]types.AttributeValue {
 	}
 }
 
+func entityDynamoKey() map[string]types.AttributeValue {
+	return map[string]types.AttributeValue{
+		"prefix": &types.AttributeValueMemberS{Value: "dead:beef"},
+		"suffix": &types.AttributeValueMemberS{Value: "1"},
+	}
+}
+
 func codec(p dynamotest.Person) (map[string]types.AttributeValue, error) {
 	return attributevalue.MarshalMap(p)
 }
 
 func TestNew(t *testing.T) {
 	api, err := ddb.New[dynamotest.Person](ddb.WithTable("abc"))
-	it.Ok(t).IfNil(err).IfNotNil(api)
+	it.Then(t).
+		Should(it.Nil(err)).
+		ShouldNot(it.Nil(api))
 }
 func TestDynamoDB(t *testing.T) {
 	dynamotest.TestGet(t, codec, ddbtest.GetItem[dynamotest.Person])
@@ -76,9 +93,10 @@ func TestDdbPutWithConstrain(t *testing.T) {
 	failure := ddb.Put(context.TODO(), entityStruct(), name.Eq("yyy"))
 	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
-	it.Ok(t).
-		If(success).Should().Equal(nil).
-		IfTrue(ispcf)
+	it.Then(t).Should(
+		it.Nil(success),
+		it.True(ispcf),
+	)
 }
 
 func TestDdbRemoveWithConstrain(t *testing.T) {
@@ -89,9 +107,10 @@ func TestDdbRemoveWithConstrain(t *testing.T) {
 	_, failure := ddb.Remove(context.TODO(), entityStruct(), name.Eq("yyy"))
 	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
-	it.Ok(t).
-		If(success).Should().Equal(nil).
-		IfTrue(ispcf)
+	it.Then(t).Should(
+		it.Nil(success),
+		it.True(ispcf),
+	)
 }
 
 func TestDdbUpdateWithConstrain(t *testing.T) {
@@ -107,9 +126,10 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 	_, failure := ddb.Update(context.TODO(), patch, name.Eq("yyy"))
 	_, ispcf := failure.(interface{ PreConditionFailed() bool })
 
-	it.Ok(t).
-		If(success).Should().Equal(nil).
-		IfTrue(ispcf)
+	it.Then(t).Should(
+		it.Nil(success),
+		it.True(ispcf),
+	)
 }
 
 func TestDdbUpdateWithExpression(t *testing.T) {
@@ -141,6 +161,178 @@ func TestDdbUpdateWithExpression(t *testing.T) {
 		ddb.Updater(key, age.Set(64)),
 	)
 
-	it.Ok(t).
-		If(success).Should().Equal(nil)
+	it.Then(t).Should(
+		it.Nil(success),
+	)
+}
+
+func TestDdbBatchPut(t *testing.T) {
+	expectVal := &dynamodb.BatchWriteItemInput{
+		RequestItems: map[string][]types.WriteRequest{
+			"test": {
+				{PutRequest: &types.PutRequest{Item: entityDynamo()}},
+				{PutRequest: &types.PutRequest{Item: entityDynamo()}},
+			},
+		},
+	}
+
+	inputSeq := []person{
+		entityStruct(),
+		entityStruct(),
+	}
+
+	t.Run("Put", func(t *testing.T) {
+		mock := ddbtest.BatchWriteItem{
+			Mock: ddbtest.Mock[dynamodb.BatchWriteItemInput, dynamodb.BatchWriteItemOutput]{
+				ExpectVal: expectVal,
+				ReturnVal: &dynamodb.BatchWriteItemOutput{},
+			},
+		}
+
+		api := ddb.Must(ddb.New[person](
+			ddb.WithDynamoDB(mock),
+			ddb.WithTable("test"),
+		))
+
+		out, err := api.BatchPut(context.Background(), inputSeq)
+		it.Then(t).Should(
+			it.Nil(err),
+			it.Seq(out).BeEmpty(),
+		)
+	})
+
+	t.Run("PutPartial", func(t *testing.T) {
+		mock := ddbtest.BatchWriteItem{
+			Mock: ddbtest.Mock[dynamodb.BatchWriteItemInput, dynamodb.BatchWriteItemOutput]{
+				ExpectVal: expectVal,
+				ReturnVal: &dynamodb.BatchWriteItemOutput{
+					UnprocessedItems: map[string][]types.WriteRequest{
+						"test": {
+							{PutRequest: &types.PutRequest{Item: entityDynamo()}},
+						},
+					},
+				},
+			},
+		}
+
+		api := ddb.Must(ddb.New[person](
+			ddb.WithDynamoDB(mock),
+			ddb.WithTable("test"),
+		))
+
+		out, err := api.BatchPut(context.Background(), inputSeq)
+		it.Then(t).Should(
+			it.Seq(out).Equal(entityStruct()),
+		).ShouldNot(
+			it.Nil(err),
+		)
+	})
+}
+
+func TestDdbBatchRemove(t *testing.T) {
+	expectVal := &dynamodb.BatchWriteItemInput{
+		RequestItems: map[string][]types.WriteRequest{
+			"test": {
+				{DeleteRequest: &types.DeleteRequest{Key: entityDynamoKey()}},
+				{DeleteRequest: &types.DeleteRequest{Key: entityDynamoKey()}},
+			},
+		},
+	}
+
+	inputSeq := []person{
+		entityStructKey(),
+		entityStructKey(),
+	}
+
+	t.Run("Remove", func(t *testing.T) {
+		mock := ddbtest.BatchWriteItem{
+			Mock: ddbtest.Mock[dynamodb.BatchWriteItemInput, dynamodb.BatchWriteItemOutput]{
+				ExpectVal: expectVal,
+				ReturnVal: &dynamodb.BatchWriteItemOutput{},
+			},
+		}
+
+		api := ddb.Must(ddb.New[person](
+			ddb.WithDynamoDB(mock),
+			ddb.WithTable("test"),
+		))
+
+		out, err := api.BatchRemove(context.Background(), inputSeq)
+		it.Then(t).Should(
+			it.Nil(err),
+			it.Seq(out).BeEmpty(),
+		)
+	})
+
+	t.Run("RemovePartial", func(t *testing.T) {
+		mock := ddbtest.BatchWriteItem{
+			Mock: ddbtest.Mock[dynamodb.BatchWriteItemInput, dynamodb.BatchWriteItemOutput]{
+				ExpectVal: expectVal,
+				ReturnVal: &dynamodb.BatchWriteItemOutput{
+					UnprocessedItems: map[string][]types.WriteRequest{
+						"test": {
+							{PutRequest: &types.PutRequest{Item: entityDynamo()}},
+						},
+					},
+				},
+			},
+		}
+
+		api := ddb.Must(ddb.New[person](
+			ddb.WithDynamoDB(mock),
+			ddb.WithTable("test"),
+		))
+
+		out, err := api.BatchRemove(context.Background(), inputSeq)
+		it.Then(t).Should(
+			it.Seq(out).Equal(entityStruct()),
+		).ShouldNot(
+			it.Nil(err),
+		)
+	})
+}
+
+func TestDdbBatchGet(t *testing.T) {
+	expectVal := &dynamodb.BatchGetItemInput{
+		RequestItems: map[string]types.KeysAndAttributes{
+			"test": {
+				Keys: []map[string]types.AttributeValue{
+					entityDynamoKey(),
+					entityDynamoKey(),
+				},
+			},
+		},
+	}
+
+	inputSeq := []person{
+		entityStructKey(),
+		entityStructKey(),
+	}
+
+	t.Run("Get", func(t *testing.T) {
+		mock := ddbtest.BatchGetItem{
+			Mock: ddbtest.Mock[dynamodb.BatchGetItemInput, dynamodb.BatchGetItemOutput]{
+				ExpectVal: expectVal,
+				ReturnVal: &dynamodb.BatchGetItemOutput{
+					Responses: map[string][]map[string]types.AttributeValue{
+						"test": {
+							entityDynamo(),
+							entityDynamo(),
+						},
+					},
+				},
+			},
+		}
+
+		api := ddb.Must(ddb.New[person](
+			ddb.WithDynamoDB(mock),
+			ddb.WithTable("test"),
+		))
+
+		seq, err := api.BatchGet(context.Background(), inputSeq)
+		it.Then(t).Should(
+			it.Nil(err),
+			it.Seq(seq).Equal(entityStruct(), entityStruct()),
+		)
+	})
 }

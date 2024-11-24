@@ -15,6 +15,7 @@ package ddbtest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -262,4 +263,49 @@ func (mock ddbConstrains) UpdateItem(ctx context.Context, input *dynamodb.Update
 	return &dynamodb.UpdateItemOutput{
 		Attributes: mock.returnVal,
 	}, nil
+}
+
+//------------------------------------------------------------------------------
+
+type Mock[A, B any] struct {
+	ddbapi.DynamoDB
+	ExpectVal *A
+	ReturnVal *B
+	ReturnErr error
+}
+
+type BatchWriteItem struct {
+	Mock[dynamodb.BatchWriteItemInput, dynamodb.BatchWriteItemOutput]
+}
+
+func (mock BatchWriteItem) BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error) {
+	if mock.ExpectVal != nil {
+		if !reflect.DeepEqual(mock.ExpectVal, params) {
+			return nil, fmt.Errorf("unexpected input")
+		}
+	}
+
+	if mock.ReturnErr != nil {
+		return nil, mock.ReturnErr
+	}
+
+	return mock.ReturnVal, nil
+}
+
+type BatchGetItem struct {
+	Mock[dynamodb.BatchGetItemInput, dynamodb.BatchGetItemOutput]
+}
+
+func (mock BatchGetItem) BatchGetItem(ctx context.Context, params *dynamodb.BatchGetItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.BatchGetItemOutput, error) {
+	if mock.ExpectVal != nil {
+		if !reflect.DeepEqual(mock.ExpectVal, params) {
+			return nil, fmt.Errorf("unexpected input")
+		}
+	}
+
+	if mock.ReturnErr != nil {
+		return nil, mock.ReturnErr
+	}
+
+	return mock.ReturnVal, nil
 }

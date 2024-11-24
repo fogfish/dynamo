@@ -52,8 +52,9 @@ The latest version of the library is available at its `main` branch. All develop
     - [DynamoDB Expressions](#dynamodb-expressions)
       - [Projection Expression](#projection-expression)
       - [Conditional Expression](#conditional-expression)
-  - [Update Expression](#update-expression)
+      - [Update Expression](#update-expression)
     - [Optimistic Locking](#optimistic-locking)
+    - [Batch I/O](#batch-io)
     - [Configure DynamoDB](#configure-dynamodb)
     - [AWS S3 Support](#aws-s3-support)
   - [How To Contribute](#how-to-contribute)
@@ -115,8 +116,8 @@ import (
 //
 // Create dynamodb client and bind it with the table.
 // The client is type-safe and support I/O with a single type (e.g. Person).
-// Use URI notation to specify the diver (ddb://) and the table (/my-table).
-db := ddb.Must(ddb.New[Person]("ddb:///my-table"))
+// Use options to specify params.
+db, err := ddb.New[Person](ddb.WithTable("my-table"))
 
 //
 // Write the struct with Put
@@ -357,7 +358,9 @@ func (x *dbPerson) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) erro
 
 In Amazon DynamoDB, there is [a concept of expressions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.html) to denote the attributes to read; indicate various conditions while doing I/O.
 
+
 #### Projection Expression
+
 [Projection expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ProjectionExpressions.html) defines attributes to be read from the table. The library automatically defines projection expression for each request. The expression is derived from the datatype definition. 
 
 ```go
@@ -379,6 +382,7 @@ type Person struct {
 ```
 
 #### Conditional Expression
+
 [Condition expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html) helps to implement conditional manipulation of items. The expression defines boolean predicate to determine which items should be modified. If the condition expression evaluates to true, the operation succeeds; otherwise, the operation fails. The library defines a special type `Schema`, which translates a Golang declaration into DynamoDB syntax:
 
 ```go
@@ -418,8 +422,9 @@ db.Update(/* ... */,
 )
 ```
 
-## Update Expression
-[Update expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html) specifies how update operation will modify the attributes of an item. Unfortunately, this  abstraction do not fit into the key-value concept advertised by the library. However, update expression are useful to implement counters, set management, etc. 
+#### Update Expression
+
+[Update expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html) specifies how update operation will modify the attributes of an item. Unfortunately, this abstraction do not fit into the key-value concept advertised by the library. However, update expression are useful to implement counters, set management, etc. 
 
 The `dynamo` library implements `UpdateWith` method together with simple DSL.
 
@@ -503,6 +508,13 @@ db.Put(/* ... */, Name.Optimistic("Verner Pleishner"))
 
 See the [go doc](https://pkg.go.dev/github.com/fogfish/dynamo?tab=doc) for all supported constraints.
 
+### Batch I/O
+
+The library supports batch interface to read/write objects from DynamoDB tables:
+* `BatchGet` takes sequence of keys and return sequence of values.
+* `BatchPut` takes sequence of object to store.
+* `BatchRemove` takes sequence of keys to delete.
+
 
 ### Configure DynamoDB
 
@@ -517,13 +529,18 @@ const Schema = (): ddb.TableProps => ({
 })
 ```
 
-If table uses other names for `partitionKey` and `sortKey` then connect URI allows to re-declare them
+If table uses other names for `partitionKey` and `sortKey` then config options allows to re-declare it.
 
 ```go
-//
-// Create client and bind it with DynamoDB the table
-db := keyval.Must(
-  keyval.New[Person]("ddb:///my-table?prefix=someHashKey&suffix=someSortKey", nil, nil),
+db, err := ddb.New[Person](
+  ddb.WithTable("my-table"),
+
+  // Optionally set Global Secondary Index for the session
+  ddb.WithGlobalSecondaryIndex("my-index"),
+
+  // Optionally declare other keys to be user for attribute projection
+  ddd.WithHashKey("someHashKey"),
+  ddb.WithSortKey("someSortKey"),
 )
 ```
 
@@ -543,11 +560,11 @@ import (
 
 //
 // Create client and bind it with DynamoDB the table
-db := ddb.Must(ddb.New("ddb:///my-table", nil, nil))
+db, err := ddb.New(ddb.WithTable("my-table"))
 
 //
 // Create client and bind it with S3 bucket
-db := s3.Must(s3.New("s3:///my-bucket", nil, nil))
+db, err := s3.New(s3.WithBucket("my-bucket"))
 ```
 
 There are few fundamental differences about AWS S3 bucket
