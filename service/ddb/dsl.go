@@ -406,5 +406,3 @@ func (op updateRemover[T]) Apply(req *dynamodb.UpdateItemInput) {
 		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + ekey)
 	}
 }
-
-//
