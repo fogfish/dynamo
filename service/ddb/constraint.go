@@ -134,17 +134,16 @@ type dyadicCondition[T any, A any] struct {
 func (op dyadicCondition[T, A]) WriterOpt(T) {}
 
 func (op dyadicCondition[T, A]) Apply(
-	conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
-) {
+) string {
 	if op.key == "" {
-		return
+		return ""
 	}
 
 	lit, err := attributevalue.Marshal(op.val)
 	if err != nil {
-		return
+		return ""
 	}
 
 	key := "#__c_" + op.key + "__"
@@ -153,11 +152,7 @@ func (op dyadicCondition[T, A]) Apply(
 	expressionAttributeNames[key] = op.key
 	expr := "(" + key + " " + op.op + " " + let + ")"
 
-	if *conditionExpression == nil {
-		*conditionExpression = aws.String(expr)
-	} else {
-		*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	}
+	return expr
 }
 
 // Exists attribute constrain
@@ -183,23 +178,18 @@ type unaryCondition[T any] struct {
 func (op unaryCondition[T]) WriterOpt(T) {}
 
 func (op unaryCondition[T]) Apply(
-	conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
-) {
+) string {
 	if op.key == "" {
-		return
+		return ""
 	}
 
 	key := "#__c_" + op.key + "__"
 	expressionAttributeNames[key] = op.key
 	expr := "(" + op.op + "(" + key + ")" + ")"
 
-	if *conditionExpression == nil {
-		*conditionExpression = aws.String(expr)
-	} else {
-		*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	}
+	return expr
 }
 
 // Is matches either Eq or NotExists if value is not defined
@@ -227,22 +217,21 @@ type betweenCondition[T any, A any] struct {
 func (op betweenCondition[T, A]) WriterOpt(T) {}
 
 func (op betweenCondition[T, A]) Apply(
-	conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
-) {
+) string {
 	if op.key == "" {
-		return
+		return ""
 	}
 
 	litA, err := attributevalue.Marshal(op.a)
 	if err != nil {
-		return
+		return ""
 	}
 
 	litB, err := attributevalue.Marshal(op.b)
 	if err != nil {
-		return
+		return ""
 	}
 
 	key := "#__c_" + op.key + "__"
@@ -253,11 +242,7 @@ func (op betweenCondition[T, A]) Apply(
 	expressionAttributeNames[key] = op.key
 	expr := "(" + key + " BETWEEN " + letA + " AND " + letB + ")"
 
-	if *conditionExpression == nil {
-		*conditionExpression = aws.String(expr)
-	} else {
-		*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	}
+	return expr
 }
 
 // In attribute condition
@@ -276,12 +261,11 @@ type inCondition[T any, A any] struct {
 func (op inCondition[T, A]) WriterOpt(T) {}
 
 func (op inCondition[T, A]) Apply(
-	conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
-) {
+) string {
 	if op.key == "" {
-		return
+		return ""
 	}
 
 	key := "#__c_" + op.key + "__"
@@ -292,7 +276,7 @@ func (op inCondition[T, A]) Apply(
 	for i := 0; i < len(op.seq); i++ {
 		lit, err := attributevalue.Marshal(op.seq[i])
 		if err != nil {
-			return
+			return ""
 		}
 		lits[i] = lit
 		lets[i] = ":__c_" + op.key + "_" + strconv.Itoa(i) + "__"
@@ -301,11 +285,7 @@ func (op inCondition[T, A]) Apply(
 
 	expr := "(" + key + " IN (" + strings.Join(lets, ",") + "))"
 
-	if *conditionExpression == nil {
-		*conditionExpression = aws.String(expr)
-	} else {
-		*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	}
+	return expr
 }
 
 // HasPrefix attribute condition
@@ -332,17 +312,16 @@ type functionalCondition[T any, A any] struct {
 func (op functionalCondition[T, A]) WriterOpt(T) {}
 
 func (op functionalCondition[T, A]) Apply(
-	conditionExpression **string,
 	expressionAttributeNames map[string]string,
 	expressionAttributeValues map[string]types.AttributeValue,
-) {
+) string {
 	if op.key == "" {
-		return
+		return ""
 	}
 
 	lit, err := attributevalue.Marshal(op.val)
 	if err != nil {
-		return
+		return ""
 	}
 
 	key := "#__c_" + op.key + "__"
@@ -351,16 +330,52 @@ func (op functionalCondition[T, A]) Apply(
 	expressionAttributeNames[key] = op.key
 	expr := "(" + op.fun + "(" + key + "," + let + "))"
 
-	if *conditionExpression == nil {
-		*conditionExpression = aws.String(expr)
-	} else {
-		*conditionExpression = aws.String(**conditionExpression + " and " + expr)
-	}
+	return expr
 }
 
-/*
-Internal implementation of conditional expressions for dynamo db
-*/
+// Optimistic defines optimistic concurrency control (aka optimistic lock) condition.
+//
+//	name.Optimistic(x) ⟼ (Field = :value) or (attribute_not_exists(name))
+func (ce ConditionExpression[T, A]) Optimistic(val A) interface{ WriterOpt(T) } {
+	return OneOf(ce.NotExists(), ce.Eq(val))
+}
+
+// OneOf joins multiple constraint into higher-order constraint that is true
+// when one of defined is true (aka OR logical expression)
+func OneOf[T any](seq ...interface{ WriterOpt(T) }) interface{ WriterOpt(T) } {
+	return &join[T]{op: " or ", seq: seq}
+}
+
+// AllOf joins multiple constraint into higher-order constraint that is true
+// when all of defined is true (aka AND logical expression)
+func AllOf[T any](seq ...interface{ WriterOpt(T) }) interface{ WriterOpt(T) } {
+	return &join[T]{op: " and ", seq: seq}
+}
+
+type join[T any] struct {
+	op  string
+	seq []interface{ WriterOpt(T) }
+}
+
+func (op join[T]) WriterOpt(T) {}
+
+func (op join[T]) Apply(
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
+) string {
+	expr := make([]string, len(op.seq))
+	for i, opt := range op.seq {
+		if ap, ok := opt.(interface {
+			Apply(map[string]string, map[string]types.AttributeValue) string
+		}); ok {
+			expr[i] = ap.Apply(expressionAttributeNames, expressionAttributeValues)
+		}
+	}
+
+	return strings.Join(expr, op.op)
+}
+
+// Internal implementation of conditional expressions for dynamo db
 func maybeConditionExpression[T dynamo.Thing](
 	conditionExpression **string,
 	opts []interface{ WriterOpt(T) },
@@ -372,13 +387,16 @@ func maybeConditionExpression[T dynamo.Thing](
 		expressionAttributeNames = map[string]string{}
 		expressionAttributeValues = map[string]types.AttributeValue{}
 
-		for _, opt := range opts {
+		seq := make([]string, len(opts))
+		for i, opt := range opts {
 			if ap, ok := opt.(interface {
-				Apply(**string, map[string]string, map[string]types.AttributeValue)
+				Apply(map[string]string, map[string]types.AttributeValue) string
 			}); ok {
-				ap.Apply(conditionExpression, expressionAttributeNames, expressionAttributeValues)
+				seq[i] = ap.Apply(expressionAttributeNames, expressionAttributeValues)
 			}
 		}
+
+		*conditionExpression = aws.String(strings.Join(seq, " and "))
 
 		// Unfortunately empty maps are not accepted by DynamoDB
 		if len(expressionAttributeNames) == 0 {
@@ -401,11 +419,23 @@ func maybeUpdateConditionExpression[T dynamo.Thing](
 	expressionAttributeValues map[string]types.AttributeValue,
 	opts []interface{ WriterOpt(T) },
 ) {
-	for _, opt := range opts {
+
+	seq := make([]string, len(opts))
+	for i, opt := range opts {
 		if ap, ok := opt.(interface {
-			Apply(**string, map[string]string, map[string]types.AttributeValue)
+			Apply(map[string]string, map[string]types.AttributeValue) string
 		}); ok {
-			ap.Apply(conditionExpression, expressionAttributeNames, expressionAttributeValues)
+			seq[i] = ap.Apply(expressionAttributeNames, expressionAttributeValues)
 		}
+	}
+
+	*conditionExpression = aws.String(strings.Join(seq, " and "))
+
+	// Unfortunately empty maps are not accepted by DynamoDB
+	if len(expressionAttributeNames) == 0 {
+		expressionAttributeNames = nil
+	}
+	if len(expressionAttributeValues) == 0 {
+		expressionAttributeValues = nil
 	}
 }
