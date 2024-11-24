@@ -48,6 +48,10 @@ func (db *Storage[T]) Get(ctx context.Context, key T, opts ...interface{ GetterO
 }
 
 func (db *Storage[T]) BatchGet(ctx context.Context, keys []T, opts ...interface{ GetterOpt(T) }) ([]T, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
 	seq := make([]map[string]types.AttributeValue, len(keys))
 	for i := 0; i < len(keys); i++ {
 		gen, err := db.codec.EncodeKey(keys[i])
