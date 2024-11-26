@@ -32,20 +32,16 @@ type Option = opts.Option[Options]
 // Config Options
 type Options struct {
 	prefixes curie.Prefixes
-	bucket   string
 	service  S3
 }
 
 func (c *Options) checkRequired() error {
 	return opts.Required(c,
-		WithBucket(""),
+		WithS3(nil),
 	)
 }
 
 var (
-	// Set S3 bucket  for session, the option is required
-	WithBucket = opts.ForName[Options, string]("bucket")
-
 	// Configure CURIE prefixes
 	WithPrefixes = opts.ForType[Options, curie.Prefixes]()
 

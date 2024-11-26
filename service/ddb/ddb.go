@@ -16,6 +16,7 @@ import (
 // Storage type
 type Storage[T dynamo.Thing] struct {
 	Options
+	table     string
 	codec     *codec[T]
 	schema    *schema[T]
 	undefined T
@@ -30,7 +31,7 @@ func Must[T dynamo.Thing](keyval *Storage[T], err error) *Storage[T] {
 }
 
 // New creates instance of DynamoDB api
-func New[T dynamo.Thing](opt ...Option) (*Storage[T], error) {
+func New[T dynamo.Thing](table string, opt ...Option) (*Storage[T], error) {
 	conf := optsDefault()
 	if err := opts.Apply(&conf, opt); err != nil {
 		return nil, err
@@ -44,6 +45,7 @@ func New[T dynamo.Thing](opt ...Option) (*Storage[T], error) {
 
 	return &Storage[T]{
 		Options: conf,
+		table:   table,
 		codec:   newCodec[T](&conf),
 		schema:  newSchema[T](conf.useStrictType),
 	}, conf.checkRequired()

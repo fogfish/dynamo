@@ -34,7 +34,6 @@ type Option = opts.Option[Options]
 
 // Config Options
 type Options struct {
-	table         string
 	index         string
 	hashKey       string
 	sortKey       string
@@ -44,7 +43,7 @@ type Options struct {
 
 func (c *Options) checkRequired() error {
 	return opts.Required(c,
-		WithTable(""),
+		WithDynamoDB(nil),
 	)
 }
 

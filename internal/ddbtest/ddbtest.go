@@ -31,8 +31,7 @@ mock factory
 */
 func mock[T dynamo.Thing](mock ddbapi.DynamoDB) dynamo.KeyVal[T] {
 	return ddbapi.Must(
-		ddbapi.New[T](
-			ddbapi.WithTable("test"),
+		ddbapi.New[T]("test",
 			ddbapi.WithGlobalSecondaryIndex(""),
 			ddbapi.WithService(mock),
 			ddbapi.WithPrefixes(curie.Namespaces{}),
