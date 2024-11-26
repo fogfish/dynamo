@@ -48,9 +48,6 @@ func (c *Options) checkRequired() error {
 }
 
 var (
-	// Set DynamoDB table for session, the option is required
-	WithTable = opts.ForName[Options, string]("table")
-
 	// Set Global Secondary Index for the session
 	WithGlobalSecondaryIndex = opts.ForName[Options, string]("index")
 
