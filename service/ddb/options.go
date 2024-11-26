@@ -34,7 +34,6 @@ type Option = opts.Option[Options]
 
 // Config Options
 type Options struct {
-	table         string
 	index         string
 	hashKey       string
 	sortKey       string
@@ -44,14 +43,11 @@ type Options struct {
 
 func (c *Options) checkRequired() error {
 	return opts.Required(c,
-		WithTable(""),
+		WithDynamoDB(nil),
 	)
 }
 
 var (
-	// Set DynamoDB table for session, the option is required
-	WithTable = opts.ForName[Options, string]("table")
-
 	// Set Global Secondary Index for the session
 	WithGlobalSecondaryIndex = opts.ForName[Options, string]("index")
 

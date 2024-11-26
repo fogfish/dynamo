@@ -22,17 +22,15 @@ func main() {
 	//
 	// create DynamoDB clients for the main table (ddb), local secondary index (lsi),
 	// global secondary index (gsi)
-	db := ddb.Must(ddb.New[Author](ddb.WithTable("example-dynamo-relational")))
-	dba := ddb.Must(ddb.New[Article](ddb.WithTable("example-dynamo-relational")))
-	dbk := ddb.Must(ddb.New[Keyword](ddb.WithTable("example-dynamo-relational")))
+	db := ddb.Must(ddb.New[Author]("example-dynamo-relational"))
+	dba := ddb.Must(ddb.New[Article]("example-dynamo-relational"))
+	dbk := ddb.Must(ddb.New[Keyword]("example-dynamo-relational"))
 
-	lsi := ddb.Must(ddb.New[Article](
-		ddb.WithTable("example-dynamo-relational"),
+	lsi := ddb.Must(ddb.New[Article]("example-dynamo-relational",
 		ddb.WithGlobalSecondaryIndex("example-dynamo-relational-year"),
 		ddb.WithSortKey("year"),
 	))
-	gsi := ddb.Must(ddb.New[Category](
-		ddb.WithTable("example-dynamo-relational"),
+	gsi := ddb.Must(ddb.New[Category]("example-dynamo-relational",
 		ddb.WithGlobalSecondaryIndex("example-dynamo-relational-category-year"),
 		ddb.WithHashKey("category"),
 		ddb.WithSortKey("year"),

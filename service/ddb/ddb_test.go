@@ -72,7 +72,7 @@ func codec(p dynamotest.Person) (map[string]types.AttributeValue, error) {
 }
 
 func TestNew(t *testing.T) {
-	api, err := ddb.New[dynamotest.Person](ddb.WithTable("abc"))
+	api, err := ddb.New[dynamotest.Person]("abc")
 	it.Then(t).
 		Should(it.Nil(err)).
 		ShouldNot(it.Nil(api))
@@ -189,10 +189,7 @@ func TestDdbBatchPut(t *testing.T) {
 			},
 		}
 
-		api := ddb.Must(ddb.New[person](
-			ddb.WithDynamoDB(mock),
-			ddb.WithTable("test"),
-		))
+		api := ddb.Must(ddb.New[person]("test", ddb.WithDynamoDB(mock)))
 
 		out, err := api.BatchPut(context.Background(), inputSeq)
 		it.Then(t).Should(
@@ -215,10 +212,7 @@ func TestDdbBatchPut(t *testing.T) {
 			},
 		}
 
-		api := ddb.Must(ddb.New[person](
-			ddb.WithDynamoDB(mock),
-			ddb.WithTable("test"),
-		))
+		api := ddb.Must(ddb.New[person]("test", ddb.WithDynamoDB(mock)))
 
 		out, err := api.BatchPut(context.Background(), inputSeq)
 		it.Then(t).Should(
@@ -252,10 +246,7 @@ func TestDdbBatchRemove(t *testing.T) {
 			},
 		}
 
-		api := ddb.Must(ddb.New[person](
-			ddb.WithDynamoDB(mock),
-			ddb.WithTable("test"),
-		))
+		api := ddb.Must(ddb.New[person]("test", ddb.WithDynamoDB(mock)))
 
 		out, err := api.BatchRemove(context.Background(), inputSeq)
 		it.Then(t).Should(
@@ -278,10 +269,7 @@ func TestDdbBatchRemove(t *testing.T) {
 			},
 		}
 
-		api := ddb.Must(ddb.New[person](
-			ddb.WithDynamoDB(mock),
-			ddb.WithTable("test"),
-		))
+		api := ddb.Must(ddb.New[person]("test", ddb.WithDynamoDB(mock)))
 
 		out, err := api.BatchRemove(context.Background(), inputSeq)
 		it.Then(t).Should(
@@ -324,10 +312,7 @@ func TestDdbBatchGet(t *testing.T) {
 			},
 		}
 
-		api := ddb.Must(ddb.New[person](
-			ddb.WithDynamoDB(mock),
-			ddb.WithTable("test"),
-		))
+		api := ddb.Must(ddb.New[person]("test", ddb.WithDynamoDB(mock)))
 
 		seq, err := api.BatchGet(context.Background(), inputSeq)
 		it.Then(t).Should(

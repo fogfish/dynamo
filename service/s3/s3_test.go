@@ -24,7 +24,7 @@ func codec(p dynamotest.Person) (dynamotest.Person, error) {
 }
 
 func TestNew(t *testing.T) {
-	api, err := s3.New[dynamotest.Person](s3.WithBucket("abc"))
+	api, err := s3.New[dynamotest.Person]("abc")
 	it.Ok(t).IfNil(err).IfNotNil(api)
 }
 

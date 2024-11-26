@@ -36,8 +36,7 @@ type KeyVal = *ddb.Storage[*Person]
 
 func main() {
 	db := ddb.Must(
-		ddb.New[*Person](
-			ddb.WithTable(os.Args[1]),
+		ddb.New[*Person](os.Args[1],
 			ddb.WithPrefixes(
 				curie.Namespaces{
 					"test":   "t/kv",
