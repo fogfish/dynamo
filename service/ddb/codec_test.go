@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	dynamo "github.com/fogfish/dynamo/v3/service/ddb"
 	"github.com/fogfish/it"
 )
@@ -126,10 +126,10 @@ func (s codecMyType) HashKey() curie.IRI { return s.HKey }
 func (s codecMyType) SortKey() curie.IRI { return s.SKey }
 
 func TestCodecEncodeDecode(t *testing.T) {
-	link := curie.New("test:a/b/c")
+	link := curie.IRI("test:a/b/c")
 	core := codecMyType{
-		HKey: curie.New("test:a/b"),
-		SKey: curie.New("c/d"),
+		HKey: curie.IRI("test:a/b"),
+		SKey: curie.IRI("c/d"),
 		Link: &link,
 	}
 
@@ -141,15 +141,15 @@ func TestCodecEncodeDecode(t *testing.T) {
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
-		IfTrue(curie.Eq(core.HKey, some.HKey)).
-		IfTrue(curie.Eq(core.SKey, some.SKey)).
+		IfTrue(core.HKey == some.HKey).
+		IfTrue(core.SKey == some.SKey).
 		IfTrue(*core.Link == *some.Link)
 }
 
 func TestCodecEncodeDecodeKeyOnly(t *testing.T) {
 	core := codecMyType{
-		HKey: curie.New("test:a/b"),
-		SKey: curie.New("c/d"),
+		HKey: curie.IRI("test:a/b"),
+		SKey: curie.IRI("c/d"),
 	}
 
 	av, err := attributevalue.Marshal(core)
@@ -160,13 +160,13 @@ func TestCodecEncodeDecodeKeyOnly(t *testing.T) {
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
-		IfTrue(curie.Eq(core.HKey, some.HKey)).
-		IfTrue(curie.Eq(core.SKey, some.SKey))
+		IfTrue(core.HKey == some.HKey).
+		IfTrue(core.SKey == some.SKey)
 }
 
 func TestCodecEncodeDecodeKeyOnlyHash(t *testing.T) {
 	core := codecMyType{
-		HKey: curie.New("test:a/b"),
+		HKey: curie.IRI("test:a/b"),
 	}
 
 	av, err := attributevalue.Marshal(core)
@@ -177,8 +177,8 @@ func TestCodecEncodeDecodeKeyOnlyHash(t *testing.T) {
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
-		IfTrue(curie.Eq(core.HKey, some.HKey)).
-		IfTrue(curie.Eq(core.SKey, some.SKey))
+		IfTrue(core.HKey == some.HKey).
+		IfTrue(core.SKey == some.SKey)
 }
 
 type codecTypeBad codecType
@@ -202,8 +202,8 @@ func (s codecBadType) SortKey() curie.IRI { return s.SKey }
 
 func TestCodecEncodeBadType(t *testing.T) {
 	core := codecBadType{
-		HKey: curie.New("test:a/b"),
-		SKey: curie.New("c/d"),
+		HKey: curie.IRI("test:a/b"),
+		SKey: curie.IRI("c/d"),
 		Link: codecTypeBad{Val: "test:a/b/c"},
 	}
 
@@ -291,10 +291,10 @@ type Item struct {
 }
 
 func fixtureItem() Item {
-	ref := curie.New("foo:a/suffix")
+	ref := curie.IRI("foo:a/suffix")
 	return Item{
-		Prefix: curie.New("foo:prefix"),
-		Suffix: curie.New("suffix"),
+		Prefix: curie.IRI("foo:prefix"),
+		Suffix: curie.IRI("suffix"),
 		Ref:    &ref,
 		Tag:    "tag",
 	}
@@ -315,8 +315,8 @@ func fixtureDynamo() map[string]types.AttributeValue {
 
 func fixtureEmptyItem() Item {
 	return Item{
-		Prefix: curie.New("foo:prefix"),
-		Suffix: curie.New("suffix"),
+		Prefix: curie.IRI("foo:prefix"),
+		Suffix: curie.IRI("suffix"),
 	}
 }
 

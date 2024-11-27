@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3"
 	"github.com/fogfish/dynamo/v3/service/ddb"
 )
@@ -73,16 +73,14 @@ func main() {
 	assert(lookupByAuthorOrderedByTime(lsi, "neumann"))
 }
 
-/*
-As a reader I want to fetch the article ...
-*/
+// As a reader I want to fetch the article ...
 func fetchArticle(db dynamo.KeyVal[Article]) error {
 	log.Printf("==> fetch article: An axiomatization of set theory\n")
 
 	article, err := db.Get(context.Background(),
 		Article{
-			Author: curie.New("author:%s", "neumann"),
-			ID:     curie.New("article:%s", "theory_of_automata"),
+			Author: curie.New("author", "neumann"),
+			ID:     curie.New("article", "theory_of_automata"),
 		},
 	)
 	if err != nil {
@@ -97,8 +95,8 @@ func lookupArticlesByAuthor(db dynamo.KeyVal[Article], author string) error {
 	log.Printf("==> lookup articles by author: %s\n", author)
 
 	seq, _, err := db.Match(context.Background(), Article{
-		Author: curie.New("author:%s", author),
-		ID:     curie.New("article:"),
+		Author: curie.New("author", author),
+		ID:     curie.New("article", ""),
 	})
 
 	if err != nil {
@@ -114,7 +112,7 @@ func lookupArticlesByKeyword(db dynamo.KeyVal[Keyword], keyword string) error {
 
 	seq, _, err := db.Match(context.Background(),
 		Keyword{
-			HKey: curie.New("keyword:%s", keyword),
+			HKey: curie.New("keyword", keyword),
 		},
 	)
 
@@ -131,8 +129,8 @@ func lookupArticlesByKeywordAuthor(db dynamo.KeyVal[Keyword], keyword, author st
 
 	seq, _, err := db.Match(context.Background(),
 		Keyword{
-			HKey: curie.New("keyword:%s", keyword),
-			SKey: curie.New("article:%s", author),
+			HKey: curie.New("keyword", keyword),
+			SKey: curie.New("article", author),
 		},
 	)
 
@@ -149,8 +147,8 @@ func fetchArticleKeywords(db dynamo.KeyVal[Keyword]) error {
 
 	seq, _, err := db.Match(context.Background(),
 		Keyword{
-			HKey: curie.New("article:%s/%s", "neumann", "theory_of_set"),
-			SKey: curie.New("keyword:"),
+			HKey: curie.New("article", "neumann/theory_of_set"),
+			SKey: curie.New("keyword", ""),
 		},
 	)
 
@@ -184,7 +182,7 @@ func lookupByAuthorOrderedByTime(db dynamo.KeyVal[Article], author string) error
 
 	seq, _, err := db.Match(context.Background(),
 		Article{
-			Author: curie.New("author:%s", author),
+			Author: curie.New("author", author),
 		},
 	)
 

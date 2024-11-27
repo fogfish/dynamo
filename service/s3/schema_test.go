@@ -11,15 +11,15 @@ package s3
 import (
 	"testing"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3/internal/dynamotest"
 	"github.com/fogfish/it"
 )
 
 func TestMerge(t *testing.T) {
 	a := dynamotest.Person{
-		Prefix: curie.New("dead:beef"),
-		Suffix: curie.New("1"),
+		Prefix: curie.IRI("dead:beef"),
+		Suffix: curie.IRI("1"),
 		Name:   "Verner Pleishner",
 	}
 
@@ -29,8 +29,8 @@ func TestMerge(t *testing.T) {
 	}
 
 	c := dynamotest.Person{
-		Prefix:  curie.New("dead:beef"),
-		Suffix:  curie.New("1"),
+		Prefix:  curie.IRI("dead:beef"),
+		Suffix:  curie.IRI("1"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",

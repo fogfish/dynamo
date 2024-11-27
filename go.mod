@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.15.17
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.37.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.68.0
-	github.com/fogfish/curie v1.8.2
+	github.com/fogfish/curie/v2 v2.0.1
 	github.com/fogfish/faults v0.2.0
 	github.com/fogfish/golem/hseq v1.2.0
 	github.com/fogfish/it v1.0.0

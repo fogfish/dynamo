@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3/service/ddb"
 )
 
@@ -60,8 +60,8 @@ func main() {
 
 func examplePut(db *ddb.Storage[*Person]) {
 	val := Person{
-		Org:     curie.New("test:"),
-		ID:      curie.New("person:%d", 1),
+		Org:     curie.New("test", ""),
+		ID:      curie.New("person", "1"),
 		Name:    "Verner Pleishner",
 		Degrees: []string{},
 	}
@@ -76,8 +76,8 @@ func examplePut(db *ddb.Storage[*Person]) {
 
 func exampleUpdateExpressionModifyingOne(db *ddb.Storage[*Person]) {
 	key := Person{
-		Org: curie.New("test:"),
-		ID:  curie.New("person:%d", 1),
+		Org: curie.New("test", ""),
+		ID:  curie.New("person", "1"),
 	}
 
 	val, err := db.UpdateWith(context.Background(),
@@ -95,8 +95,8 @@ func exampleUpdateExpressionModifyingOne(db *ddb.Storage[*Person]) {
 
 func exampleUpdateExpressionModifyingFew(db *ddb.Storage[*Person]) {
 	key := Person{
-		Org: curie.New("test:"),
-		ID:  curie.New("person:%d", 1),
+		Org: curie.New("test", ""),
+		ID:  curie.New("person", "1"),
 	}
 
 	val, err := db.UpdateWith(context.Background(),
@@ -115,8 +115,8 @@ func exampleUpdateExpressionModifyingFew(db *ddb.Storage[*Person]) {
 
 func exampleUpdateExpressionIncrement(db *ddb.Storage[*Person]) {
 	key := Person{
-		Org: curie.New("test:"),
-		ID:  curie.New("person:%d", 1),
+		Org: curie.New("test", ""),
+		ID:  curie.New("person", "1"),
 	}
 
 	val, err := db.UpdateWith(context.Background(),
@@ -134,8 +134,8 @@ func exampleUpdateExpressionIncrement(db *ddb.Storage[*Person]) {
 
 func exampleUpdateExpressionIncrementConditional(db *ddb.Storage[*Person]) {
 	key := Person{
-		Org: curie.New("test:"),
-		ID:  curie.New("person:%d", 1),
+		Org: curie.New("test", ""),
+		ID:  curie.New("person", "1"),
 	}
 
 	val, err := db.UpdateWith(context.Background(),
@@ -154,8 +154,8 @@ func exampleUpdateExpressionIncrementConditional(db *ddb.Storage[*Person]) {
 
 func exampleUpdateExpressionAppendToList(db *ddb.Storage[*Person]) {
 	key := Person{
-		Org: curie.New("test:"),
-		ID:  curie.New("person:%d", 1),
+		Org: curie.New("test", ""),
+		ID:  curie.New("person", "1"),
 	}
 
 	val, err := db.UpdateWith(context.Background(),
@@ -173,8 +173,8 @@ func exampleUpdateExpressionAppendToList(db *ddb.Storage[*Person]) {
 
 func exampleUpdateExpressionRemoveAttribute(db *ddb.Storage[*Person]) {
 	key := Person{
-		Org: curie.New("test:"),
-		ID:  curie.New("person:%d", 1),
+		Org: curie.New("test", ""),
+		ID:  curie.New("person", "1"),
 	}
 
 	val, err := db.UpdateWith(context.Background(),

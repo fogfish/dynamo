@@ -13,8 +13,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3"
 	"github.com/fogfish/dynamo/v3/service/ddb"
 )
@@ -59,8 +60,8 @@ const n = 5
 func examplePut(db KeyVal) {
 	for i := 0; i < n; i++ {
 		val := Person{
-			Org:     curie.New("test:"),
-			ID:      curie.New("person:%d", i),
+			Org:     curie.New("test", ""),
+			ID:      curie.New("person", strconv.Itoa(i)),
 			Name:    "Verner Pleishner",
 			Age:     64,
 			Address: "Blumenstrasse 14, Berne, 3013",
@@ -78,8 +79,8 @@ func examplePut(db KeyVal) {
 func exampleGet(db KeyVal) {
 	for i := 0; i < n; i++ {
 		key := Person{
-			Org: curie.New("test:"),
-			ID:  curie.New("person:%d", i),
+			Org: curie.New("test", ""),
+			ID:  curie.New("person", strconv.Itoa(i)),
 		}
 
 		val, err := db.Get(context.Background(), &key)
@@ -97,8 +98,8 @@ func exampleGet(db KeyVal) {
 func exampleUpdate(db KeyVal) {
 	for i := 0; i < n; i++ {
 		patch := Person{
-			Org:     curie.New("test:"),
-			ID:      curie.New("person:%d", i),
+			Org:     curie.New("test", ""),
+			ID:      curie.New("person", strconv.Itoa(i)),
 			Address: "Viktoriastrasse 37, Berne, 3013",
 		}
 		val, err := db.Update(context.Background(), &patch)
@@ -112,7 +113,7 @@ func exampleUpdate(db KeyVal) {
 }
 
 func exampleMatch(db KeyVal) {
-	key := Person{Org: curie.New("test:")}
+	key := Person{Org: curie.New("test", "")}
 	seq, _, err := db.Match(context.Background(), &key)
 	if err != nil {
 		fmt.Printf("=[ match ]=> %v\n", err)
@@ -127,7 +128,7 @@ func exampleMatch(db KeyVal) {
 
 func exampleMatchWithCursor(db KeyVal) {
 	// first batch
-	key := Person{Org: curie.New("test:")}
+	key := Person{Org: curie.New("test", "")}
 	seq, cur, err := db.Match(context.Background(), &key, dynamo.Limit[*Person](2))
 	if err != nil {
 		fmt.Printf("=[ match 1st ]=> %v\n", err)
@@ -155,8 +156,8 @@ func exampleMatchWithCursor(db KeyVal) {
 func exampleRemove(db KeyVal) {
 	for i := 0; i < n; i++ {
 		key := Person{
-			Org: curie.New("test:"),
-			ID:  curie.New("person:%d", i),
+			Org: curie.New("test", ""),
+			ID:  curie.New("person", strconv.Itoa(i)),
 		}
 		val, err := db.Remove(context.Background(), &key)
 		switch {
