@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3/internal/ddbtest"
 	"github.com/fogfish/dynamo/v3/internal/dynamotest"
 	"github.com/fogfish/dynamo/v3/service/ddb"
@@ -35,8 +35,8 @@ func (p person) SortKey() curie.IRI { return p.Suffix }
 
 func entityStruct() person {
 	return person{
-		Prefix:  curie.New("dead:beef"),
-		Suffix:  curie.New("1"),
+		Prefix:  curie.IRI("dead:beef"),
+		Suffix:  curie.IRI("1"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -45,8 +45,8 @@ func entityStruct() person {
 
 func entityStructKey() person {
 	return person{
-		Prefix: curie.New("dead:beef"),
-		Suffix: curie.New("1"),
+		Prefix: curie.IRI("dead:beef"),
+		Suffix: curie.IRI("1"),
 	}
 }
 
@@ -117,8 +117,8 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 	name := ddb.ClauseFor[person, string]("Name")
 	ddb := ddbtest.Constrains[person](entityDynamo())
 	patch := person{
-		Prefix: curie.New("dead:beef"),
-		Suffix: curie.New("1"),
+		Prefix: curie.IRI("dead:beef"),
+		Suffix: curie.IRI("1"),
 		Age:    65,
 	}
 
@@ -151,8 +151,8 @@ func TestDdbUpdateWithExpression(t *testing.T) {
 	}
 
 	key := person{
-		Prefix: curie.New("dead:beef"),
-		Suffix: curie.New("1"),
+		Prefix: curie.IRI("dead:beef"),
+		Suffix: curie.IRI("1"),
 	}
 	age := ddb.UpdateFor[person, int]("Age")
 	db := ddbtest.UpdateItem[person](&fixtureKey, &fixtureVal, &returnVal).(*ddb.Storage[person])

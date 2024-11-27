@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3/service/ddb"
 )
 

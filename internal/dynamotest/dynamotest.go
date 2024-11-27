@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3"
 	"github.com/fogfish/it"
 )
@@ -47,21 +47,21 @@ func (seq *Persons) Join(val Person) error {
 
 func fixtureKey() Person {
 	return Person{
-		Prefix: curie.New("dead:beef"),
-		Suffix: curie.New("1"),
+		Prefix: curie.IRI("dead:beef"),
+		Suffix: curie.IRI("1"),
 	}
 }
 
 func fixtureKeyHashOnly() Person {
 	return Person{
-		Prefix: curie.New("dead:beef"),
+		Prefix: curie.IRI("dead:beef"),
 	}
 }
 
 func fixtureVal() Person {
 	return Person{
-		Prefix:  curie.New("dead:beef"),
-		Suffix:  curie.New("1"),
+		Prefix:  curie.IRI("dead:beef"),
+		Suffix:  curie.IRI("1"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -70,8 +70,8 @@ func fixtureVal() Person {
 
 func fixturePatch() Person {
 	return Person{
-		Prefix: curie.New("dead:beef"),
-		Suffix: curie.New("1"),
+		Prefix: curie.IRI("dead:beef"),
+		Suffix: curie.IRI("1"),
 		Age:    64,
 	}
 }

@@ -12,7 +12,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3/internal/dynamotest"
 	"github.com/fogfish/dynamo/v3/internal/s3test"
 	"github.com/fogfish/dynamo/v3/service/s3"

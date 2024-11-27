@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3/service/ddb"
 )
 
@@ -57,8 +57,8 @@ func main() {
 
 func examplePutOptimisticLock(db *ddb.Storage[*Person]) {
 	val := Person{
-		Org:  curie.New("test:"),
-		ID:   curie.New("person:%d", 1),
+		Org:  curie.New("test", ""),
+		ID:   curie.New("person", "1"),
 		Name: "Verner Pleishner",
 	}
 	err := db.Put(context.Background(), &val, ifName.Optimistic("Verner Pleishner"))
@@ -70,8 +70,8 @@ func examplePutOptimisticLock(db *ddb.Storage[*Person]) {
 	fmt.Printf("=[ put ]=> %+v\n", val)
 
 	val = Person{
-		Org:  curie.New("test:"),
-		ID:   curie.New("person:%d", 1),
+		Org:  curie.New("test", ""),
+		ID:   curie.New("person", "1"),
 		Name: "Prof. Verner Pleishner",
 	}
 	err = db.Put(context.Background(), &val, ifName.Optimistic("Verner Pleishner"))
@@ -85,8 +85,8 @@ func examplePutOptimisticLock(db *ddb.Storage[*Person]) {
 
 func examplePutWithCondition(db *ddb.Storage[*Person]) {
 	val := Person{
-		Org:  curie.New("test:"),
-		ID:   curie.New("person:%d", 1),
+		Org:  curie.New("test", ""),
+		ID:   curie.New("person", "1"),
 		Name: "Verner Pleishner",
 	}
 	err := db.Put(context.Background(), &val, ifName.NotExists())
@@ -100,8 +100,8 @@ func examplePutWithCondition(db *ddb.Storage[*Person]) {
 
 func exampleUpdateWithConditionOne(db *ddb.Storage[*Person]) {
 	patch := &Person{
-		Org:     curie.New("test:"),
-		ID:      curie.New("person:%d", 1),
+		Org:     curie.New("test", ""),
+		ID:      curie.New("person", "1"),
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
 	}
@@ -116,8 +116,8 @@ func exampleUpdateWithConditionOne(db *ddb.Storage[*Person]) {
 
 func exampleUpdateWithConditionFew(db *ddb.Storage[*Person]) {
 	patch := &Person{
-		Org:     curie.New("test:"),
-		ID:      curie.New("person:%d", 1),
+		Org:     curie.New("test", ""),
+		ID:      curie.New("person", "1"),
 		Age:     66,
 		Address: "Viktoriastrasse 37, Berne, 3013",
 	}
@@ -136,8 +136,8 @@ func exampleUpdateWithConditionFew(db *ddb.Storage[*Person]) {
 
 func exampleRemoveWithCondition(db *ddb.Storage[*Person]) {
 	key := &Person{
-		Org: curie.New("test:"),
-		ID:  curie.New("person:%d", 1),
+		Org: curie.New("test", ""),
+		ID:  curie.New("person", "1"),
 	}
 	val, err := db.Remove(context.Background(), key, ifName.Exists())
 	if err != nil {

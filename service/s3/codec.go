@@ -9,7 +9,7 @@
 package s3
 
 import (
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3"
 )
 

@@ -12,8 +12,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/dynamo/v3/service/ddb"
 )
 
@@ -55,8 +56,8 @@ func examplePut(db KeyVal) {
 	seq := make([]*Person, n)
 	for i := 0; i < n; i++ {
 		seq[i] = &Person{
-			Org:     curie.New("test:"),
-			ID:      curie.New("person:%d", i),
+			Org:     curie.New("test", ""),
+			ID:      curie.New("person", strconv.Itoa(i)),
 			Name:    "Verner Pleishner",
 			Age:     64,
 			Address: "Blumenstrasse 14, Berne, 3013",
@@ -79,8 +80,8 @@ func exampleGet(db KeyVal) {
 	keys := make([]*Person, n)
 	for i := 0; i < n; i++ {
 		keys[i] = &Person{
-			Org: curie.New("test:"),
-			ID:  curie.New("person:%d", i),
+			Org: curie.New("test", ""),
+			ID:  curie.New("person", strconv.Itoa(i)),
 		}
 	}
 
@@ -100,8 +101,8 @@ func exampleRemove(db KeyVal) {
 	keys := make([]*Person, n)
 	for i := 0; i < n; i++ {
 		keys[i] = &Person{
-			Org: curie.New("test:"),
-			ID:  curie.New("person:%d", i),
+			Org: curie.New("test", ""),
+			ID:  curie.New("person", strconv.Itoa(i)),
 		}
 	}
 

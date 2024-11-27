@@ -15,7 +15,7 @@ package dynamo
 import (
 	"context"
 
-	"github.com/fogfish/curie"
+	"github.com/fogfish/curie/v2"
 )
 
 //-----------------------------------------------------------------------------
