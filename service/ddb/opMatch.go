@@ -106,13 +106,21 @@ func (db *Storage[T]) reqQuery(
 		ExpressionAttributeValues: exprOf(gen),
 		ProjectionExpression:      db.schema.Projection,
 		ExpressionAttributeNames:  db.schema.ExpectedAttributeNames,
-		TableName:                 aws.String(db.table),
-		IndexName:                 aws.String(db.index),
+		TableName:                 awsString(db.table),
+		IndexName:                 awsString(db.index),
 		Limit:                     limit,
 		ExclusiveStartKey:         exclusiveStartKey,
 	}
 
 	return req
+}
+
+func awsString(x string) *string {
+	if x == "" {
+		return nil
+	}
+
+	return aws.String(x)
 }
 
 func exprOf(gen map[string]types.AttributeValue) (val map[string]types.AttributeValue) {
