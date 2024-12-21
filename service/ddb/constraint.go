@@ -396,7 +396,9 @@ func maybeConditionExpression[T dynamo.Thing](
 			}
 		}
 
-		*conditionExpression = aws.String(strings.Join(seq, " and "))
+		if len(seq) > 0 {
+			*conditionExpression = aws.String(strings.Join(seq, " and "))
+		}
 
 		// Unfortunately empty maps are not accepted by DynamoDB
 		if len(expressionAttributeNames) == 0 {
@@ -429,7 +431,9 @@ func maybeUpdateConditionExpression[T dynamo.Thing](
 		}
 	}
 
-	*conditionExpression = aws.String(strings.Join(seq, " and "))
+	if len(seq) > 0 {
+		*conditionExpression = aws.String(strings.Join(seq, " and "))
+	}
 
 	// Unfortunately empty maps are not accepted by DynamoDB
 	if len(expressionAttributeNames) == 0 {
