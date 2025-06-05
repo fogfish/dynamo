@@ -53,6 +53,7 @@ The latest version of the library is available at its `main` branch. All develop
       - [Projection Expression](#projection-expression)
       - [Conditional Expression](#conditional-expression)
       - [Update Expression](#update-expression)
+      - [Set Types](#set-types)
     - [Optimistic Locking](#optimistic-locking)
     - [Batch I/O](#batch-io)
     - [Configure DynamoDB](#configure-dynamodb)
@@ -426,18 +427,22 @@ db.Update(/* ... */,
 
 [Update expression](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html) specifies how update operation will modify the attributes of an item. Unfortunately, this abstraction do not fit into the key-value concept advertised by the library. However, update expression are useful to implement counters, set management, etc. 
 
-The `dynamo` library implements `UpdateWith` method together with simple DSL.
+The `dynamo` library implements `UpdateWith` method together with a simple DSL that supports all DynamoDB update expression actions: SET, REMOVE, ADD, and DELETE.
+
+**Basic Usage**
 
 ```go
 type Person struct {
   Name    string    `dynamodbav:"name,omitempty"`
   Age     int       `dynamodbav:"age,omitempty"`
+  Hobbies  []string `dynamodbav:"hobbies,omitempty"`
 }
 
 // defines the builder of updater expression
 var (
   Name = ddb.UpdateFor[Person, string]("Name")
   Age  = ddb.UpdateFor[Person, int]("Age")
+  Hobbies = ddb.UpdateFor[Person, []string]("Hobbies")
 )
 
 db.UpdateWith(context.Background(),
@@ -451,6 +456,62 @@ db.UpdateWith(context.Background(),
   ),
 )
 ```
+
+**SET** The SET action adds or replaces attributes in an item:
+
+```go
+// Set attribute value
+Name.Set("John Doe")                     // SET name = :value
+
+// Set attribute only if it doesn't exist
+Name.SetNotExists("Default Name")        // SET name = if_not_exists(name, :value)
+
+// Increment/decrement numeric values
+Age.Inc(5)                              // SET age = age + :value
+Age.Dec(2)                              // SET age = age - :value
+
+// Append to list
+Hobbies.Append([]string{"reading"})     // SET hobbies = list_append(hobbies, :value)
+
+// Prepend to list
+Hobbies.Prepend([]string{"writing"})    // SET hobbies = list_append(:value, hobbies)
+```
+
+**REMOVE** The REMOVE action deletes attributes from an item:
+
+```go
+// Remove attribute entirely
+Name.Remove()                          // REMOVE name
+```
+
+**Type Safety** The library provides compile-time type safety by binding update expressions to specific struct fields and their types:
+
+```go
+// This will cause a compile error if types don't match
+var Age = ddb.UpdateFor[Person, int]("age")
+Age.Set("not a number") // ❌ Compile error
+Age.Set(25)             // ✅ Correct
+```
+
+#### Set Types
+
+The library automatically handles DynamoDB set types when the struct field has appropriate tags:
+
+```go
+type Item struct {
+  StringSet []string `dynamodbav:"ss,stringset"`
+  NumberSet []int    `dynamodbav:"ns,numberset"`  
+  BinarySet [][]byte `dynamodbav:"bs,binaryset"`
+}
+
+var StringSet = ddb.UpdateFor[Item, []string]("StringSet")
+
+// These operations work with actual DynamoDB sets
+StringSet.Union([]string{"new", "items"})  // ADD ss :value
+StringSet.Minus([]string{"old", "items"})  // DELETE ss :value
+```
+
+
 
 ### Optimistic Locking
 
