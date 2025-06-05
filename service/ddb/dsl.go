@@ -41,24 +41,52 @@ type UpdateItemExpression[T dynamo.Thing] struct {
 	request *dynamodb.UpdateItemInput
 }
 
+type UpdateItemInput struct {
+	*dynamodb.UpdateItemInput
+	expr map[string][]string
+}
+
+const (
+	aSET = "SET"
+	aREM = "REMOVE"
+	aADD = "ADD"
+	aDEL = "DELETE"
+)
+
+// Updater creates a new update expression for the given entity and options.
 func Updater[T dynamo.Thing](entity T, opts ...interface{ UpdateExpression(T) }) UpdateItemExpression[T] {
-	request := &dynamodb.UpdateItemInput{
-		ExpressionAttributeNames:  map[string]string{},
-		ExpressionAttributeValues: map[string]types.AttributeValue{},
+	request := &UpdateItemInput{
+		UpdateItemInput: &dynamodb.UpdateItemInput{
+			ExpressionAttributeNames:  map[string]string{},
+			ExpressionAttributeValues: map[string]types.AttributeValue{},
+		},
+		expr: make(map[string][]string),
 	}
 	for _, opt := range opts {
-		if ap, ok := opt.(interface {
-			Apply(*dynamodb.UpdateItemInput)
-		}); ok {
+		if ap, ok := opt.(interface{ Apply(*UpdateItemInput) }); ok {
 			ap.Apply(request)
 		}
+	}
+
+	// Combine expressions by action type
+	var parts []string
+	actionTypes := []string{aSET, aREM, aADD, aDEL}
+
+	for _, action := range actionTypes {
+		if exprs, ok := request.expr[action]; ok && len(exprs) > 0 {
+			parts = append(parts, action+" "+strings.Join(exprs, ","))
+		}
+	}
+
+	if len(parts) > 0 {
+		request.UpdateExpression = aws.String(strings.Join(parts, " "))
 	}
 
 	if len(request.ExpressionAttributeValues) == 0 {
 		request.ExpressionAttributeValues = nil
 	}
 
-	return UpdateItemExpression[T]{entity: entity, request: request}
+	return UpdateItemExpression[T]{entity: entity, request: request.UpdateItemInput}
 }
 
 //
@@ -112,7 +140,7 @@ type updateSetter[T any, A any] struct {
 
 func (op updateSetter[T, A]) UpdateExpression(T) {}
 
-func (op updateSetter[T, A]) Apply(req *dynamodb.UpdateItemInput) {
+func (op updateSetter[T, A]) Apply(req *UpdateItemInput) {
 	val, err := attributevalue.Marshal(op.val)
 	if err != nil {
 		return
@@ -128,11 +156,7 @@ func (op updateSetter[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 		expr = ekey + " = if_not_exists(" + ekey + "," + eval + ")"
 	}
 
-	if req.UpdateExpression == nil {
-		req.UpdateExpression = aws.String("SET " + expr)
-	} else {
-		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + expr)
-	}
+	req.expr[aSET] = append(req.expr[aSET], expr)
 }
 
 // Add new attribute and increment value
@@ -152,7 +176,7 @@ type updateAdder[T any, A any] struct {
 
 func (op updateAdder[T, A]) UpdateExpression(T) {}
 
-func (op updateAdder[T, A]) Apply(req *dynamodb.UpdateItemInput) {
+func (op updateAdder[T, A]) Apply(req *UpdateItemInput) {
 	val, err := attributevalue.Marshal(op.val)
 	if err != nil {
 		return
@@ -165,11 +189,7 @@ func (op updateAdder[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 	req.ExpressionAttributeValues[eval] = val
 	expr := ekey + " " + eval
 
-	if req.UpdateExpression == nil {
-		req.UpdateExpression = aws.String("ADD " + expr)
-	} else {
-		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + expr)
-	}
+	req.expr[aADD] = append(req.expr[aADD], expr)
 }
 
 // Add elements to set
@@ -177,7 +197,7 @@ func (op updateAdder[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 //	name.Union(x) ⟼ ADD Field :value
 func (ue UpdateExpression[T, A]) Union(val A) interface{ UpdateExpression(T) } {
 	return &updateSetOf[T, A]{
-		op:    "ADD",
+		op:    aADD,
 		setOf: ue.setOf,
 		key:   ue.key,
 		val:   val,
@@ -189,7 +209,7 @@ func (ue UpdateExpression[T, A]) Union(val A) interface{ UpdateExpression(T) } {
 //	name.Minus(x) ⟼ ADD Field :value
 func (ue UpdateExpression[T, A]) Minus(val A) interface{ UpdateExpression(T) } {
 	return &updateSetOf[T, A]{
-		op:    "DELETE",
+		op:    aDEL,
 		setOf: ue.setOf,
 		key:   ue.key,
 		val:   val,
@@ -205,7 +225,7 @@ type updateSetOf[T any, A any] struct {
 
 func (op updateSetOf[T, A]) UpdateExpression(T) {}
 
-func (op updateSetOf[T, A]) Apply(req *dynamodb.UpdateItemInput) {
+func (op updateSetOf[T, A]) Apply(req *UpdateItemInput) {
 	val, err := op.encodeValue()
 	if err != nil {
 		return
@@ -218,11 +238,7 @@ func (op updateSetOf[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 	req.ExpressionAttributeValues[eval] = val
 	expr := ekey + " " + eval
 
-	if req.UpdateExpression == nil {
-		req.UpdateExpression = aws.String(op.op + " " + expr)
-	} else {
-		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + expr)
-	}
+	req.expr[op.op] = append(req.expr[op.op], expr)
 }
 
 func (op updateSetOf[T, A]) encodeValue() (types.AttributeValue, error) {
@@ -315,7 +331,7 @@ type updateIncrement[T any, A any] struct {
 
 func (op updateIncrement[T, A]) UpdateExpression(T) {}
 
-func (op updateIncrement[T, A]) Apply(req *dynamodb.UpdateItemInput) {
+func (op updateIncrement[T, A]) Apply(req *UpdateItemInput) {
 	val, err := attributevalue.Marshal(op.val)
 	if err != nil {
 		return
@@ -327,11 +343,7 @@ func (op updateIncrement[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 	req.ExpressionAttributeNames[ekey] = op.key
 	req.ExpressionAttributeValues[eval] = val
 
-	if req.UpdateExpression == nil {
-		req.UpdateExpression = aws.String("SET " + ekey + " = " + ekey + op.op + eval)
-	} else {
-		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + ekey + " = " + ekey + op.op + eval)
-	}
+	req.expr[aSET] = append(req.expr[aSET], ekey+" = "+ekey+op.op+eval)
 }
 
 // Append element to list
@@ -356,7 +368,7 @@ type updateAppender[T any, A any] struct {
 
 func (op updateAppender[T, A]) UpdateExpression(T) {}
 
-func (op updateAppender[T, A]) Apply(req *dynamodb.UpdateItemInput) {
+func (op updateAppender[T, A]) Apply(req *UpdateItemInput) {
 	val, err := attributevalue.Marshal(op.val)
 	if err != nil {
 		return
@@ -375,11 +387,7 @@ func (op updateAppender[T, A]) Apply(req *dynamodb.UpdateItemInput) {
 		cmd = "list_append(" + eval + "," + ekey + ")"
 	}
 
-	if req.UpdateExpression == nil {
-		req.UpdateExpression = aws.String("SET " + ekey + " = " + cmd)
-	} else {
-		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + ekey + " = " + cmd)
-	}
+	req.expr[aSET] = append(req.expr[aSET], ekey+" = "+cmd)
 }
 
 // Remove attribute
@@ -395,14 +403,10 @@ type updateRemover[T any] struct {
 
 func (op updateRemover[T]) UpdateExpression(T) {}
 
-func (op updateRemover[T]) Apply(req *dynamodb.UpdateItemInput) {
+func (op updateRemover[T]) Apply(req *UpdateItemInput) {
 	ekey := "#__" + op.key + "__"
 
 	req.ExpressionAttributeNames[ekey] = op.key
 
-	if req.UpdateExpression == nil {
-		req.UpdateExpression = aws.String("REMOVE " + ekey)
-	} else {
-		req.UpdateExpression = aws.String(*req.UpdateExpression + "," + ekey)
-	}
+	req.expr[aREM] = append(req.expr[aREM], ekey)
 }
