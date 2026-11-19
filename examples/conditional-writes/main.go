@@ -13,20 +13,24 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fogfish/curie/v2"
-	"github.com/fogfish/dynamo/v3/service/ddb"
+	"github.com/fogfish/dynamo/v4/service/ddb"
+	"github.com/fogfish/gold"
 )
 
+// University and Person are classes of the identities. gold.IRI[T] is a type-safe
+// identity of the class T, it is stored in DynamoDB as a string "university:kiel".
+type University struct{}
+
 type Person struct {
-	Org     curie.IRI `dynamodbav:"prefix,omitempty"`
-	ID      curie.IRI `dynamodbav:"suffix,omitempty"`
-	Name    string    `dynamodbav:"name,omitempty"`
-	Age     int       `dynamodbav:"age,omitempty"`
-	Address string    `dynamodbav:"address,omitempty"`
+	Org     gold.IRI[University] `dynamodbav:"prefix,omitempty"`
+	ID      gold.IRI[Person]     `dynamodbav:"suffix,omitempty"`
+	Name    string               `dynamodbav:"name,omitempty"`
+	Age     int                  `dynamodbav:"age,omitempty"`
+	Address string               `dynamodbav:"address,omitempty"`
 }
 
-func (p Person) HashKey() curie.IRI { return p.Org }
-func (p Person) SortKey() curie.IRI { return p.ID }
+func (p Person) HashKey() string { return string(p.Org) }
+func (p Person) SortKey() string { return string(p.ID) }
 
 var (
 	ifName    = ddb.ClauseFor[*Person, string]("Name")
@@ -36,14 +40,7 @@ var (
 
 func main() {
 	db := ddb.Must(
-		ddb.New[*Person](os.Args[1],
-			ddb.WithPrefixes(
-				curie.Namespaces{
-					"test":   "t/kv",
-					"person": "person/",
-				},
-			),
-		),
+		ddb.New[*Person](os.Args[1]),
 	)
 
 	examplePutOptimisticLock(db)
@@ -57,8 +54,8 @@ func main() {
 
 func examplePutOptimisticLock(db *ddb.Storage[*Person]) {
 	val := Person{
-		Org:  curie.New("test", ""),
-		ID:   curie.New("person", "1"),
+		Org:  gold.ToIRI[University]("kiel"),
+		ID:   gold.ToIRI[Person]("1"),
 		Name: "Verner Pleishner",
 	}
 	err := db.Put(context.Background(), &val, ifName.Optimistic("Verner Pleishner"))
@@ -70,8 +67,8 @@ func examplePutOptimisticLock(db *ddb.Storage[*Person]) {
 	fmt.Printf("=[ put ]=> %+v\n", val)
 
 	val = Person{
-		Org:  curie.New("test", ""),
-		ID:   curie.New("person", "1"),
+		Org:  gold.ToIRI[University]("kiel"),
+		ID:   gold.ToIRI[Person]("1"),
 		Name: "Prof. Verner Pleishner",
 	}
 	err = db.Put(context.Background(), &val, ifName.Optimistic("Verner Pleishner"))
@@ -85,8 +82,8 @@ func examplePutOptimisticLock(db *ddb.Storage[*Person]) {
 
 func examplePutWithCondition(db *ddb.Storage[*Person]) {
 	val := Person{
-		Org:  curie.New("test", ""),
-		ID:   curie.New("person", "1"),
+		Org:  gold.ToIRI[University]("kiel"),
+		ID:   gold.ToIRI[Person]("1"),
 		Name: "Verner Pleishner",
 	}
 	err := db.Put(context.Background(), &val, ifName.NotExists())
@@ -100,8 +97,8 @@ func examplePutWithCondition(db *ddb.Storage[*Person]) {
 
 func exampleUpdateWithConditionOne(db *ddb.Storage[*Person]) {
 	patch := &Person{
-		Org:     curie.New("test", ""),
-		ID:      curie.New("person", "1"),
+		Org:     gold.ToIRI[University]("kiel"),
+		ID:      gold.ToIRI[Person]("1"),
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
 	}
@@ -116,8 +113,8 @@ func exampleUpdateWithConditionOne(db *ddb.Storage[*Person]) {
 
 func exampleUpdateWithConditionFew(db *ddb.Storage[*Person]) {
 	patch := &Person{
-		Org:     curie.New("test", ""),
-		ID:      curie.New("person", "1"),
+		Org:     gold.ToIRI[University]("kiel"),
+		ID:      gold.ToIRI[Person]("1"),
 		Age:     66,
 		Address: "Viktoriastrasse 37, Berne, 3013",
 	}
@@ -136,8 +133,8 @@ func exampleUpdateWithConditionFew(db *ddb.Storage[*Person]) {
 
 func exampleRemoveWithCondition(db *ddb.Storage[*Person]) {
 	key := &Person{
-		Org: curie.New("test", ""),
-		ID:  curie.New("person", "1"),
+		Org: gold.ToIRI[University]("kiel"),
+		ID:  gold.ToIRI[Person]("1"),
 	}
 	val, err := db.Remove(context.Background(), key, ifName.Exists())
 	if err != nil {

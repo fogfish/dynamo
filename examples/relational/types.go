@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/fogfish/curie/v2"
+	"github.com/fogfish/gold"
 )
 
 // Author of articles with-in fictional arxiv.org application.
@@ -16,21 +16,23 @@ import (
 // sharding suffix can also be employed if needed.
 //
 // HashKey is
-// curie.New("author", "neumann")
+// gold.ToIRI[Author]("neumann")
 // ⟿ author:neumann
+//
+// SortKey is undefined, the library stores it as a placeholder.
 type Author struct {
-	ID   curie.IRI `dynamodbav:"prefix,omitempty"`
-	Name string    `dynamodbav:"name,omitempty" json:"name,omitempty"`
+	ID   gold.IRI[Author] `dynamodbav:"prefix,omitempty"`
+	Name string           `dynamodbav:"name,omitempty" json:"name,omitempty"`
 }
 
 // Identity implements Thing interface
-func (author Author) HashKey() curie.IRI { return author.ID }
-func (author Author) SortKey() curie.IRI { return curie.IRI("_") }
+func (author Author) HashKey() string { return string(author.ID) }
+func (author Author) SortKey() string { return "" }
 
 // NewAuthor creates instance of author
 func NewAuthor(id, name string) Author {
 	return Author{
-		ID:   curie.New("author", id),
+		ID:   gold.ToIRI[Author](id),
 		Name: name,
 	}
 }
@@ -48,30 +50,33 @@ func NewAuthor(id, name string) Author {
 // the partition key, article id is a sort key
 //
 // HashKey is
-// curie.New("author", "neumann")
+// gold.ToIRI[Author]("neumann")
 // ⟿ author:neumann
 //
 // SortKey is
-// curie.New("article", "theory_of_automata")
+// gold.ToIRI[Article]("theory_of_automata")
 // ⟿ article:theory_of_automata
+//
+// All articles of the author are looked up using the prefix gold.Any[Article]()
+// ⟿ article:
 type Article struct {
-	Author   curie.IRI `dynamodbav:"prefix,omitempty"`
-	ID       curie.IRI `dynamodbav:"suffix,omitempty"`
-	Title    string    `dynamodbav:"title,omitempty" json:"title,omitempty"`
-	Category string    `dynamodbav:"category,omitempty" json:"category,omitempty"`
-	Year     string    `dynamodbav:"year,omitempty" json:"year,omitempty"`
+	Author   gold.IRI[Author]  `dynamodbav:"prefix,omitempty"`
+	ID       gold.IRI[Article] `dynamodbav:"suffix,omitempty"`
+	Title    string            `dynamodbav:"title,omitempty" json:"title,omitempty"`
+	Category string            `dynamodbav:"category,omitempty" json:"category,omitempty"`
+	Year     string            `dynamodbav:"year,omitempty" json:"year,omitempty"`
 }
 
 // Identity implements Thing interface
-func (article Article) HashKey() curie.IRI { return article.Author }
-func (article Article) SortKey() curie.IRI { return article.ID }
+func (article Article) HashKey() string { return string(article.Author) }
+func (article Article) SortKey() string { return string(article.ID) }
 
 // Category is a projection of the Article to different index
 type Category Article
 
 // Identity implements Thing interface
-func (article Category) HashKey() curie.IRI { return curie.IRI(article.Category) }
-func (article Category) SortKey() curie.IRI { return curie.IRI(article.Year) }
+func (article Category) HashKey() string { return article.Category }
+func (article Category) SortKey() string { return article.Year }
 
 // NewArticle creates instance of Article
 func NewArticle(author string, id, title string) Article {
@@ -81,13 +86,23 @@ func NewArticle(author string, id, title string) Article {
 	}
 
 	return Article{
-		Author:   curie.New("author", author),
-		ID:       curie.New("article", id),
+		Author:   gold.ToIRI[Author](author),
+		ID:       gold.ToIRI[Article](id),
 		Title:    title,
 		Category: category,
 		Year:     fmt.Sprintf("%d", 1930+rand.Intn(40)),
 	}
 }
+
+// ArticleRef is a globally unique reference to the article. The article's
+// identity is unique only within the scope of the author, therefore the
+// reference is a composite (Imply) of the author and the article.
+//
+//	author:neumann|article:theory_of_automata
+//
+// Imply is declared as an alias, the type keeps methods of gold.Imply and
+// is stored as a string.
+type ArticleRef = gold.Imply[Author, Article]
 
 // Keyword is contained by Article (Keyword ⁿ⟼ⁿ Article)
 //
@@ -100,52 +115,57 @@ func NewArticle(author string, id, title string) Article {
 // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-adjacency-graphs.html#bp-adjacency-lists
 //
 // The global secondary index implicitly maintains two adjacency lists.
-// The first one is the forward article-to-keyword, the second one is
-// an inverse keyword-to-article. It is possible to craft these lists
-// explicitly. The composed sort key builds for this lists:
+// The first one is the forward keyword-to-article, the second one is
+// an inverse article-to-keyword. It is possible to craft these lists
+// explicitly. Each direction is a distinct type, the type-safe identity
+// makes it impossible to mix them.
+//
+// Keyword (forward)
 //
 // HashKey is
-// curie.New("keyword:%s", "theory")
+// gold.ToIRI[Keyword]("theory")
 // ⟿ keyword:theory
 //
 // SortKey is
-// curie.New("article:%s/%s", "neumann", "theory_of_automata")
-// ⟿ article:neumann/theory_of_automata
+// gold.ImplyFrom(gold.ToIRI[Author]("neumann"), gold.ToIRI[Article]("theory_of_automata"))
+// ⟿ author:neumann|article:theory_of_automata
 //
-// and inverse
-//
-// HashKey is
-// ⟿ article:neumann/theory_of_automata
-//
-// SortKey is
-// ⟿ keyword:theory
+// The partial Imply gold.ImplyFrom(gold.ToIRI[Author]("neumann"), gold.IRI[Article](""))
+// ⟿ author:neumann|
+// selects all articles of the author. The trailing separator is prefix-safe.
 type Keyword struct {
-	HKey curie.IRI `dynamodbav:"prefix,omitempty"`
-	SKey curie.IRI `dynamodbav:"suffix,omitempty"`
-	Text string    `dynamodbav:"text,omitempty" json:"text,omitempty"`
+	HKey gold.IRI[Keyword] `dynamodbav:"prefix,omitempty"`
+	SKey ArticleRef        `dynamodbav:"suffix,omitempty"`
+	Text string            `dynamodbav:"text,omitempty" json:"text,omitempty"`
 }
 
 // Identity implements Thing interface
-func (keyword Keyword) HashKey() curie.IRI { return keyword.HKey }
-func (keyword Keyword) SortKey() curie.IRI { return keyword.SKey }
+func (keyword Keyword) HashKey() string { return string(keyword.HKey) }
+func (keyword Keyword) SortKey() string { return keyword.SKey.String() }
+
+// ArticleKeyword is an inverse relation Article ⟼ Keyword
+//
+// HashKey is
+// ⟿ author:neumann|article:theory_of_automata
+//
+// SortKey is
+// ⟿ keyword:theory
+type ArticleKeyword struct {
+	HKey ArticleRef        `dynamodbav:"prefix"`
+	SKey gold.IRI[Keyword] `dynamodbav:"suffix,omitempty"`
+	Text string            `dynamodbav:"text,omitempty" json:"text,omitempty"`
+}
+
+// Identity implements Thing interface
+func (keyword ArticleKeyword) HashKey() string { return keyword.HKey.String() }
+func (keyword ArticleKeyword) SortKey() string { return string(keyword.SKey) }
 
 // NewKeyword explicitly creates pair of Keyword ⟼ Article and
 // Article ⟼ Keyword relations.
-func NewKeyword(author, article, title, keyword string) []Keyword {
-	hashKey := curie.New("keyword", keyword)
-	sortKey := curie.New("article", "%s/%s", author, article)
+func NewKeyword(author, article, title, keyword string) (Keyword, ArticleKeyword) {
+	kw := gold.ToIRI[Keyword](keyword)
+	ref := gold.ImplyFrom(gold.ToIRI[Author](author), gold.ToIRI[Article](article))
 
-	return []Keyword{
-		{HKey: hashKey, SKey: sortKey, Text: title},
-		{HKey: sortKey, SKey: hashKey, Text: keyword},
-	}
-}
-
-// Keywords is a sequence of Keywords
-type Keywords []Keyword
-
-// Join generic element into sequence
-func (seq *Keywords) Join(val Keyword) error {
-	*seq = append(*seq, val)
-	return nil
+	return Keyword{HKey: kw, SKey: ref, Text: title},
+		ArticleKeyword{HKey: ref, SKey: kw, Text: keyword}
 }

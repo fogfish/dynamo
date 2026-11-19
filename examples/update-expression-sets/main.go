@@ -13,18 +13,20 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fogfish/curie/v2"
-	"github.com/fogfish/dynamo/v3/service/ddb"
+	"github.com/fogfish/dynamo/v4/service/ddb"
+	"github.com/fogfish/gold"
 )
 
+type Example struct{}
+
 type Tag struct {
-	HKey curie.IRI `dynamodbav:"prefix,omitempty"`
-	SKey curie.IRI `dynamodbav:"suffix,omitempty"`
-	Tags []string  `dynamodbav:"tags,omitempty,stringset"`
+	HKey gold.IRI[Example] `dynamodbav:"prefix,omitempty"`
+	SKey gold.IRI[Tag]     `dynamodbav:"suffix,omitempty"`
+	Tags []string          `dynamodbav:"tags,omitempty,stringset"`
 }
 
-func (tag Tag) HashKey() curie.IRI { return tag.HKey }
-func (tag Tag) SortKey() curie.IRI { return tag.SKey }
+func (tag Tag) HashKey() string { return string(tag.HKey) }
+func (tag Tag) SortKey() string { return string(tag.SKey) }
 
 var (
 	Tags = ddb.UpdateFor[Tag, []string]("Tags")
@@ -41,7 +43,7 @@ func main() {
 }
 
 func exampleCreateTags(db *ddb.Storage[Tag]) {
-	key := Tag{HKey: "example:", SKey: "tags:1"}
+	key := Tag{HKey: gold.ToIRI[Example]("main"), SKey: gold.ToIRI[Tag]("1")}
 
 	val, err := db.UpdateWith(context.Background(),
 		ddb.Updater(key, Tags.Union([]string{"test", "example"})),
@@ -55,7 +57,7 @@ func exampleCreateTags(db *ddb.Storage[Tag]) {
 }
 
 func exampleUpdateTags(db *ddb.Storage[Tag]) {
-	key := Tag{HKey: "example:", SKey: "tags:1"}
+	key := Tag{HKey: gold.ToIRI[Example]("main"), SKey: gold.ToIRI[Tag]("1")}
 
 	val, err := db.UpdateWith(context.Background(),
 		ddb.Updater(key, Tags.Union([]string{"dynamo"})),
@@ -69,7 +71,7 @@ func exampleUpdateTags(db *ddb.Storage[Tag]) {
 }
 
 func exampleRemoveTags(db *ddb.Storage[Tag]) {
-	key := Tag{HKey: "example:", SKey: "tags:1"}
+	key := Tag{HKey: gold.ToIRI[Example]("main"), SKey: gold.ToIRI[Tag]("1")}
 
 	val, err := db.UpdateWith(context.Background(),
 		ddb.Updater(key, Tags.Minus([]string{"dynamo", "test"})),

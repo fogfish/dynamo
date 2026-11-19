@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/opts"
 )
 
@@ -29,7 +28,7 @@ type DynamoDB interface {
 	BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error)
 }
 
-// Option type to configure the S3
+// Option type to configure the DynamoDB client
 type Option = opts.Option[Options]
 
 // Config Options
@@ -56,9 +55,6 @@ var (
 
 	// Configure the custom name for SortKey, default one is "suffix"
 	WithSortKey = opts.ForName[Options, string]("sortKey")
-
-	// Configure CURIE prefixes, does nothing for DynamoDB
-	WithPrefixes = opts.FMap(func(*Options, curie.Prefixes) error { return nil })
 
 	// Enables strict serialization of the type, the I/O would fails
 	// if type attributes does not match the storage schema.

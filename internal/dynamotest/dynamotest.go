@@ -18,8 +18,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/fogfish/curie/v2"
-	"github.com/fogfish/dynamo/v3"
+	"github.com/fogfish/dynamo/v4"
+	"github.com/fogfish/gold"
 	"github.com/fogfish/it"
 )
 
@@ -27,15 +27,18 @@ import (
 Person is a type used for testing
 */
 type Person struct {
-	Prefix  curie.IRI `dynamodbav:"prefix,omitempty"`
-	Suffix  curie.IRI `dynamodbav:"suffix,omitempty"`
-	Name    string    `dynamodbav:"name,omitempty"`
-	Age     int       `dynamodbav:"age,omitempty"`
-	Address string    `dynamodbav:"address,omitempty"`
+	Prefix  gold.IRI[Dead]   `dynamodbav:"prefix,omitempty"`
+	Suffix  gold.IRI[Person] `dynamodbav:"suffix,omitempty"`
+	Name    string           `dynamodbav:"name,omitempty"`
+	Age     int              `dynamodbav:"age,omitempty"`
+	Address string           `dynamodbav:"address,omitempty"`
 }
 
-func (p Person) HashKey() curie.IRI { return p.Prefix }
-func (p Person) SortKey() curie.IRI { return p.Suffix }
+// Dead is a class of the hash key
+type Dead struct{}
+
+func (p Person) HashKey() string { return string(p.Prefix) }
+func (p Person) SortKey() string { return string(p.Suffix) }
 
 // Use type aliases and methods to implement FMap
 type Persons []Person
@@ -47,21 +50,21 @@ func (seq *Persons) Join(val Person) error {
 
 func fixtureKey() Person {
 	return Person{
-		Prefix: curie.IRI("dead:beef"),
-		Suffix: curie.IRI("1"),
+		Prefix: gold.ToIRI[Dead]("beef"),
+		Suffix: gold.ToIRI[Person]("1"),
 	}
 }
 
 func fixtureKeyHashOnly() Person {
 	return Person{
-		Prefix: curie.IRI("dead:beef"),
+		Prefix: gold.ToIRI[Dead]("beef"),
 	}
 }
 
 func fixtureVal() Person {
 	return Person{
-		Prefix:  curie.IRI("dead:beef"),
-		Suffix:  curie.IRI("1"),
+		Prefix:  gold.ToIRI[Dead]("beef"),
+		Suffix:  gold.ToIRI[Person]("1"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -70,8 +73,8 @@ func fixtureVal() Person {
 
 func fixturePatch() Person {
 	return Person{
-		Prefix: curie.IRI("dead:beef"),
-		Suffix: curie.IRI("1"),
+		Prefix: gold.ToIRI[Dead]("beef"),
+		Suffix: gold.ToIRI[Person]("1"),
 		Age:    64,
 	}
 }
@@ -304,7 +307,7 @@ func TestMatch[S any](
 		keys1 := filepath.Join(string(thing1.HashKey()), string(thing1.SortKey()))
 
 		it.Ok(t).
-			If(string(keys0)).Equal("dead:beef/1").
-			If(string(keys1)).Equal("dead:beef/1")
+			If(string(keys0)).Equal("dead:beef/person:1").
+			If(string(keys1)).Equal("dead:beef/person:1")
 	})
 }

@@ -14,8 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/curie/v2"
-	"github.com/fogfish/dynamo/v3"
+	"github.com/fogfish/dynamo/v4"
 )
 
 // Match applies a pattern matching to elements in the table
@@ -90,9 +89,9 @@ func (db *Storage[T]) reqQuery(
 			if prefix != "" {
 				key := map[string]types.AttributeValue{}
 
-				key[db.codec.pkPrefix] = &types.AttributeValueMemberS{Value: string(prefix)}
+				key[db.codec.pkPrefix] = &types.AttributeValueMemberS{Value: prefix}
 				if suffix != "" {
-					key[db.codec.skSuffix] = &types.AttributeValueMemberS{Value: string(suffix)}
+					key[db.codec.skSuffix] = &types.AttributeValueMemberS{Value: suffix}
 				} else {
 					key[db.codec.skSuffix] = &types.AttributeValueMemberS{Value: "_"}
 				}
@@ -140,8 +139,8 @@ func exprOf(gen map[string]types.AttributeValue) (val map[string]types.Attribute
 
 type cursor struct{ hashKey, sortKey string }
 
-func (c cursor) HashKey() curie.IRI { return curie.IRI(c.hashKey) }
-func (c cursor) SortKey() curie.IRI { return curie.IRI(c.sortKey) }
+func (c cursor) HashKey() string { return c.hashKey }
+func (c cursor) SortKey() string { return c.sortKey }
 
 func lastKeyToCursor[T dynamo.Thing](codec *codec[T], val *dynamodb.QueryOutput) interface{ MatcherOpt(T) } {
 	if val.LastEvaluatedKey == nil {

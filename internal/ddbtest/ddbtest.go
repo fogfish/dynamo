@@ -21,9 +21,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	"github.com/fogfish/curie/v2"
-	"github.com/fogfish/dynamo/v3"
-	ddbapi "github.com/fogfish/dynamo/v3/service/ddb"
+	"github.com/fogfish/dynamo/v4"
+	ddbapi "github.com/fogfish/dynamo/v4/service/ddb"
 )
 
 /*
@@ -34,7 +33,6 @@ func mock[T dynamo.Thing](mock ddbapi.DynamoDB) dynamo.KeyVal[T] {
 		ddbapi.New[T]("test",
 			ddbapi.WithGlobalSecondaryIndex(""),
 			ddbapi.WithService(mock),
-			ddbapi.WithPrefixes(curie.Namespaces{}),
 			ddbapi.WithHashKey("prefix"),
 			ddbapi.WithSortKey("suffix"),
 			ddbapi.WithStrictType(true),

@@ -17,8 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	"github.com/fogfish/curie/v2"
-	dynamo "github.com/fogfish/dynamo/v3/service/ddb"
+	dynamo "github.com/fogfish/dynamo/v4/service/ddb"
+	"github.com/fogfish/gold"
 	"github.com/fogfish/it"
 )
 
@@ -51,8 +51,8 @@ type codecStruct struct {
 	City string    `dynamodbav:"city"`
 }
 
-func (s codecStruct) HashKey() curie.IRI { return curie.IRI(s.ID.Val) }
-func (s codecStruct) SortKey() curie.IRI { return curie.IRI(s.Type.Val) }
+func (s codecStruct) HashKey() string { return s.ID.Val }
+func (s codecStruct) SortKey() string { return s.Type.Val }
 
 var (
 	lensCodecID   = dynamo.Codec[codecStruct, codecTypeDB]("ID")
@@ -86,7 +86,7 @@ func TestCodecDecode(t *testing.T) {
 	}
 
 	var val codecStruct
-	err := attributevalue.Unmarshal(av, &val)
+	err := tAVUnmarshal(av, &val)
 
 	it.Ok(t).
 		IfNil(err).
@@ -104,7 +104,7 @@ func TestCodecEncode(t *testing.T) {
 		City: "myCity",
 	}
 
-	av, err := attributevalue.Marshal(val)
+	av, err := tAVMarshal(val)
 	tv, ok := av.(*types.AttributeValueMemberM)
 
 	it.Ok(t).
@@ -116,28 +116,31 @@ func TestCodecEncode(t *testing.T) {
 		If(tv.Value["city"].(*types.AttributeValueMemberS).Value).Equal("myCity")
 }
 
+type codecHKey struct{}
+type codecLink struct{}
+
 type codecMyType struct {
-	HKey curie.IRI  `dynamodbav:"hkey,omitempty"`
-	SKey curie.IRI  `dynamodbav:"skey,omitempty"`
-	Link *curie.IRI `dynamodbav:"link,omitempty"`
+	HKey gold.IRI[codecHKey]   `dynamodbav:"hkey,omitempty"`
+	SKey gold.IRI[codecMyType] `dynamodbav:"skey,omitempty"`
+	Link *gold.IRI[codecLink]  `dynamodbav:"link,omitempty"`
 }
 
-func (s codecMyType) HashKey() curie.IRI { return s.HKey }
-func (s codecMyType) SortKey() curie.IRI { return s.SKey }
+func (s codecMyType) HashKey() string { return string(s.HKey) }
+func (s codecMyType) SortKey() string { return string(s.SKey) }
 
 func TestCodecEncodeDecode(t *testing.T) {
-	link := curie.IRI("test:a/b/c")
+	link := gold.ToIRI[codecLink]("a/b/c")
 	core := codecMyType{
-		HKey: curie.IRI("test:a/b"),
-		SKey: curie.IRI("c/d"),
+		HKey: gold.ToIRI[codecHKey]("a/b"),
+		SKey: gold.ToIRI[codecMyType]("c/d"),
 		Link: &link,
 	}
 
-	av, err := attributevalue.Marshal(core)
+	av, err := tAVMarshal(core)
 	it.Ok(t).IfNil(err)
 
 	var some codecMyType
-	err = attributevalue.Unmarshal(av, &some)
+	err = tAVUnmarshal(av, &some)
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
@@ -148,15 +151,15 @@ func TestCodecEncodeDecode(t *testing.T) {
 
 func TestCodecEncodeDecodeKeyOnly(t *testing.T) {
 	core := codecMyType{
-		HKey: curie.IRI("test:a/b"),
-		SKey: curie.IRI("c/d"),
+		HKey: gold.ToIRI[codecHKey]("a/b"),
+		SKey: gold.ToIRI[codecMyType]("c/d"),
 	}
 
-	av, err := attributevalue.Marshal(core)
+	av, err := tAVMarshal(core)
 	it.Ok(t).IfNil(err)
 
 	var some codecMyType
-	err = attributevalue.Unmarshal(av, &some)
+	err = tAVUnmarshal(av, &some)
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
@@ -166,14 +169,14 @@ func TestCodecEncodeDecodeKeyOnly(t *testing.T) {
 
 func TestCodecEncodeDecodeKeyOnlyHash(t *testing.T) {
 	core := codecMyType{
-		HKey: curie.IRI("test:a/b"),
+		HKey: gold.ToIRI[codecHKey]("a/b"),
 	}
 
-	av, err := attributevalue.Marshal(core)
+	av, err := tAVMarshal(core)
 	it.Ok(t).IfNil(err)
 
 	var some codecMyType
-	err = attributevalue.Unmarshal(av, &some)
+	err = tAVUnmarshal(av, &some)
 	it.Ok(t).IfNil(err)
 
 	it.Ok(t).
@@ -192,22 +195,22 @@ func (x *codecTypeBad) UnmarshalDynamoDBAttributeValue(types.AttributeValue) err
 }
 
 type codecBadType struct {
-	HKey curie.IRI    `dynamodbav:"hkey"`
-	SKey curie.IRI    `dynamodbav:"skey"`
-	Link codecTypeBad `dynamodbav:"link,omitempty"`
+	HKey gold.IRI[codecHKey]    `dynamodbav:"hkey"`
+	SKey gold.IRI[codecBadType] `dynamodbav:"skey"`
+	Link codecTypeBad           `dynamodbav:"link,omitempty"`
 }
 
-func (s codecBadType) HashKey() curie.IRI { return s.HKey }
-func (s codecBadType) SortKey() curie.IRI { return s.SKey }
+func (s codecBadType) HashKey() string { return string(s.HKey) }
+func (s codecBadType) SortKey() string { return string(s.SKey) }
 
 func TestCodecEncodeBadType(t *testing.T) {
 	core := codecBadType{
-		HKey: curie.IRI("test:a/b"),
-		SKey: curie.IRI("c/d"),
+		HKey: gold.ToIRI[codecHKey]("a/b"),
+		SKey: gold.ToIRI[codecBadType]("c/d"),
 		Link: codecTypeBad{Val: "test:a/b/c"},
 	}
 
-	_, err := attributevalue.Marshal(core)
+	_, err := tAVMarshal(core)
 	it.Ok(t).IfNotNil(err)
 }
 
@@ -221,7 +224,7 @@ func TestCodecDecodeBadType(t *testing.T) {
 	}
 
 	var val codecBadType
-	err := attributevalue.Unmarshal(av, &val)
+	err := tAVUnmarshal(av, &val)
 	it.Ok(t).IfNotNil(err)
 }
 
@@ -265,7 +268,7 @@ func TestCodecEncodeBadStruct(t *testing.T) {
 		Link: codecType{Val: "test:a/b/c"},
 	}
 
-	_, err := attributevalue.Marshal(core)
+	_, err := tAVMarshal(core)
 	it.Ok(t).IfNotNil(err)
 }
 
@@ -279,49 +282,51 @@ func TestCodecDecodeBadStruct(t *testing.T) {
 	}
 
 	var val codecBadStruct
-	err := attributevalue.Unmarshal(av, &val)
+	err := tAVUnmarshal(av, &val)
 	it.Ok(t).IfNotNil(err)
 }
 
+type Foo struct{}
+
 type Item struct {
-	Prefix curie.IRI  `json:"prefix,omitempty"  dynamodbav:"prefix,omitempty"`
-	Suffix curie.IRI  `json:"suffix,omitempty"  dynamodbav:"suffix,omitempty"`
-	Ref    *curie.IRI `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
-	Tag    string     `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
+	Prefix gold.IRI[Foo]   `json:"prefix,omitempty"  dynamodbav:"prefix,omitempty"`
+	Suffix gold.IRI[Item]  `json:"suffix,omitempty"  dynamodbav:"suffix,omitempty"`
+	Ref    *gold.IRI[Item] `json:"ref,omitempty"  dynamodbav:"ref,omitempty"`
+	Tag    string          `json:"tag,omitempty"  dynamodbav:"tag,omitempty"`
 }
 
 func fixtureItem() Item {
-	ref := curie.IRI("foo:a/suffix")
+	ref := gold.ToIRI[Item]("a/suffix")
 	return Item{
-		Prefix: curie.IRI("foo:prefix"),
-		Suffix: curie.IRI("suffix"),
+		Prefix: gold.ToIRI[Foo]("prefix"),
+		Suffix: gold.ToIRI[Item]("suffix"),
 		Ref:    &ref,
 		Tag:    "tag",
 	}
 }
 
 func fixtureJson() string {
-	return "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\",\"ref\":\"[foo:a/suffix]\",\"tag\":\"tag\"}"
+	return "{\"prefix\":\"foo:prefix\",\"suffix\":\"item:suffix\",\"ref\":\"item:a/suffix\",\"tag\":\"tag\"}"
 }
 
 func fixtureDynamo() map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
 		"prefix": &types.AttributeValueMemberS{Value: "foo:prefix"},
-		"suffix": &types.AttributeValueMemberS{Value: "suffix"},
-		"ref":    &types.AttributeValueMemberS{Value: "foo:a/suffix"},
+		"suffix": &types.AttributeValueMemberS{Value: "item:suffix"},
+		"ref":    &types.AttributeValueMemberS{Value: "item:a/suffix"},
 		"tag":    &types.AttributeValueMemberS{Value: "tag"},
 	}
 }
 
 func fixtureEmptyItem() Item {
 	return Item{
-		Prefix: curie.IRI("foo:prefix"),
-		Suffix: curie.IRI("suffix"),
+		Prefix: gold.ToIRI[Foo]("prefix"),
+		Suffix: gold.ToIRI[Item]("suffix"),
 	}
 }
 
 func fixtureEmptyJson() string {
-	return "{\"prefix\":\"[foo:prefix]\",\"suffix\":\"[suffix]\"}"
+	return "{\"prefix\":\"foo:prefix\",\"suffix\":\"item:suffix\"}"
 }
 
 func TestMarshalJSON(t *testing.T) {
@@ -357,7 +362,7 @@ func TestUnmarshalEmptyJSON(t *testing.T) {
 }
 
 func TestMarshalDynamo(t *testing.T) {
-	gen, err := attributevalue.MarshalMap(fixtureItem())
+	gen, err := tAVMarshalMap(fixtureItem())
 
 	it.Ok(t).
 		If(err).Should().Equal(nil).
@@ -368,6 +373,23 @@ func TestUnmarshalDynamo(t *testing.T) {
 	var item Item
 
 	it.Ok(t).
-		If(attributevalue.UnmarshalMap(fixtureDynamo(), &item)).Should().Equal(nil).
+		If(tAVUnmarshalMap(fixtureDynamo(), &item)).Should().Equal(nil).
 		If(item).Should().Equal(fixtureItem())
+}
+
+// the test helpers use the same codec configuration as the library
+func tAVMarshal(v any) (types.AttributeValue, error) {
+	return attributevalue.MarshalWithOptions(v, func(o *attributevalue.EncoderOptions) { o.UseEncodingMarshalers = true })
+}
+
+func tAVMarshalMap(v any) (map[string]types.AttributeValue, error) {
+	return attributevalue.MarshalMapWithOptions(v, func(o *attributevalue.EncoderOptions) { o.UseEncodingMarshalers = true })
+}
+
+func tAVUnmarshal(av types.AttributeValue, v any) error {
+	return attributevalue.UnmarshalWithOptions(av, v, func(o *attributevalue.DecoderOptions) { o.UseEncodingUnmarshalers = true })
+}
+
+func tAVUnmarshalMap(m map[string]types.AttributeValue, v any) error {
+	return attributevalue.UnmarshalMapWithOptions(m, v, func(o *attributevalue.DecoderOptions) { o.UseEncodingUnmarshalers = true })
 }

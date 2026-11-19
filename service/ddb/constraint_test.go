@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/it"
 )
 
@@ -21,8 +20,8 @@ type tConstrain struct {
 	Name string `dynamodbav:"anothername,omitempty"`
 }
 
-func (tConstrain) HashKey() curie.IRI { return "" }
-func (tConstrain) SortKey() curie.IRI { return "" }
+func (tConstrain) HashKey() string { return "" }
+func (tConstrain) SortKey() string { return "" }
 
 var (
 	Name = ClauseFor[tConstrain, string]("Name")

@@ -14,8 +14,6 @@ package dynamo
 
 import (
 	"context"
-
-	"github.com/fogfish/curie/v2"
 )
 
 //-----------------------------------------------------------------------------
@@ -29,9 +27,15 @@ import (
 //
 // The interfaces declares anything that have a unique identifier.
 // The unique identity is exposed by pair of string: HashKey and SortKey.
+//
+// Keys are opaque strings to the library. Model them with gold types
+// (gold.IRI[T], gold.Imply[A, B]) and convert them in the methods.
+//
+//	func (p Professor) HashKey() string { return string(p.Org) }
+//	func (p Professor) SortKey() string { return string(p.ID) }
 type Thing interface {
-	HashKey() curie.IRI
-	SortKey() curie.IRI
+	HashKey() string
+	SortKey() string
 }
 
 //-----------------------------------------------------------------------------

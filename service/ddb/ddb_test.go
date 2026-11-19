@@ -15,28 +15,30 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/curie/v2"
-	"github.com/fogfish/dynamo/v3/internal/ddbtest"
-	"github.com/fogfish/dynamo/v3/internal/dynamotest"
-	"github.com/fogfish/dynamo/v3/service/ddb"
+	"github.com/fogfish/dynamo/v4/internal/ddbtest"
+	"github.com/fogfish/dynamo/v4/internal/dynamotest"
+	"github.com/fogfish/dynamo/v4/service/ddb"
+	"github.com/fogfish/gold"
 	"github.com/fogfish/it/v2"
 )
 
+type dead struct{}
+
 type person struct {
-	Prefix  curie.IRI `dynamodbav:"prefix,omitempty"`
-	Suffix  curie.IRI `dynamodbav:"suffix,omitempty"`
-	Name    string    `dynamodbav:"name,omitempty"`
-	Age     int       `dynamodbav:"age,omitempty"`
-	Address string    `dynamodbav:"address,omitempty"`
+	Prefix  gold.IRI[dead]   `dynamodbav:"prefix,omitempty"`
+	Suffix  gold.IRI[person] `dynamodbav:"suffix,omitempty"`
+	Name    string           `dynamodbav:"name,omitempty"`
+	Age     int              `dynamodbav:"age,omitempty"`
+	Address string           `dynamodbav:"address,omitempty"`
 }
 
-func (p person) HashKey() curie.IRI { return p.Prefix }
-func (p person) SortKey() curie.IRI { return p.Suffix }
+func (p person) HashKey() string { return string(p.Prefix) }
+func (p person) SortKey() string { return string(p.Suffix) }
 
 func entityStruct() person {
 	return person{
-		Prefix:  curie.IRI("dead:beef"),
-		Suffix:  curie.IRI("1"),
+		Prefix:  gold.ToIRI[dead]("beef"),
+		Suffix:  gold.ToIRI[person]("1"),
 		Name:    "Verner Pleishner",
 		Age:     64,
 		Address: "Blumenstrasse 14, Berne, 3013",
@@ -45,15 +47,15 @@ func entityStruct() person {
 
 func entityStructKey() person {
 	return person{
-		Prefix: curie.IRI("dead:beef"),
-		Suffix: curie.IRI("1"),
+		Prefix: gold.ToIRI[dead]("beef"),
+		Suffix: gold.ToIRI[person]("1"),
 	}
 }
 
 func entityDynamo() map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
 		"prefix":  &types.AttributeValueMemberS{Value: "dead:beef"},
-		"suffix":  &types.AttributeValueMemberS{Value: "1"},
+		"suffix":  &types.AttributeValueMemberS{Value: "person:1"},
 		"address": &types.AttributeValueMemberS{Value: "Blumenstrasse 14, Berne, 3013"},
 		"name":    &types.AttributeValueMemberS{Value: "Verner Pleishner"},
 		"age":     &types.AttributeValueMemberN{Value: "64"},
@@ -63,12 +65,14 @@ func entityDynamo() map[string]types.AttributeValue {
 func entityDynamoKey() map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
 		"prefix": &types.AttributeValueMemberS{Value: "dead:beef"},
-		"suffix": &types.AttributeValueMemberS{Value: "1"},
+		"suffix": &types.AttributeValueMemberS{Value: "person:1"},
 	}
 }
 
 func codec(p dynamotest.Person) (map[string]types.AttributeValue, error) {
-	return attributevalue.MarshalMap(p)
+	return attributevalue.MarshalMapWithOptions(p, func(o *attributevalue.EncoderOptions) {
+		o.UseEncodingMarshalers = true
+	})
 }
 
 func TestNew(t *testing.T) {
@@ -117,8 +121,8 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 	name := ddb.ClauseFor[person, string]("Name")
 	ddb := ddbtest.Constrains[person](entityDynamo())
 	patch := person{
-		Prefix: curie.IRI("dead:beef"),
-		Suffix: curie.IRI("1"),
+		Prefix: gold.ToIRI[dead]("beef"),
+		Suffix: gold.ToIRI[person]("1"),
 		Age:    65,
 	}
 
@@ -135,7 +139,7 @@ func TestDdbUpdateWithConstrain(t *testing.T) {
 func TestDdbUpdateWithExpression(t *testing.T) {
 	fixtureKey := map[string]types.AttributeValue{
 		"prefix": &types.AttributeValueMemberS{Value: "dead:beef"},
-		"suffix": &types.AttributeValueMemberS{Value: "1"},
+		"suffix": &types.AttributeValueMemberS{Value: "person:1"},
 	}
 
 	fixtureVal := map[string]types.AttributeValue{
@@ -144,15 +148,15 @@ func TestDdbUpdateWithExpression(t *testing.T) {
 
 	returnVal := map[string]types.AttributeValue{
 		"prefix":  &types.AttributeValueMemberS{Value: "dead:beef"},
-		"suffix":  &types.AttributeValueMemberS{Value: "1"},
+		"suffix":  &types.AttributeValueMemberS{Value: "person:1"},
 		"address": &types.AttributeValueMemberS{Value: "Blumenstrasse 14, Berne, 3013"},
 		"name":    &types.AttributeValueMemberS{Value: "Verner Pleishner"},
 		"age":     &types.AttributeValueMemberN{Value: "64"},
 	}
 
 	key := person{
-		Prefix: curie.IRI("dead:beef"),
-		Suffix: curie.IRI("1"),
+		Prefix: gold.ToIRI[dead]("beef"),
+		Suffix: gold.ToIRI[person]("1"),
 	}
 	age := ddb.UpdateFor[person, int]("Age")
 	db := ddbtest.UpdateItem[person](&fixtureKey, &fixtureVal, &returnVal).(*ddb.Storage[person])
