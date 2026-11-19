@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/curie/v2"
 	"github.com/fogfish/it/v2"
 )
 
@@ -25,8 +24,8 @@ type tUpdatable struct {
 	BSet [][]byte `dynamodbav:"anotherbset,omitempty,binaryset"`
 }
 
-func (tUpdatable) HashKey() curie.IRI { return "" }
-func (tUpdatable) SortKey() curie.IRI { return "" }
+func (tUpdatable) HashKey() string { return "" }
+func (tUpdatable) SortKey() string { return "" }
 
 var (
 	dslName       = UpdateFor[tUpdatable, string]("Name")

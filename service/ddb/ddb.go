@@ -9,7 +9,7 @@
 package ddb
 
 import (
-	"github.com/fogfish/dynamo/v3"
+	"github.com/fogfish/dynamo/v4"
 	"github.com/fogfish/opts"
 )
 

@@ -13,10 +13,9 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/dynamo/v3"
+	"github.com/fogfish/dynamo/v4"
 	"github.com/fogfish/golem/hseq"
 )
 
@@ -141,7 +140,7 @@ type updateSetter[T any, A any] struct {
 func (op updateSetter[T, A]) UpdateExpression(T) {}
 
 func (op updateSetter[T, A]) Apply(req *UpdateItemInput) {
-	val, err := attributevalue.Marshal(op.val)
+	val, err := avMarshal(op.val)
 	if err != nil {
 		return
 	}
@@ -177,7 +176,7 @@ type updateAdder[T any, A any] struct {
 func (op updateAdder[T, A]) UpdateExpression(T) {}
 
 func (op updateAdder[T, A]) Apply(req *UpdateItemInput) {
-	val, err := attributevalue.Marshal(op.val)
+	val, err := avMarshal(op.val)
 	if err != nil {
 		return
 	}
@@ -242,7 +241,7 @@ func (op updateSetOf[T, A]) Apply(req *UpdateItemInput) {
 }
 
 func (op updateSetOf[T, A]) encodeValue() (types.AttributeValue, error) {
-	val, err := attributevalue.Marshal(op.val)
+	val, err := avMarshal(op.val)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +331,7 @@ type updateIncrement[T any, A any] struct {
 func (op updateIncrement[T, A]) UpdateExpression(T) {}
 
 func (op updateIncrement[T, A]) Apply(req *UpdateItemInput) {
-	val, err := attributevalue.Marshal(op.val)
+	val, err := avMarshal(op.val)
 	if err != nil {
 		return
 	}
@@ -369,7 +368,7 @@ type updateAppender[T any, A any] struct {
 func (op updateAppender[T, A]) UpdateExpression(T) {}
 
 func (op updateAppender[T, A]) Apply(req *UpdateItemInput) {
-	val, err := attributevalue.Marshal(op.val)
+	val, err := avMarshal(op.val)
 	if err != nil {
 		return
 	}

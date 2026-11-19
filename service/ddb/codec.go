@@ -19,7 +19,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/dynamo/v3"
+	"github.com/fogfish/dynamo/v4"
 	"github.com/fogfish/golem/hseq"
 )
 
@@ -90,7 +90,7 @@ type codecOf[T dynamo.Thing, A any] string
 func (key codecOf[T, A]) Decode(val *A) Coder {
 	return func(gen map[string]types.AttributeValue) (map[string]types.AttributeValue, error) {
 		if gval, exists := gen[string(key)]; exists {
-			if err := attributevalue.Unmarshal(gval, val); err != nil {
+			if err := avUnmarshal(gval, val); err != nil {
 				return nil, err
 			}
 			delete(gen, string(key))
@@ -102,7 +102,7 @@ func (key codecOf[T, A]) Decode(val *A) Coder {
 // Encode encode struct field into DynamoDB attribute values
 func (key codecOf[T, A]) Encode(val A) Coder {
 	return func(gen map[string]types.AttributeValue) (map[string]types.AttributeValue, error) {
-		gval, err := attributevalue.Marshal(val)
+		gval, err := avMarshal(val)
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +116,7 @@ func (key codecOf[T, A]) Encode(val A) Coder {
 type Coder func(map[string]types.AttributeValue) (map[string]types.AttributeValue, error)
 
 // Decode is a helper function to decode core domain types from Dynamo DB format.
-// The helper ensures compact URI de-serialization from DynamoDB schema.
+// The helper ensures de-serialization of custom types from DynamoDB schema.
 //
 //	  type MyType struct {
 //	    ID   MyComplexType
@@ -147,11 +147,11 @@ func Decode(av types.AttributeValue, val interface{}, coder ...Coder) (err error
 		}
 	}
 
-	return attributevalue.Unmarshal(tv, val)
+	return avUnmarshal(tv, val)
 }
 
 // Encode is a helper function to encode core domain types into struct.
-// The helper ensures compact URI serialization into DynamoDB schema.
+// The helper ensures serialization of custom types into DynamoDB schema.
 //
 //	  type MyType struct {
 //	    ID   MyComplexType
@@ -167,7 +167,7 @@ func Decode(av types.AttributeValue, val interface{}, coder ...Coder) (err error
 //	    )
 //	  }
 func Encode(val interface{}, coder ...Coder) (types.AttributeValue, error) {
-	gen, err := attributevalue.Marshal(val)
+	gen, err := avMarshal(val)
 	if err != nil {
 		return nil, err
 	}
@@ -216,12 +216,12 @@ func (codec codec[T]) EncodeKey(key dynamo.Thing) (map[string]types.AttributeVal
 
 	sortkey := key.SortKey()
 	if sortkey == "" {
-		sortkey = "_"
+		sortkey = keyPlaceholder
 	}
 
 	gen := map[string]types.AttributeValue{}
-	gen[codec.pkPrefix] = &types.AttributeValueMemberS{Value: string(hashkey)}
-	gen[codec.skSuffix] = &types.AttributeValueMemberS{Value: string(sortkey)}
+	gen[codec.pkPrefix] = &types.AttributeValueMemberS{Value: hashkey}
+	gen[codec.skSuffix] = &types.AttributeValueMemberS{Value: sortkey}
 
 	return gen, nil
 }
@@ -237,17 +237,42 @@ func (codec codec[T]) KeyOnly(gen map[string]types.AttributeValue) map[string]ty
 
 // Encode object to dynamo representation
 func (codec codec[T]) Encode(entity T) (map[string]types.AttributeValue, error) {
-	gen, err := attributevalue.MarshalMap(entity)
+	gen, err := avMarshalMap(entity)
 	if err != nil {
 		return nil, err
 	}
 
-	_ /*suffix*/, isSuffix := gen[codec.skSuffix]
-	if !isSuffix /*|| suffix.Value == nil*/ {
-		gen[codec.skSuffix] = &types.AttributeValueMemberS{Value: "_"}
+	// The hash key is mandatory. Absent or empty key is rejected, otherwise
+	// DynamoDB fails the request later with a less useful error.
+	if isEmptyKey(gen[codec.pkPrefix]) {
+		return nil, errInvalidKey.New(
+			fmt.Errorf("invalid key of %T, hashkey cannot be empty", entity),
+		)
+	}
+
+	// The sort key is optional, empty value is stored as the placeholder.
+	if isEmptyKey(gen[codec.skSuffix]) {
+		gen[codec.skSuffix] = &types.AttributeValueMemberS{Value: keyPlaceholder}
 	}
 
 	return gen, nil
+}
+
+// keyPlaceholder is a value of the sort key attribute for undefined sort key.
+const keyPlaceholder = "_"
+
+// isEmptyKey checks if the key attribute is missing, NULL or an empty string.
+func isEmptyKey(av types.AttributeValue) bool {
+	switch v := av.(type) {
+	case nil:
+		return true
+	case *types.AttributeValueMemberNULL:
+		return true
+	case *types.AttributeValueMemberS:
+		return v.Value == ""
+	default:
+		return false
+	}
 }
 
 // Decode dynamo representation to object
@@ -258,8 +283,21 @@ func (codec codec[T]) Decode(gen map[string]types.AttributeValue) (T, error) {
 		return codec.undefined, errors.New("invalid DDB schema")
 	}
 
+	// The placeholder of undefined sort key must never reach the application
+	// type, the key field keeps its zero value. Caller's map is not mutated
+	// (batch I/O reuses it), the shallow copy is used instead.
+	if v, ok := gen[codec.skSuffix].(*types.AttributeValueMemberS); ok && v.Value == keyPlaceholder {
+		cpy := make(map[string]types.AttributeValue, len(gen))
+		for k, a := range gen {
+			if k != codec.skSuffix {
+				cpy[k] = a
+			}
+		}
+		gen = cpy
+	}
+
 	var entity T
-	if err := attributevalue.UnmarshalMap(gen, &entity); err != nil {
+	if err := avUnmarshalMap(gen, &entity); err != nil {
 		return codec.undefined, err
 	}
 

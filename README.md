@@ -1,13 +1,13 @@
 # dynamo
 
-The library implements a simple key-value abstraction to store algebraic, linked-data data types at AWS storage services: AWS DynamoDB and AWS S3.
+The library implements a simple key-value abstraction to store algebraic, linked-data data types at AWS DynamoDB.
 
 [![Version](https://img.shields.io/github/v/tag/fogfish/dynamo?label=version)](https://github.com/fogfish/dynamo/releases)
-[![Documentation](https://pkg.go.dev/badge/github.com/fogfish/dynamo/v3)](https://pkg.go.dev/github.com/fogfish/dynamo/v3)
+[![Documentation](https://pkg.go.dev/badge/github.com/fogfish/dynamo/v4)](https://pkg.go.dev/github.com/fogfish/dynamo/v4)
 [![Build Status](https://github.com/fogfish/dynamo/workflows/build/badge.svg)](https://github.com/fogfish/dynamo/actions/)
 [![Git Hub](https://img.shields.io/github/last-commit/fogfish/dynamo.svg)](https://github.com/fogfish/dynamo)
 [![Coverage Status](https://coveralls.io/repos/github/fogfish/dynamo/badge.svg?branch=main)](https://coveralls.io/github/fogfish/dynamo?branch=main)
-[![Go Report Card](https://goreportcard.com/badge/github.com/fogfish/dynamo/v3)](https://goreportcard.com/report/github.com/fogfish/dynamo/v3)
+[![Go Report Card](https://goreportcard.com/badge/github.com/fogfish/dynamo/v4)](https://goreportcard.com/report/github.com/fogfish/dynamo/v4)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/avelino/awesome-go)
 
 
@@ -33,7 +33,7 @@ The library philosophy and use-cases are covered in depth at the post
 
 ## Getting started
 
-The library requires Go **1.18** or later due to usage of [generics](https://go.dev/blog/intro-generics).
+The library requires Go **1.24** or later due to usage of [generics](https://go.dev/blog/intro-generics).
 
 The latest version of the library is available at its `main` branch. All development, including new features and bug fixes, take place on the `main` branch using forking and pull requests as described in contribution guidelines. The stable version is available via Golang modules.
 
@@ -42,6 +42,7 @@ The latest version of the library is available at its `main` branch. All develop
   - [Inspiration](#inspiration)
   - [Getting started](#getting-started)
     - [Data types definition](#data-types-definition)
+    - [Identity with gold](#identity-with-gold)
     - [DynamoDB I/O](#dynamodb-io)
     - [Error Handling](#error-handling)
     - [Hierarchical structures](#hierarchical-structures)
@@ -57,7 +58,7 @@ The latest version of the library is available at its `main` branch. All develop
     - [Optimistic Locking](#optimistic-locking)
     - [Batch I/O](#batch-io)
     - [Configure DynamoDB](#configure-dynamodb)
-    - [AWS S3 Support](#aws-s3-support)
+    - [Migrating from v3](#migrating-from-v3)
   - [How To Contribute](#how-to-contribute)
     - [commit message](#commit-message)
     - [bugs](#bugs)
@@ -68,28 +69,31 @@ The latest version of the library is available at its `main` branch. All develop
 
 Data types definition is an essential part of development with `dynamo` library. Golang structs declares domain of your application. Public fields are serialized into DynamoDB attributes, the field tag `dynamodbav` controls marshal/unmarshal processes.
 
-The library demands from each structure implementation of `Thing` interface. This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied to the dynamo library. Secondly, each structure defines unique "composite primary key". The library encourages definition of both partition and sort keys using a special data type `curie.IRI`. This type is a synonym to compact Internationalized Resource Identifiers, which facilitates linked-data, hierarchical structures and cheap relations between data items. `curie.IRI` is a synonym to the built-in `string` type so that anything castable to string suite to model the keys as alternative solution.   
+The library demands from each structure implementation of `Thing` interface. This type acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied to the dynamo library. Secondly, each structure defines unique "composite primary key", both partition and sort keys are opaque `string`s to the library. The library encourages definition of the keys using type-safe identities of [gold](https://github.com/fogfish/gold) library: `gold.IRI[T]` and `gold.Imply[A, B]`, see [Identity with gold](#identity-with-gold).
 
 ```go
-type Person struct {
-  Org     curie.IRI `dynamodbav:"prefix,omitempty"`
-  ID      curie.IRI `dynamodbav:"suffix,omitempty"`
-  Name    string    `dynamodbav:"name,omitempty"`
-  Age     int       `dynamodbav:"age,omitempty"`
-  Address string    `dynamodbav:"address,omitempty"`
+type University struct{}
+type Person struct{}
+
+type Professor struct {
+  Org     gold.IRI[University] `dynamodbav:"prefix,omitempty"`
+  ID      gold.IRI[Person]     `dynamodbav:"suffix,omitempty"`
+  Name    string               `dynamodbav:"name,omitempty"`
+  Age     int                  `dynamodbav:"age,omitempty"`
+  Address string               `dynamodbav:"address,omitempty"`
 }
 
 //
 // Identity implements thing interface
-func (p Person) HashKey() curie.IRI { return p.Org }
-func (p Person) SortKey() curie.IRI { return p.ID }
+func (p Professor) HashKey() string { return string(p.Org) }
+func (p Professor) SortKey() string { return string(p.ID) }
 
 //
 // this data type is a normal Golang struct
 // just create an instance, fill required fields
-var person := Person{
-  Org:     curie.IRI("University:Kiel"),
-  ID:      curie.IRI("Professor:8980789222"),
+var professor := Professor{
+  Org:     gold.ToIRI[University]("kiel"),   // "university:kiel"
+  ID:      gold.ToIRI[Person]("8980789222"), // "person:8980789222"
   Name:    "Verner Pleishner",
   Age:     64,
   Address: "Blumenstrasse 14, Berne, 3013",
@@ -104,25 +108,26 @@ This is it! Your application is ready to read/write data to/form DynamoDB tables
 Please [see and try examples](examples). Its cover all basic use-cases with runnable code snippets, check the post [How To Model Any Relational Data in DynamoDB With dynamo library](examples/relational/README.md) for deep-dive into library philosophy.
 
 ```bash
-go run examples/keyval/main.go ddb:///my-table
+go run examples/keyval/main.go my-table
 ```
 
 The following code snippet shows a typical I/O patterns
 
 ```go
 import (
-  "github.com/fogfish/dynamo/v2/service/ddb"
+  "github.com/fogfish/dynamo/v4/service/ddb"
+  "github.com/fogfish/gold"
 )
 
 //
 // Create dynamodb client and bind it with the table.
-// The client is type-safe and support I/O with a single type (e.g. Person).
+// The client is type-safe and support I/O with a single type (e.g. Professor).
 // Use options to specify params.
-db, err := ddb.New[Person](ddb.WithTable("my-table"))
+db, err := ddb.New[Professor]("my-table")
 
 //
 // Write the struct with Put
-if err := db.Put(context.TODO(), person); err != nil {
+if err := db.Put(context.TODO(), professor); err != nil {
 }
 
 //
@@ -130,9 +135,9 @@ if err := db.Put(context.TODO(), person); err != nil {
 // and return a new copy upon the completion. The only requirement - ID has to
 // be defined.
 val, err := db.Get(context.TODO(),
-  Person{
-    Org: curie.IRI("University:Kiel"),
-    ID:  curie.IRI("Professor:8980789222"),
+  Professor{
+    Org: gold.ToIRI[University]("kiel"),
+    ID:  gold.ToIRI[Person]("8980789222"),
   },
 )
 
@@ -150,11 +155,11 @@ default:
 // a partially defined structure, patches the instance at storage and 
 // returns remaining attributes.
 val, err := db.Update(context.TODO(),
-  Person{
-    Org:     curie.IRI("University:Kiel"),
-    ID:      curie.IRI("Professor:8980789222"),
+  Professor{
+    Org:     gold.ToIRI[University]("kiel"),
+    ID:      gold.ToIRI[Person]("8980789222"),
     Address: "Viktoriastrasse 37, Berne, 3013",
-  }
+  },
 )
 
 if err != nil { /* ... */ }
@@ -162,10 +167,10 @@ if err != nil { /* ... */ }
 //
 // Remove the struct using Remove give partially defined struct with ID
 _, err := db.Remove(context.TODO(),
-  Person{
-    Org: curie.IRI("University:Kiel"),
-    ID:  curie.IRI("Professor:8980789222"),
-  }
+  Professor{
+    Org: gold.ToIRI[University]("kiel"),
+    ID:  gold.ToIRI[Person]("8980789222"),
+  },
 )
 
 if err != nil { /* ... */ }
@@ -189,6 +194,8 @@ type Conflict interface { Conflict() bool }
 type Gone interface { Gone() bool }
 ```
 
+**Strict decoding.** Every gold value is validated when it is read from the table. A row with an attribute that does not match its type (e.g. `blog:x` in a `gold.IRI[Person]` field) makes `Get` fail with the `invalid entity` error. `Match` fails the whole page, it never returns a partially decoded sequence. This is intended, a corrupted identity should never reach the application. Similarly, a key without a partition key (e.g. empty `gold.Imply`) is rejected by `Put`/`Update` with the `invalid key` error before any request is sent to DynamoDB.
+
 
 ### Hierarchical structures
 
@@ -204,17 +211,22 @@ A
 └ G
 ```
 
-Composite sort key is core concept to organize hierarchies. It facilitates linked-data, hierarchical structures and cheap relations between data items. An application declares node path using composite sort key design pattern. For example, the root is `thread:A`, 2nd rank node `⟨thread:A, B⟩`, 3rd rank node `⟨thread:A, C/D⟩` and so on `⟨thread:A, C/E/F⟩`. Each `id` declares partition and sub nodes. The library implement a `Match` function, supply the node identity and it returns sequence of child elements.
+Composite sort key is core concept to organize hierarchies. It facilitates linked-data, hierarchical structures and cheap relations between data items. An application declares node path using composite sort key design pattern. For example, the root is `thread:A`, 2nd rank node `⟨thread:A, message:B⟩`, 3rd rank node `⟨thread:A, message:C/D⟩` and so on `⟨thread:A, message:C/E/F⟩`. Each `id` declares partition and sub nodes. The hierarchy inside the `id` is managed by the application, `gold.IRI` itself is flat. The library implement a `Match` function, supply the node identity and it returns sequence of child elements.
 
 ```go
 //
 // Match uses partition key to match DynamoDB entries.
 // It returns a sequence of matched data elements.  
-db.Match(context.TODO(), Message{Thread: "thread:A"})
+db.Match(context.TODO(), Message{Thread: gold.ToIRI[Thread]("A")})
 
 //
-// Match uses partition key and partial sort key to match DynamoDB entries. 
-db.Match(context.TODO(), Message{Thread: "thread:A", ID: "C"})
+// Match uses partition key and partial sort key to match DynamoDB entries.
+// The partial key is the prefix of the sort key, e.g. "message:C/" 
+db.Match(context.TODO(), Message{Thread: gold.ToIRI[Thread]("A"), ID: gold.ToIRI[Message]("C/")})
+
+//
+// gold.Any[T]() matches every identity of the class T, e.g. "message:"
+db.Match(context.TODO(), Message{Thread: gold.ToIRI[Thread]("A"), ID: gold.Any[Message]()})
 ```
 
 See [advanced example](examples/relational/) for details on managing linked-data. 
@@ -227,14 +239,14 @@ Hierarchical structures is the way to organize collections, lists, sets, etc. Th
 ```go
 // 1. Set the limit on the stream 
 seq, cursor, err := db.Match(context.TODO(),
-  Message{Thread: "thread:A", ID: "C"},
-  dynamo.Limit(25),
+  Message{Thread: gold.ToIRI[Thread]("A"), ID: gold.ToIRI[Message]("C/")},
+  dynamo.Limit[Message](25),
 )
 
 // 2. Continue I/O with a new stream, supply the cursor
 seq := db.Match(context.TODO(),
-  Message{Thread: "thread:A", ID: "C"},
-  dynamo.Limit(25),
+  Message{Thread: gold.ToIRI[Thread]("A"), ID: gold.ToIRI[Message]("C/")},
+  dynamo.Limit[Message](25),
   cursor,
 )
 ```
@@ -246,13 +258,64 @@ Cross-linking of structured data is an essential part of type safe domain driven
 
 ```go
 type Person struct {
-  Org     curie.IRI  `dynamodbav:"prefix,omitempty"`
-  ID      curie.IRI  `dynamodbav:"suffix,omitempty"`
-  Leader  *curie.IRI `dynamodbav:"leader,omitempty"`
+  Org     gold.IRI[University] `dynamodbav:"prefix,omitempty"`
+  ID      gold.IRI[Person]     `dynamodbav:"suffix,omitempty"`
+  Leader  *gold.IRI[Person]    `dynamodbav:"leader,omitempty"`
 }
 ```
 
-`ID` and `Leader` are sibling, equivalent data types. `ID` is only used as primary identity, `Leader` is a "pointer" to linked-data. The library advices usage of compact Internationalized Resource Identifiers (`curie.IRI`) for this purpose. Semantic Web publishes structured data using this type so that it can be interlinked by applications.
+`ID` and `Leader` are sibling, equivalent data types. `ID` is only used as primary identity, `Leader` is a "pointer" to linked-data. The identities are compact IRIs `{schema}:{id}`, the schema is derived from the type. The compiler rejects an attempt to link `Leader` with the identity of other class. The optional link is a pointer with `omitempty`. See [Identity with gold](#identity-with-gold) for details.
+
+
+### Identity with gold
+
+The library does not interpret the keys, `Thing` returns plain strings. The application models keys and links with types of [gold](https://github.com/fogfish/gold) library, which makes the identities type-safe at compile time.
+
+```go
+type University struct{}
+type Person struct{}
+
+type Professor struct {
+  Org  gold.IRI[University] `dynamodbav:"prefix,omitempty"`
+  ID   gold.IRI[Person]     `dynamodbav:"suffix,omitempty"`
+  Name string               `dynamodbav:"name,omitempty"`
+}
+
+func (p Professor) HashKey() string { return string(p.Org) }
+func (p Professor) SortKey() string { return string(p.ID) }
+
+p := Professor{
+  Org: gold.ToIRI[University]("kiel"),   // "university:kiel"
+  ID:  gold.ToIRI[Person]("8980789222"), // "person:8980789222"
+}
+```
+
+Composite keys are modeled with `gold.Imply`:
+
+```go
+type Course struct{}
+type Enrollment = gold.Imply[University, Course] // alias — stored as "university:kiel|course:cs101"
+
+type Student struct {
+  Key Enrollment       `dynamodbav:"prefix"`
+  ID  gold.IRI[Person] `dynamodbav:"suffix,omitempty"`
+}
+
+func (s Student) HashKey() string { return s.Key.String() }
+func (s Student) SortKey() string { return string(s.ID) }
+```
+
+The rules:
+
+* Key and link fields are `gold.IRI[T]` or `gold.Imply[A, B]`. They are type-checked at compile time, stored as DynamoDB strings (`S`, never a map) and validated when read. The library enables the standard `encoding.TextMarshaler`/`TextUnmarshaler` for every attribute (including values used in update and condition expressions), so a value in an expression is encoded exactly as the stored one.
+* `Imply` must be declared as an **alias** (`=`). A defined type (`type Enrollment gold.Imply[A, B]`) drops methods of gold and is stored as a map, unless it forwards `MarshalText`/`UnmarshalText`.
+* A non-key `Imply` field that may be absent should be a **pointer** with `omitempty` (`*Enrollment`). `omitempty` does not drop a zero `Imply` value, it is stored as an empty string.
+* Optional links are `*gold.IRI[T]` with `omitempty`.
+* Prefix queries (`Match`): `gold.Any[T]()` selects every identity of the class `T` (`"person:"`). A partial `Imply`, `gold.ImplyFrom(a, gold.IRI[B](""))`, is encoded as `"a|"`, which is prefix-safe.
+* Plain IRI prefixes are still string prefixes: `person:neu` matches `person:neumann`. That is inherent to `begins_with`.
+* The schema (`person`, `university`) is derived from the Go type name. Use `gold.Register` for any type that appears in stored keys and pin `gold.Schemas()` in a golden test, so renaming a Go type cannot silently change the keys.
+* Write path is strict: a non-normalised IRI (e.g. `gold.IRI[Person]("alice")` without `.Norm()`) is rejected by `Put`/`Update`. Keys passed to `Get`/`Remove`/`Match` go through `HashKey()`/`SortKey()` as plain strings and are **not** validated.
+* The sort key is optional. An undefined sort key is stored as the `_` placeholder and is never decoded into an application type, the field stays at its zero value. A partition key is mandatory.
 
 
 ### Type projections
@@ -275,23 +338,23 @@ type Person struct {
 // e.g. this projection supports writes to DynamoDB table
 type dbPerson Person
 
-func (p dbPerson) HashKey() curie.IRI { return curie.IRI(p.Org) }
-func (p dbPerson) SortKey() curie.IRI { return curie.IRI(p.ID) }
+func (p dbPerson) HashKey() string { return p.Org }
+func (p dbPerson) SortKey() string { return p.ID }
 
 //
 // the core type projection that uses ⟨Org, Name⟩ as composite key
 // e.g. the projection support lookup of employer
 type dbNamedPerson Person
 
-func (p dbNamedPerson) HashKey() curie.IRI { return curie.IRI(p.Org) }
-func (p dbNamedPerson) SortKey() curie.IRI { return curie.IRI(p.Name) }
+func (p dbNamedPerson) HashKey() string { return p.Org }
+func (p dbNamedPerson) SortKey() string { return p.Name }
 
 //
 // the core type projection that uses ⟨Country, Name⟩ as composite key
 type dbCitizen Person
 
-func (p dbCitizen) HashKey() curie.IRI { return curie.IRI(p.Country) }
-func (p dbCitizen) SortKey() curie.IRI { return curie.IRI(p.Name) }
+func (p dbCitizen) HashKey() string { return p.Country }
+func (p dbCitizen) SortKey() string { return p.Name }
 ```
 
 ### Custom codecs for core domain types
@@ -313,7 +376,7 @@ type Person struct {
 /*** aws/ddb/ddb.go ***/
 
 import (
-  "github.com/fogfish/dynamo/service/ddb"
+  "github.com/fogfish/dynamo/v4/service/ddb"
 )
 
 // 3. declare codecs for complex core domain type 
@@ -367,18 +430,18 @@ In Amazon DynamoDB, there is [a concept of expressions](https://docs.aws.amazon.
 ```go
 // The type projects: prefix, suffix & name attributes.
 type Identity struct {
-  Org     curie.IRI `dynamodbav:"prefix,omitempty"`
-  ID      curie.IRI `dynamodbav:"suffix,omitempty"`
-  Name    string    `dynamodbav:"name,omitempty"`
+  Org     gold.IRI[University] `dynamodbav:"prefix,omitempty"`
+  ID      gold.IRI[Person]     `dynamodbav:"suffix,omitempty"`
+  Name    string               `dynamodbav:"name,omitempty"`
 }
 
 // The type projects: prefix, suffix, name, age & address.
 type Person struct {
-  Org     curie.IRI `dynamodbav:"prefix,omitempty"`
-  ID      curie.IRI `dynamodbav:"suffix,omitempty"`
-  Name    string    `dynamodbav:"name,omitempty"`
-  Age     int       `dynamodbav:"age,omitempty"`
-  Address string    `dynamodbav:"address,omitempty"`
+  Org     gold.IRI[University] `dynamodbav:"prefix,omitempty"`
+  ID      gold.IRI[Person]     `dynamodbav:"suffix,omitempty"`
+  Name    string               `dynamodbav:"name,omitempty"`
+  Age     int                  `dynamodbav:"age,omitempty"`
+  Address string               `dynamodbav:"address,omitempty"`
 }
 ```
 
@@ -396,6 +459,15 @@ var ifName = ddb.ClauseFor[Person, string]("Name")
 
 db.Update(/* ... */, ifName.NotExists())
 db.Update(/* ... */, ifName.Eq("Verner Pleishner"))
+```
+
+Conditions and updates accept gold types, the value is encoded exactly as it is stored:
+
+```go
+var ifKey = ddb.ClauseFor[Student, Enrollment]("Key")
+
+db.Update(/* ... */, ifKey.Eq(gold.ImplyFrom(kiel, cs101)))
+db.Update(/* ... */, ifKey.HasPrefix(gold.ImplyFrom(kiel, gold.IRI[Course](""))))
 ```
 
 See [constraint.go](service/ddb/constraint.go) for the list of supported conditional expressions:
@@ -435,6 +507,7 @@ The `dynamo` library implements `UpdateWith` method together with a simple DSL t
 type Person struct {
   Name    string    `dynamodbav:"name,omitempty"`
   Age     int       `dynamodbav:"age,omitempty"`
+  Address string    `dynamodbav:"address,omitempty"`
   Hobbies  []string `dynamodbav:"hobbies,omitempty"`
 }
 
@@ -442,14 +515,15 @@ type Person struct {
 var (
   Name = ddb.UpdateFor[Person, string]("Name")
   Age  = ddb.UpdateFor[Person, int]("Age")
+  Address = ddb.UpdateFor[Person, string]("Address")
   Hobbies = ddb.UpdateFor[Person, []string]("Hobbies")
 )
 
 db.UpdateWith(context.Background(),
   ddb.Updater(
     Person{
-      Org: curie.IRI("University:Kiel"),
-      ID:  curie.IRI("Professor:8980789222"),
+      Org: gold.ToIRI[University]("kiel"),
+      ID:  gold.ToIRI[Person]("8980789222"),
     },
     Address.Set("Viktoriastrasse 37, Berne, 3013"),
     Age.Inc(64),
@@ -593,14 +667,12 @@ const Schema = (): ddb.TableProps => ({
 If table uses other names for `partitionKey` and `sortKey` then config options allows to re-declare it.
 
 ```go
-db, err := ddb.New[Person](
-  ddb.WithTable("my-table"),
-
+db, err := ddb.New[Person]("my-table",
   // Optionally set Global Secondary Index for the session
   ddb.WithGlobalSecondaryIndex("my-index"),
 
   // Optionally declare other keys to be user for attribute projection
-  ddd.WithHashKey("someHashKey"),
+  ddb.WithHashKey("someHashKey"),
   ddb.WithSortKey("someSortKey"),
 )
 ```
@@ -608,33 +680,16 @@ db, err := ddb.New[Person](
 The following [post](example/relational/README.md) discusses in depth and shows example DynamoDB table configuration and covers aspect of secondary indexes. 
 
 
-### AWS S3 Support
+### Migrating from v3
 
-The library advances its simple I/O interface to AWS S3 bucket, allowing to persist data types to multiple storage simultaneously.
+v4 (`github.com/fogfish/dynamo/v4`) is a breaking release, v3 is maintained at the `v3` branch. The v3 data is not migrated.
 
-```go
-import (
-  "github.com/fogfish/dynamo/v2/service/ddb"
-  "github.com/fogfish/dynamo/v2/service/s3"
-)
-
-
-//
-// Create client and bind it with DynamoDB the table
-db, err := ddb.New(ddb.WithTable("my-table"))
-
-//
-// Create client and bind it with S3 bucket
-db, err := s3.New(s3.WithBucket("my-bucket"))
-```
-
-There are few fundamental differences about AWS S3 bucket
-* use `s3` schema of connection URI;
-* compose primary key is serialized to S3 bucket path. (e.g. `⟨thread:A, C/E/F⟩ ⟼ thread/A/_/C/E/F`);
-* storage persists struct to JSON, use `json` field tags to specify serialization rules;
-* optimistic locking is not supported yet, any conditional expression is silently ignored;
-* `Update` is not thread safe.
-
+* `Thing` returns `string`: `HashKey() string`, `SortKey() string`. The core API does not name any identity library.
+* `curie` is replaced by [gold](https://github.com/fogfish/gold): `curie.IRI` becomes `gold.IRI[T]`, composite keys become `gold.Imply[A, B]`, `curie.New("a", "")` as match-all prefix becomes `gold.Any[A]()`. Gold values are stored as strings and validated, see [Identity with gold](#identity-with-gold).
+* Decoding is strict: an attribute that does not pass validation fails `Get` and `Match` with `invalid entity`.
+* AWS S3 backend (`service/s3`) is removed.
+* `ddb.WithPrefixes` is removed, it did nothing for DynamoDB.
+* Go 1.24 is required.
 
 
 ## How To Contribute
@@ -648,7 +703,7 @@ The library is [MIT](LICENSE) licensed and accepts contributions via GitHub pull
 5. Create new Pull Request
 
 
-The build and testing process requires [Go](https://golang.org) version 1.13 or later.
+The build and testing process requires [Go](https://golang.org) version 1.24 or later.
 
 **build** and **test** library.
 

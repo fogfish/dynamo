@@ -39,52 +39,54 @@ In the context of DynamoDB, the implementation of all access patterns is achieve
 
 AWS DynamoDB supports either simple (a partition key only) or composite (a partition key combined with a sort key) to uniquely identify items. The `dynamo` library is 100% compatible with standard Golang AWS SDK, the composite key is defined by pair of attributes and annotated with the field tag `dynamodbav`. However, the library requires that each type implements `Thing` interface and its methods: `HashKey`, `SortKey` that returns composite key pair. The `Thing` interface acts as struct annotation -- Golang compiler raises an error at compile time if other data type is supplied.
 
-The library does not enforce any special type for key modelling, anything castable to string suite but the `dynamo` library uses a special data type `curie.IRI` for the purpose of composite key modelling. This type is a compact [Internationalized Resource Identifiers](https://github.com/fogfish/curie), which facilitates linked-data, hierarchical structures and cheap relations between data items. 
+The library does not interpret the keys, `HashKey` and `SortKey` return plain strings. The application models the keys with types of the [gold](https://github.com/fogfish/gold) library: `gold.IRI[T]` is a compact [Internationalized Resource Identifier](https://github.com/fogfish/gold) `{schema}:{id}`, which facilitates linked-data, hierarchical structures and cheap relations between data items. The schema is derived from the type `T`, so the identity of an author cannot be accidentally used where the identity of an article is expected.
 
 ```go
+type Author struct{}
+
 type Article struct {
-	Author   curie.IRI `dynamodbav:"prefix,omitempty"`
-	ID       curie.IRI `dynamodbav:"suffix,omitempty"`
+	Author   gold.IRI[Author]  `dynamodbav:"prefix,omitempty"`
+	ID       gold.IRI[Article] `dynamodbav:"suffix,omitempty"`
   // ...
 }
 
-func (article Article) HashKey() curie.IRI { return article.Author }
-func (article Article) SortKey() curie.IRI { return article.ID }
+func (article Article) HashKey() string { return string(article.Author) }
+func (article Article) SortKey() string { return string(article.ID) }
 
 
 article := Article{
-  Author: curie.New("author:%s", "neumann"),
-  ID:     curie.New("article:%s", "theory_of_automata"),
+  Author: gold.ToIRI[Author]("neumann"),            // author:neumann
+  ID:     gold.ToIRI[Article]("theory_of_automata"), // article:theory_of_automata
   // ...
 }
 ```
 
-Let's emphasize a few fundamental design problems solved by the `curie.IRI` data type.
+Let's emphasize a few fundamental design problems solved by the `gold.IRI` data type.
 
 **Single table** is a design pattern to address network I/O bottlenecks by retrieving heterogenous item types using a single request. It recommends putting all data items into one table and forgetting the classical relational approach of using different tables per entity. Steep learning curve and "leaks" of identity are two well-known issues in this pattern.
 
 Let's consider our application, what the access pattern has been defined for. It operates with three concepts: `author`, `article` and `keyword`. Haskell Curry author's identity might collide with an article identity about Haskell programming language or some keywords about functional programming. 
 
-The data type `curie.IRI` makes a formal definition of the logical partition the identity belongs to. The scheme explicitly defines the purpose of the identity and protects from accidental "collisions". 
+The data type `gold.IRI[T]` makes a formal definition of the logical partition the identity belongs to. The scheme explicitly defines the purpose of the identity and protects from accidental "collisions". 
 
 ```go
-curie.New("author:haskell")
-curie.New("article:haskell")
-curie.New("keyword:haskell")
+gold.ToIRI[Author]("haskell")  // author:haskell
+gold.ToIRI[Article]("haskell") // article:haskell
+gold.ToIRI[Keyword]("haskell") // keyword:haskell
 ```
 
 **Sharding** is a technique for distributing loads more evenly across data partitions. The imbalanced or "hot" partition is a well-known issue with DynamoDB. Either random or calculated suffixes is the strategy for load distribution evenly across a partition key space.
 
-The data type `curie.IRI` makes formal rules of building keys from multiple segments. The application has a common interface to construct keys of any complexity to resolve data sharding aspects. 
+The data type `gold.IRI[T]` makes formal rules of building keys. The application has a common interface to construct keys of any complexity to resolve data sharding aspects. 
 
 ```go
-curie.New("author:smith/%d", 1)
-curie.New("author:smith/%d", 2)
+gold.ToIRI[Author]("smith/1") // author:smith/1
+gold.ToIRI[Author]("smith/2") // author:smith/2
 ```
 
 **Composite key** is built from partition key combined with a sort key. It helps an application to keep related data together in one "place" so that it can be efficiently accessed, effectively building one-to-many relation. Well-crafted composite sort keys define a hierarchical structures that can be queries at any level of the hierarchy. For example, the following key is efficiently listing nested geographical locations `country/region/state/county/city/district`.
 
-The data type `curie.IRI` simplifies data modelling, and identities of data items, which are built from a well defined type that is exchangeable between application, DynamoDB and other systems.
+The data types `gold.IRI[T]` and `gold.Imply[A, B]` simplify data modelling, and identities of data items, which are built from a well defined type that is exchangeable between application, DynamoDB and other systems.
 
 ## Data Access
 
@@ -99,11 +101,11 @@ partition key
 ```go
 /*
 HashKey is
-curie.New("author:%s", "neumann")
+gold.ToIRI[Author]("neumann")
   ⟿ author:neumann
 */
 type Author struct {
-  ID curie.IRI `dynamodbav:"prefix,omitempty"`
+  ID gold.IRI[Author] `dynamodbav:"prefix,omitempty"`
 }
 ```
 
@@ -120,16 +122,16 @@ the partition key, article id is a sort key. Any instance of author identity can
 ```go
 /*
 HashKey is
-curie.New("author:%s", "neumann")
+gold.ToIRI[Author]("neumann")
   ⟿ author:neumann
 
 SortKey is
-curie.New("article:%s", "theory_of_automata")
+gold.ToIRI[Article]("theory_of_automata")
   ⟿ article:theory_of_automata
 */
 type Article struct {
-	Author   curie.IRI `dynamodbav:"prefix,omitempty"`
-	ID       curie.IRI `dynamodbav:"suffix,omitempty"`
+	Author   gold.IRI[Author]  `dynamodbav:"prefix,omitempty"`
+	ID       gold.IRI[Article] `dynamodbav:"suffix,omitempty"`
 }
 ```
 
@@ -143,34 +145,47 @@ The access patterns for an article - keyword is a classical many-to-many I/O
 The global secondary index implicitly maintains two adjacency lists.
 The first one is the forward article-to-keyword, the second one is
 an inverse keyword-to-article. It is possible to craft these lists
-explicitly with following keys.
+explicitly. The article's identity is unique only within the scope of
+the author, therefore the reference to the article is the composite
+`gold.Imply[Author, Article]`, which is stored as a string
+`author:neumann|article:theory_of_automata`. Each direction of the relation
+is a distinct type, the type-safe identity makes it impossible to mix them.
 
 ```go
+type ArticleRef = gold.Imply[Author, Article] // must be an alias
+
 /*
+Keyword ⟼ Article
 
 HashKey is
-curie.New("keyword:%s", "theory")
+gold.ToIRI[Keyword]("theory")
   ⟿ keyword:theory
 
 SortKey is
-curie.New("article:%s/%s", "neumann", "theory_of_automata")
-  ⟿ article:neumann/theory_of_automata
+gold.ImplyFrom(gold.ToIRI[Author]("neumann"), gold.ToIRI[Article]("theory_of_automata"))
+  ⟿ author:neumann|article:theory_of_automata
+*/
+type Keyword struct {
+	HKey gold.IRI[Keyword] `dynamodbav:"prefix,omitempty"`
+	SKey ArticleRef        `dynamodbav:"suffix,omitempty"`
+}
 
-and inverse
+/*
+Article ⟼ Keyword (inverse)
 
 HashKey is
-  ⟿ article:neumann/theory_of_automata
+  ⟿ author:neumann|article:theory_of_automata
 
 SortKey is
   ⟿ keyword:theory
 */
-type Keyword struct {
-	HashKey curie.IRI `dynamodbav:"prefix,omitempty"`
-	SortKey curie.IRI `dynamodbav:"suffix,omitempty"`
+type ArticleKeyword struct {
+	HKey ArticleRef        `dynamodbav:"prefix"`
+	SKey gold.IRI[Keyword] `dynamodbav:"suffix,omitempty"`
 }
 ```
 
-There are only a few limited ways to query data efficiently from DynamoDB. The composite sort key together with `curie.IRI` data type let application retrieve hierarchy of related items using range queries with expressions `begins_with`, `between`, `>`, `<`, etc. The `dynamo` library automates construction of these expressions.
+There are only a few limited ways to query data efficiently from DynamoDB. The composite sort key together with `gold` data types let application retrieve hierarchy of related items using range queries with expressions `begins_with`, `between`, `>`, `<`, etc. The `dynamo` library automates construction of these expressions.
 
 
 ## Secondary indexes
@@ -185,21 +200,21 @@ The first access pattern is addressed by composite sort key `author ⟼ article`
 
 The `dynamo` library supports both global and local secondary indexes with particular behavior:
 * it creates a client instance per table, therefore each index requires own instance of the client;
-* it automatically projects type attributes into partition (HASH) and sort (RANGE) keys attributes. The default values of attributes are `prefix` and `suffix`. If table design uses other attribute names, which is always a cases of secondary indexes, then connection URI shall give a hint about new name;
-* application shall instantiate read-only clients for secondary indexes.
+* it automatically projects type attributes into partition (HASH) and sort (RANGE) keys attributes. The default values of attributes are `prefix` and `suffix`. If table design uses other attribute names, which is always a cases of secondary indexes, then options shall give a hint about new name;
+* application shall use the clients of secondary indexes for reads only.
 
 ```go
 // client to access to "main" table
-ddb := keyval.Must(
-  keyval.New[Article](
-    dynamo.WithURI("ddb:///example-dynamo-relational"),
-  ),
+db := ddb.Must(
+  ddb.New[Article]("example-dynamo-relational"),
 )
 
 // client to access global secondary index
-gsi := keyval.Must(
-  keyval.ReadOnly[Category](
-    dynamo.WithURI("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"),
+gsi := ddb.Must(
+  ddb.New[Category]("example-dynamo-relational",
+    ddb.WithGlobalSecondaryIndex("example-dynamo-relational-category-year"),
+    ddb.WithHashKey("category"),
+    ddb.WithSortKey("year"),
   ),
 )
 ```
@@ -238,11 +253,11 @@ The example application instantiates `Author` type, defining primary key and oth
 
 ```go
 author := Author{
-  ID: curie.New("author:%s", "neumann"),
+  ID: gold.ToIRI[Author]("neumann"),
   // ...
 } 
 
-db.Put(author)
+db.Put(ctx, author)
 ```
 
 **As an author I want to publishes an article to system ...**
@@ -251,25 +266,25 @@ Fundamentally, there is no difference what data type the application writes to D
 
 ```go
 article := Article{
-  Author: curie.New("author:%s", "neumann"),
-  ID:     curie.New("article:%s", "theory_of_automata"),
+  Author: gold.ToIRI[Author]("neumann"),
+  ID:     gold.ToIRI[Article]("theory_of_automata"),
   // ...
 }
 
-db.Put(article)
+db.Put(ctx, article)
 ```
 
 The example arxiv.org application does not use a secondary index to support implicit search by keywords (so called adjacency list design pattern). Therefore, the application needs to publish keywords explicitly 
 
 ```go
-keyword := curie.New("keyword:%s", "theory")
-article := curie.New("article:%s/%s", "neumann", "theory_of_automata"),
+keyword := gold.ToIRI[Keyword]("theory")
+article := gold.ImplyFrom(gold.ToIRI[Author]("neumann"), gold.ToIRI[Article]("theory_of_automata"))
 
-forward := Keyword{HashKey: keyword, SortKey: article, /* ... */} 
-inverse := Keyword{HashKey: article, SortKey: keyword, /* ... */}
+forward := Keyword{HKey: keyword, SKey: article, /* ... */} 
+inverse := ArticleKeyword{HKey: article, SKey: keyword, /* ... */}
 
-db.Put(forward)
-db.Put(inverse)
+dbk.Put(ctx, forward)
+dbi.Put(ctx, inverse)
 ```
 
 **As a reader I want to fetch the article ...**
@@ -278,59 +293,54 @@ The lookup of concrete instances of items requires knowledge about the full comp
 
 ```go
 articleID := Article{
-  Author: curie.New("author:%s", "neumann"),
-  ID:     curie.New("article:%s", "theory_of_automata"),
+  Author: gold.ToIRI[Author]("neumann"),
+  ID:     gold.ToIRI[Article]("theory_of_automata"),
 }
 
-article, err := db.Get(&articleID)
+article, err := db.Get(ctx, articleID)
 ```
 
 **As a reader I want to list all articles written by the author ...**
 
-This is one of the primary one-to-many access patterns supported by composite sort keys. The application defines partition key (author) and queries all associated articles. The `dynamo` library implements `Match` function, which uses `curie.IRI` as a pattern of composite sort key. The function returns a lazy sequence of generic representations that has to be transformed into actual data types. `FMap` is a utility that takes a closure function that lifts generic to the struct. The example below uses a monoid pattern to materialize a sequence of generic elements, please see [api documentation](https://github.com/fogfish/dynamo) for details about this pattern.
+This is one of the primary one-to-many access patterns supported by composite sort keys. The application defines partition key (author) and queries all associated articles. The `dynamo` library implements `Match` function, which uses the sort key as a prefix pattern. `gold.Any[Article]()` (`article:`) selects every article of the author.
 
 ```go
-var seq Articles
-
-db.Match(Article{
-  Author: curie.New("author:%s", "neumann"),
-}).FMap(seq.Join)
+seq, _, err := db.Match(ctx, Article{
+  Author: gold.ToIRI[Author]("neumann"),
+  ID:     gold.Any[Article](),
+})
 ```
 
 **As a reader I want to look up articles titles for given keywords ...**
 
-The table contains forwards and inverse lists of all keywords. The application crafts `curie.IRI` to query keywords partition and return all articles.
+The table contains forwards and inverse lists of all keywords. The application crafts `gold.IRI` to query keywords partition and return all articles.
 
 ```go
-var seq Keywords
-
-db.Match(Keyword{
-  HashKey: curie.New("keyword:%s", "theory"),
-}).FMap(seq.Join)
+seq, _, err := dbk.Match(ctx, Keyword{
+  HKey: gold.ToIRI[Keyword]("theory"),
+})
 ```
 
 **As a reader I want to look up articles titles written by the author for a given keyword ...**
 
-The access pattern is implemented using composite sort keys ability to encode hierarchical structures. It requires scope articles by two dimensions keyword and author. Like in the previous access pattern, the keyword partition is a primary dimension to query articles. However the `begins_with` constraints of sort keys limits articles to "written by" subset because sort key is designed to maintain hierarchical relation `keyword ⟼ author ⟼ article`. The `dynamo` library automatically deducts this and constructs the correct query if the application uses `curie.IRI` data type to supply identity to the collection.
+The access pattern is implemented using composite sort keys ability to encode hierarchical structures. It requires scope articles by two dimensions keyword and author. Like in the previous access pattern, the keyword partition is a primary dimension to query articles. However the `begins_with` constraints of sort keys limits articles to "written by" subset because sort key is designed to maintain hierarchical relation `keyword ⟼ author ⟼ article`. The partial `gold.Imply` with an undefined range is encoded as `author:neumann|`, the trailing separator makes the prefix safe: the author `neumann` does not match `neumann2`.
 
 ```go
-var seq Keywords
-ddb.Match(Keyword{
-  HashKey: curie.New("keyword:%s", "theory"),
-  SortKey: curie.New("article:%s", "neumann"),
-}).FMap(seq.Join)
+seq, _, err := dbk.Match(ctx, Keyword{
+  HKey: gold.ToIRI[Keyword]("theory"),
+  SKey: gold.ImplyFrom(gold.ToIRI[Author]("neumann"), gold.IRI[Article]("")),
+})
 ```
 
 **As a reader I want to look up all keywords of the article ...**
 
-The `article ⟼ keyword` is one-to-many relation supported by the inverse keywords list. The application crafts `curie.IRI` to query a partition dedicated for articles metadata and filters keywords only.
+The `article ⟼ keyword` is one-to-many relation supported by the inverse keywords list. The application crafts `gold.Imply` to query a partition dedicated for articles metadata and filters keywords only.
 
 ```go
-var seq Keywords
-ddb.Match(Keyword{
-  HashKey: curie.IRI("article:%s/%s", "neumann", "theory_of_automata"),
-  SortKey: curie.IRI("keyword:")
-}).FMap(seq.Join)
+seq, _, err := dbi.Match(ctx, ArticleKeyword{
+  HKey: gold.ImplyFrom(gold.ToIRI[Author]("neumann"), gold.ToIRI[Article]("theory_of_automata")),
+  SKey: gold.Any[Keyword](),
+})
 ```
 
 **As a reader I want to look up all articles for a given category in chronological order ...**
@@ -338,16 +348,17 @@ ddb.Match(Keyword{
 The access pattern requires a global secondary index. Otherwise, the lookup is similar to other access patterns.  
 
 ```go
-gsi := keyval.Must(
-  keyval.ReadOnly[Category](
-    dynamo.WithURI("ddb:///example-dynamo-relational/example-dynamo-relational-category-year?prefix=category&suffix=year"),
+gsi := ddb.Must(
+  ddb.New[Category]("example-dynamo-relational",
+    ddb.WithGlobalSecondaryIndex("example-dynamo-relational-category-year"),
+    ddb.WithHashKey("category"),
+    ddb.WithSortKey("year"),
   ),
 )
 
-var seq Articles
-gsi.Match(Category{
+seq, _, err := gsi.Match(ctx, Category{
   Category: "Computer Science",
-}).FMap(seq.Join)
+})
 ```
 
 **As a reader I want to list all articles written by the author in chronological order ...**
@@ -355,17 +366,17 @@ gsi.Match(Category{
 The access pattern requires a local secondary index. As it has been discussed earlier, the usage of local secondary indexes is required only when consistent reads are required. Here access pattern shows ability of the `dynamo` library to query local secondary index
 
 ```go
-// client to access global secondary index
-lsi := keyval.Must(
-  keyval.ReadOnly[Article](
-    dynamo.WithURI("ddb:///example-dynamo-relational/example-dynamo-relational-year?suffix=year"),
+// client to access local secondary index
+lsi := ddb.Must(
+  ddb.New[Article]("example-dynamo-relational",
+    ddb.WithGlobalSecondaryIndex("example-dynamo-relational-year"),
+    ddb.WithSortKey("year"),
   ),
 )
 
-var seq Articles
-lsi.Match(Article{
-  Author: curie.New("article:%s", "neumann"),
-}).FMap(seq.Join)
+seq, _, err := lsi.Match(ctx, Article{
+  Author: gold.ToIRI[Author]("neumann"),
+})
 ```
 
 ## Afterwords

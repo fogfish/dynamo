@@ -13,9 +13,9 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/fogfish/curie/v2"
-	"github.com/fogfish/dynamo/v3"
-	"github.com/fogfish/dynamo/v3/service/ddb"
+	"github.com/fogfish/dynamo/v4"
+	"github.com/fogfish/dynamo/v4/service/ddb"
+	"github.com/fogfish/gold"
 )
 
 func main() {
@@ -25,6 +25,7 @@ func main() {
 	db := ddb.Must(ddb.New[Author]("example-dynamo-relational"))
 	dba := ddb.Must(ddb.New[Article]("example-dynamo-relational"))
 	dbk := ddb.Must(ddb.New[Keyword]("example-dynamo-relational"))
+	dbi := ddb.Must(ddb.New[ArticleKeyword]("example-dynamo-relational"))
 
 	lsi := ddb.Must(ddb.New[Article]("example-dynamo-relational",
 		ddb.WithGlobalSecondaryIndex("example-dynamo-relational-year"),
@@ -39,8 +40,8 @@ func main() {
 	//
 	// As an author I want to register a profile ...
 	// As an author I want to publish an article to the system ...
-	assert(articlesOfJohnVonNeumann(db, dba, dbk))
-	assert(articlesOfLeonardKleinrock(db, dba, dbk))
+	assert(articlesOfJohnVonNeumann(db, dba, dbk, dbi))
+	assert(articlesOfLeonardKleinrock(db, dba, dbk, dbi))
 
 	//
 	// As a reader I want to fetch the article ...
@@ -61,7 +62,7 @@ func main() {
 
 	//
 	// As a reader I want to look up all keywords of the article ...
-	assert(fetchArticleKeywords(dbk))
+	assert(fetchArticleKeywords(dbi))
 
 	//
 	// As a reader I want to look up all articles for a given category in chronological order ...
@@ -79,8 +80,8 @@ func fetchArticle(db dynamo.KeyVal[Article]) error {
 
 	article, err := db.Get(context.Background(),
 		Article{
-			Author: curie.New("author", "neumann"),
-			ID:     curie.New("article", "theory_of_automata"),
+			Author: gold.ToIRI[Author]("neumann"),
+			ID:     gold.ToIRI[Article]("theory_of_automata"),
 		},
 	)
 	if err != nil {
@@ -95,8 +96,8 @@ func lookupArticlesByAuthor(db dynamo.KeyVal[Article], author string) error {
 	log.Printf("==> lookup articles by author: %s\n", author)
 
 	seq, _, err := db.Match(context.Background(), Article{
-		Author: curie.New("author", author),
-		ID:     curie.New("article", ""),
+		Author: gold.ToIRI[Author](author),
+		ID:     gold.Any[Article](),
 	})
 
 	if err != nil {
@@ -112,7 +113,7 @@ func lookupArticlesByKeyword(db dynamo.KeyVal[Keyword], keyword string) error {
 
 	seq, _, err := db.Match(context.Background(),
 		Keyword{
-			HKey: curie.New("keyword", keyword),
+			HKey: gold.ToIRI[Keyword](keyword),
 		},
 	)
 
@@ -129,8 +130,8 @@ func lookupArticlesByKeywordAuthor(db dynamo.KeyVal[Keyword], keyword, author st
 
 	seq, _, err := db.Match(context.Background(),
 		Keyword{
-			HKey: curie.New("keyword", keyword),
-			SKey: curie.New("article", author),
+			HKey: gold.ToIRI[Keyword](keyword),
+			SKey: gold.ImplyFrom(gold.ToIRI[Author](author), gold.IRI[Article]("")),
 		},
 	)
 
@@ -142,13 +143,13 @@ func lookupArticlesByKeywordAuthor(db dynamo.KeyVal[Keyword], keyword, author st
 }
 
 // As a reader I want to look up all keywords of the article ...
-func fetchArticleKeywords(db dynamo.KeyVal[Keyword]) error {
+func fetchArticleKeywords(db dynamo.KeyVal[ArticleKeyword]) error {
 	log.Printf("==> lookup keyword for An axiomatization of set theory\n")
 
 	seq, _, err := db.Match(context.Background(),
-		Keyword{
-			HKey: curie.New("article", "neumann/theory_of_set"),
-			SKey: curie.New("keyword", ""),
+		ArticleKeyword{
+			HKey: gold.ImplyFrom(gold.ToIRI[Author]("neumann"), gold.ToIRI[Article]("theory_of_set")),
+			SKey: gold.Any[Keyword](),
 		},
 	)
 
@@ -182,7 +183,7 @@ func lookupByAuthorOrderedByTime(db dynamo.KeyVal[Article], author string) error
 
 	seq, _, err := db.Match(context.Background(),
 		Article{
-			Author: curie.New("author", author),
+			Author: gold.ToIRI[Author](author),
 		},
 	)
 
@@ -197,12 +198,13 @@ func articlesOfJohnVonNeumann(
 	db dynamo.KeyVal[Author],
 	dba dynamo.KeyVal[Article],
 	dbk dynamo.KeyVal[Keyword],
+	dbi dynamo.KeyVal[ArticleKeyword],
 ) error {
 	if err := registerAuthor(db, "neumann", "John von Neumann"); err != nil {
 		return err
 	}
 
-	err := publishArticle(dba, dbk, "neumann",
+	err := publishArticle(dba, dbk, dbi, "neumann",
 		"theory_of_set",
 		"An axiomatization of set theory",
 		[]string{"theory", "math"},
@@ -211,7 +213,7 @@ func articlesOfJohnVonNeumann(
 		return err
 	}
 
-	err = publishArticle(dba, dbk, "neumann",
+	err = publishArticle(dba, dbk, dbi, "neumann",
 		"theory_of_automata",
 		"The general and logical theory of automata",
 		[]string{"theory", "computer"},
@@ -227,12 +229,13 @@ func articlesOfLeonardKleinrock(
 	db dynamo.KeyVal[Author],
 	dba dynamo.KeyVal[Article],
 	dbk dynamo.KeyVal[Keyword],
+	dbi dynamo.KeyVal[ArticleKeyword],
 ) error {
 	if err := registerAuthor(db, "kleinrock", "Leonard Kleinrock"); err != nil {
 		return err
 	}
 
-	err := publishArticle(dba, dbk, "kleinrock",
+	err := publishArticle(dba, dbk, dbi, "kleinrock",
 		"queueing_sys_vol1",
 		"Queueing Systems: Volume I - Theory",
 		[]string{"queue", "theory"},
@@ -241,7 +244,7 @@ func articlesOfLeonardKleinrock(
 		return err
 	}
 
-	err = publishArticle(dba, dbk, "kleinrock",
+	err = publishArticle(dba, dbk, dbi, "kleinrock",
 		"queueing_sys_vol2",
 		"Queueing Systems: Volume II - Computer Applications",
 		[]string{"queue", "computer"},
@@ -269,6 +272,7 @@ func registerAuthor(db dynamo.KeyVal[Author], id, name string) error {
 func publishArticle(
 	dba dynamo.KeyVal[Article],
 	dbk dynamo.KeyVal[Keyword],
+	dbi dynamo.KeyVal[ArticleKeyword],
 	author, id, title string,
 	keywords []string,
 ) error {
@@ -280,11 +284,12 @@ func publishArticle(
 	}
 
 	for _, keyword := range keywords {
-		seq := NewKeyword(author, id, title, keyword)
-		for _, k := range seq {
-			if err := dbk.Put(context.Background(), k); err != nil {
-				return err
-			}
+		fwd, inv := NewKeyword(author, id, title, keyword)
+		if err := dbk.Put(context.Background(), fwd); err != nil {
+			return err
+		}
+		if err := dbi.Put(context.Background(), inv); err != nil {
+			return err
 		}
 	}
 

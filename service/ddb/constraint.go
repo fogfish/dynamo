@@ -18,9 +18,8 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/fogfish/dynamo/v3"
+	"github.com/fogfish/dynamo/v4"
 	"github.com/fogfish/golem/hseq"
 )
 
@@ -33,8 +32,8 @@ import (
 // Let's consider a following example:
 //
 //	type Person struct {
-//	  curie.ID
-//	  Name    string `dynamodbav:"anothername,omitempty"`
+//	  ID      gold.IRI[Person] `dynamodbav:"suffix,omitempty"`
+//	  Name    string           `dynamodbav:"anothername,omitempty"`
 //	}
 //
 // How to define a condition expression on the field Name? Golang struct defines
@@ -141,7 +140,7 @@ func (op dyadicCondition[T, A]) Apply(
 		return ""
 	}
 
-	lit, err := attributevalue.Marshal(op.val)
+	lit, err := avMarshal(op.val)
 	if err != nil {
 		return ""
 	}
@@ -224,12 +223,12 @@ func (op betweenCondition[T, A]) Apply(
 		return ""
 	}
 
-	litA, err := attributevalue.Marshal(op.a)
+	litA, err := avMarshal(op.a)
 	if err != nil {
 		return ""
 	}
 
-	litB, err := attributevalue.Marshal(op.b)
+	litB, err := avMarshal(op.b)
 	if err != nil {
 		return ""
 	}
@@ -274,7 +273,7 @@ func (op inCondition[T, A]) Apply(
 	lits := make([]types.AttributeValue, len(op.seq))
 	lets := make([]string, len((op.seq)))
 	for i := 0; i < len(op.seq); i++ {
-		lit, err := attributevalue.Marshal(op.seq[i])
+		lit, err := avMarshal(op.seq[i])
 		if err != nil {
 			return ""
 		}
@@ -319,7 +318,7 @@ func (op functionalCondition[T, A]) Apply(
 		return ""
 	}
 
-	lit, err := attributevalue.Marshal(op.val)
+	lit, err := avMarshal(op.val)
 	if err != nil {
 		return ""
 	}

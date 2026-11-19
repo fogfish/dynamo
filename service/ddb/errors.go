@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/fogfish/dynamo/v3"
+	"github.com/fogfish/dynamo/v4"
 	"github.com/fogfish/faults"
 )
 
@@ -39,7 +39,7 @@ func (e *notFound) Error() string {
 
 func (e *notFound) Unwrap() error { return e.err }
 
-func (e *notFound) NotFound() string { return e.HashKey().Safe() + " " + e.SortKey().Safe() }
+func (e *notFound) NotFound() string { return safe(e.HashKey()) + " " + safe(e.SortKey()) }
 
 // errPreConditionFailed
 func errPreConditionFailed(err error, thing dynamo.Thing, conflict bool, gone bool) error {
@@ -64,6 +64,14 @@ func (e *preConditionFailed) Conflict() bool { return e.conflict }
 func (e *preConditionFailed) Gone() bool { return e.gone }
 
 func (e *preConditionFailed) Unwrap() error { return e.err }
+
+// safe wraps the non-empty key into brackets, empty key is rendered as is.
+func safe(s string) string {
+	if s == "" {
+		return ""
+	}
+	return "[" + s + "]"
+}
 
 // recover AWS ErrorCode
 func recoverConditionalCheckFailedException(err error) bool {

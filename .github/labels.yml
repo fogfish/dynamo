@@ -150,8 +150,3 @@
   color: "3978e1"
   aliases: []
   description: AWS DynamoDB adapter
-
-- name: "[#] s3"
-  color: "3978e1"
-  aliases: []
-  description: AWS S3 adapter

@@ -14,35 +14,32 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/fogfish/curie/v2"
-	"github.com/fogfish/dynamo/v3/service/ddb"
+	"github.com/fogfish/dynamo/v4/service/ddb"
+	"github.com/fogfish/gold"
 )
 
 // Person type demonstrates composition of core type with db one
+// University and Person are classes of the identities. gold.IRI[T] is a type-safe
+// identity of the class T, it is stored in DynamoDB as a string "university:kiel".
+type University struct{}
+
 type Person struct {
-	Org     curie.IRI `dynamodbav:"prefix,omitempty"`
-	ID      curie.IRI `dynamodbav:"suffix,omitempty"`
-	Name    string    `dynamodbav:"name,omitempty"`
-	Age     int       `dynamodbav:"age,omitempty"`
-	Address string    `dynamodbav:"address,omitempty"`
+	Org     gold.IRI[University] `dynamodbav:"prefix,omitempty"`
+	ID      gold.IRI[Person]     `dynamodbav:"suffix,omitempty"`
+	Name    string               `dynamodbav:"name,omitempty"`
+	Age     int                  `dynamodbav:"age,omitempty"`
+	Address string               `dynamodbav:"address,omitempty"`
 }
 
-func (p Person) HashKey() curie.IRI { return p.Org }
-func (p Person) SortKey() curie.IRI { return p.ID }
+func (p Person) HashKey() string { return string(p.Org) }
+func (p Person) SortKey() string { return string(p.ID) }
 
 // KeyVal is type synonym
 type KeyVal = *ddb.Storage[*Person]
 
 func main() {
 	db := ddb.Must(
-		ddb.New[*Person](os.Args[1],
-			ddb.WithPrefixes(
-				curie.Namespaces{
-					"test":   "t/kv",
-					"person": "person/",
-				},
-			),
-		),
+		ddb.New[*Person](os.Args[1]),
 	)
 
 	examplePut(db)
@@ -56,8 +53,8 @@ func examplePut(db KeyVal) {
 	seq := make([]*Person, n)
 	for i := 0; i < n; i++ {
 		seq[i] = &Person{
-			Org:     curie.New("test", ""),
-			ID:      curie.New("person", strconv.Itoa(i)),
+			Org:     gold.ToIRI[University]("kiel"),
+			ID:      gold.ToIRI[Person](strconv.Itoa(i)),
 			Name:    "Verner Pleishner",
 			Age:     64,
 			Address: "Blumenstrasse 14, Berne, 3013",
@@ -80,8 +77,8 @@ func exampleGet(db KeyVal) {
 	keys := make([]*Person, n)
 	for i := 0; i < n; i++ {
 		keys[i] = &Person{
-			Org: curie.New("test", ""),
-			ID:  curie.New("person", strconv.Itoa(i)),
+			Org: gold.ToIRI[University]("kiel"),
+			ID:  gold.ToIRI[Person](strconv.Itoa(i)),
 		}
 	}
 
@@ -101,8 +98,8 @@ func exampleRemove(db KeyVal) {
 	keys := make([]*Person, n)
 	for i := 0; i < n; i++ {
 		keys[i] = &Person{
-			Org: curie.New("test", ""),
-			ID:  curie.New("person", strconv.Itoa(i)),
+			Org: gold.ToIRI[University]("kiel"),
+			ID:  gold.ToIRI[Person](strconv.Itoa(i)),
 		}
 	}
 

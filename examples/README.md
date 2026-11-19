@@ -1,21 +1,17 @@
 # dynamo example
 
 Use following commands to evaluate example, access to AWS account is mandatory.
+Each example takes the name of DynamoDB table.
 
 ## KeyVal interface
 
 ```bash
 cd keyval
-go run main.go s3:///my-bucket
-go run main.go ddb:///my-table
+go run main.go my-table
 ```
 
-## Blob interface
-
-```bash
-cd blob
-go run main.go s3:///my-bucket path/to/my/file.tgz
-```
+Other examples cover [batch I/O](batch), [conditional writes](conditional-writes),
+[update expressions](update-expression) and [set types](update-expression-sets).
 
 ## Relational model
 
